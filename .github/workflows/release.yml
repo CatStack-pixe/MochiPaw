@@ -10,33 +10,20 @@ jobs:
   build-app:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-          - platform: windows-latest
-            target: i686-pc-windows-msvc
-          - platform: windows-latest
-            target: aarch64-pc-windows-msvc
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
       - uses: pnpm/action-setup@v3
         with:
-          version: latest
+          version: 9
 
       - name: Install rust target
-        run: rustup target add ${{ matrix.target }}
-
-
+        run: rustup target add x86_64-pc-windows-msvc
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -46,27 +33,27 @@ jobs:
         with:
           workspaces: target
 
-      - name: Sync node version and setup cache
+      - name: Setup node with pnpm cache
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: pnpm
 
       - name: Install front-end dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          pnpm config set registry https://registry.npmjs.org
+          pnpm install --no-frozen-lockfile
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
           CI: false
-          PLATFORM: ${{ matrix.platform }}
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          PLATFORM: windows-latest
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: BongoCat ${{ github.ref_name }}
           releaseBody: ''
           releaseDraft: true
           prerelease: false
-          args: --target ${{ matrix.target }}
+          args: --target x86_64-pc-windows-msvc

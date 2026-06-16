@@ -50,8 +50,8 @@
   "bundle": {
     "active": true,
     "category": "Entertainment",
-    "createUpdaterArtifacts": true,
-    "targets": ["nsis", "dmg", "app", "appimage", "deb", "rpm"],
+    "createUpdaterArtifacts": false,
+    "targets": ["zip"],
     "shortDescription": "BongoCat",
     "icon": [
       "icons/32x32.png",
