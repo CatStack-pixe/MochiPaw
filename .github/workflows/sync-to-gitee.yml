@@ -11,8 +11,8 @@ jobs:
       - name: Sync Github Repos To Gitee
         uses: Yikun/hub-mirror-action@master
         with:
-          src: github/ayangweb
-          dst: gitee/ayangweb
+          src: github/ABI-ZTROS
+          dst: gitee/ABI-ZTROS
           dst_key: ${{ secrets.GITEE_PRIVATE_KEY }}
           dst_token: ${{ secrets.GITEE_TOKEN }}
           static_list: BongoCat
