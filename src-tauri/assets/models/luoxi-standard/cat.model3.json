@@ -1,0 +1,113 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "cat.moc3",
+    "Textures": [
+      "cat.4096/texture_00.png"
+    ],
+    "Physics": "cat.physics3.json",
+    "DisplayInfo": "cat.cdi3.json",
+    "Expressions": [
+      {
+        "Name": "expression1",
+        "File": "expression1.exp3.json"
+      },
+      {
+        "Name": "expression2",
+        "File": "expression2.exp3.json"
+      },
+      {
+        "Name": "expression3",
+        "File": "expression3.exp3.json"
+      },
+      {
+        "Name": "expression4",
+        "File": "expression4.exp3.json"
+      },
+      {
+        "Name": "expression5",
+        "File": "expression5.exp3.json"
+      }
+    ],
+    "Motions": {
+      "CAT_motion": [
+        {
+          "File": "youeryuanK.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "youeryuanG.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "lianheiK.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "lianheiG.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "heikuangK.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "heikuangG.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "mojingK.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "mojingG.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "reshuihuG.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "reshuihuK.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "baozhiK.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        },
+        {
+          "File": "baozhiG.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        }
+      ]
+    }
+  },
+  "Groups": [
+    {
+      "Target": "Parameter",
+      "Name": "LipSync",
+      "Ids": []
+    },
+    {
+      "Target": "Parameter",
+      "Name": "EyeBlink",
+      "Ids": [
+        "ParamEyeLOpen",
+        "ParamEyeROpen"
+      ]
+    }
+  ],
+  "HitAreas": []
+}

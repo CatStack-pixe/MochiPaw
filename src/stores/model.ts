@@ -2,7 +2,6 @@ import type { ExpressionInfo, MotionInfo } from 'easy-live2d'
 
 import { resolveResource } from '@tauri-apps/api/path'
 import { filter, find } from 'es-toolkit/compat'
-import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
@@ -16,6 +15,35 @@ export interface Model {
   mode: ModelMode
   isPreset: boolean
 }
+
+interface PresetModel {
+  id: string
+  mode: ModelMode
+  path: string
+}
+
+const PRESET_MODELS: PresetModel[] = [
+  {
+    id: 'preset-gamepad',
+    mode: 'gamepad',
+    path: 'gamepad',
+  },
+  {
+    id: 'preset-keyboard',
+    mode: 'keyboard',
+    path: 'keyboard',
+  },
+  {
+    id: 'preset-standard',
+    mode: 'standard',
+    path: 'standard',
+  },
+  {
+    id: 'preset-luoxi-standard',
+    mode: 'standard',
+    path: 'luoxi-standard',
+  },
+]
 
 export const useModelStore = defineStore('model', () => {
   const modelReady = ref(true)
@@ -33,16 +61,19 @@ export const useModelStore = defineStore('model', () => {
     const nextModels = filter(models.value, { isPreset: false })
     const presetModels = filter(models.value, { isPreset: true })
 
-    const modes: ModelMode[] = ['gamepad', 'keyboard', 'standard']
-
-    for (const mode of modes) {
-      const matched = find(presetModels, { mode })
+    for (const preset of [...PRESET_MODELS].reverse()) {
+      const matched = find(presetModels, {
+        id: preset.id,
+      }) ?? find(presetModels, {
+        mode: preset.mode,
+        path: join(modelsPath, preset.path),
+      })
 
       nextModels.unshift({
-        id: matched?.id ?? nanoid(),
-        mode,
+        id: matched?.id ?? preset.id,
+        mode: preset.mode,
         isPreset: true,
-        path: join(modelsPath, mode),
+        path: join(modelsPath, preset.path),
       })
     }
 

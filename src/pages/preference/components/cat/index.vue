@@ -125,17 +125,35 @@ const catStore = useCatStore()
     <ProListItem
       :description="$t('pages.preference.cat.hints.windowSize')"
       :title="$t('pages.preference.cat.labels.windowSize')"
+      vertical
     >
-      <SpaceCompact>
-        <InputNumber
+      <Flex
+        align="center"
+        class="gap-4"
+      >
+        <Slider
           v-model:value="catStore.window.scale"
-          class="w-20"
+          class="flex-1 m-0!"
           :max="500"
-          :min="1"
+          :min="10"
+          :tooltip="{
+            formatter(value) {
+              return `${value}%`
+            },
+          }"
         />
 
-        <SpaceAddon>%</SpaceAddon>
-      </SpaceCompact>
+        <SpaceCompact>
+          <InputNumber
+            v-model:value="catStore.window.scale"
+            class="w-24"
+            :max="500"
+            :min="10"
+          />
+
+          <SpaceAddon>%</SpaceAddon>
+        </SpaceCompact>
+      </Flex>
     </ProListItem>
 
     <ProListItem :title="$t('pages.preference.cat.labels.windowRadius')">
