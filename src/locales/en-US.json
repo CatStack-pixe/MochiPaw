@@ -16,7 +16,7 @@
           "mouseMirror": "Mouse Mirror",
           "ignoreMouse": "Ignore Mouse Events",
           "windowSettings": "Window Settings",
-          "passThrough": "Pass Through",
+          "passThrough": "Cat Lock",
           "alwaysOnTop": "Always on Top",
           "keepInScreen": "Keep on Screen",
           "windowSize": "Window Size",
@@ -36,7 +36,7 @@
           "motionSound": "When enabled, the model will play corresponding sound effects when performing actions (if they exist).",
           "behavior": "When enabled, motions and expressions can be configured and triggered.",
           "typingExpression": "When enabled, typing switches expressions after a random delay within this range to avoid changing too often.",
-          "passThrough": "When enabled, clicks pass through the window without affecting it.",
+          "passThrough": "When enabled, cat window interaction is locked and mouse input passes to apps underneath.",
           "alwaysOnTop": "When enabled, the window stays above all other windows.",
           "keepInScreen": "When enabled, the window automatically stays within the screen boundaries.",
           "windowSize": "Use the slider for quick resizing, or enter a percentage for precise control.",
@@ -120,14 +120,14 @@
           "toggleCat": "Toggle Cat",
           "togglePreferences": "Toggle Preferences",
           "mirrorMode": "Mirror Mode",
-          "passThrough": "Pass Through",
+          "passThrough": "Cat Lock",
           "alwaysOnTop": "Always on Top"
         },
         "hints": {
           "toggleCat": "Toggle the visibility of the cat window.",
           "togglePreferences": "Toggle the visibility of the preferences window.",
           "mirrorMode": "Toggle the cat's mirror mode.",
-          "passThrough": "Toggle whether the cat window is pass-through.",
+          "passThrough": "Toggle whether cat window interaction is locked.",
           "alwaysOnTop": "Toggle whether the cat window stays on top."
         }
       },
@@ -212,7 +212,7 @@
         "preference": "Preferences...",
         "hideCat": "Hide Cat",
         "showCat": "Show Cat",
-        "passThrough": "Pass Through",
+        "passThrough": "Cat Lock",
         "windowSize": "Window Size",
         "opacity": "Opacity",
         "restartApp": "Restart App",

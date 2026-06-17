@@ -16,7 +16,7 @@
           "mouseMirror": "Espelho do Mouse",
           "ignoreMouse": "Ignorar Eventos do Mouse",
           "windowSettings": "Configurações da Janela",
-          "passThrough": "Janela Transparente",
+          "passThrough": "Bloqueio do Gato",
           "alwaysOnTop": "Sempre no Topo",
           "keepInScreen": "Manter na Tela",
           "windowSize": "Tamanho da Janela",
@@ -36,7 +36,7 @@
           "motionSound": "Quando ativado, o modelo reproduzirá efeitos sonoros correspondentes ao executar ações (se existirem).",
           "behavior": "Quando ativado, movimentos e expressões podem ser configurados e acionados.",
           "typingExpression": "Quando ativado, a digitação troca expressões após um atraso aleatório dentro deste intervalo para evitar mudanças muito frequentes.",
-          "passThrough": "Quando ativado, a janela não afetará operações em outros aplicativos.",
+          "passThrough": "Quando ativado, a interação com a janela do gato fica bloqueada e o mouse passa para os aplicativos abaixo.",
           "alwaysOnTop": "Quando ativado, a janela sempre ficará acima de outros aplicativos.",
           "keepInScreen": "Quando ativado, a janela permanece automaticamente dentro dos limites da tela.",
           "windowSize": "Use o controle deslizante para ajustar rapidamente ou digite uma porcentagem para controle preciso.",
@@ -120,14 +120,14 @@
           "toggleCat": "Mostrar/Ocultar Gato",
           "togglePreferences": "Abrir Preferências",
           "mirrorMode": "Modo Espelho",
-          "passThrough": "Janela Transparente",
+          "passThrough": "Bloqueio do Gato",
           "alwaysOnTop": "Sempre no Topo"
         },
         "hints": {
           "toggleCat": "Alternar a visibilidade da janela do gato.",
           "togglePreferences": "Alternar a visibilidade da janela de preferências.",
           "mirrorMode": "Alternar o modo espelho do gato.",
-          "passThrough": "Alternar se a janela do gato é clicável.",
+          "passThrough": "Alternar se a interação com a janela do gato fica bloqueada.",
           "alwaysOnTop": "Alternar se a janela do gato permanece no topo."
         }
       },
@@ -212,7 +212,7 @@
         "preference": "Preferências...",
         "hideCat": "Ocultar Gato",
         "showCat": "Mostrar Gato",
-        "passThrough": "Janela Transparente",
+        "passThrough": "Bloqueio do Gato",
         "windowSize": "Tamanho da Janela",
         "opacity": "Opacidade",
         "restartApp": "Reiniciar",

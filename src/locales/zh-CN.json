@@ -16,7 +16,7 @@
           "mouseMirror": "鼠标镜像",
           "ignoreMouse": "忽略鼠标事件",
           "windowSettings": "窗口设置",
-          "passThrough": "窗口穿透",
+          "passThrough": "猫咪锁定",
           "alwaysOnTop": "窗口置顶",
           "keepInScreen": "保持在屏幕内",
           "windowSize": "窗口尺寸",
@@ -36,7 +36,7 @@
           "motionSound": "启用后，模型执行动作时会播放对应音效（如果存在）。",
           "behavior": "启用后，可以配置和触发模型的动作与表情。",
           "typingExpression": "启用后，打字时会在设置的随机延迟范围内切换表情，避免过于频繁。",
-          "passThrough": "启用后，窗口不影响对其他应用程序的操作。",
+          "passThrough": "启用后，锁定猫咪窗口交互，鼠标操作会穿透到下方应用。",
           "alwaysOnTop": "启用后，窗口始终显示在其他应用程序上方。",
           "keepInScreen": "启用后，窗口会自动调整位置，防止超出屏幕边界。",
           "windowSize": "使用滑动条快速调整窗口大小，也可以输入百分比精确设置。",
@@ -120,14 +120,14 @@
           "toggleCat": "打开猫咪",
           "togglePreferences": "打开偏好设置",
           "mirrorMode": "镜像模式",
-          "passThrough": "窗口穿透",
+          "passThrough": "猫咪锁定",
           "alwaysOnTop": "窗口置顶"
         },
         "hints": {
           "toggleCat": "切换猫咪窗口的显示与隐藏。",
           "togglePreferences": "切换偏好设置窗口的显示与隐藏。",
           "mirrorMode": "切换猫咪的镜像模式。",
-          "passThrough": "切换猫咪窗口是否可穿透。",
+          "passThrough": "切换是否锁定猫咪窗口交互。",
           "alwaysOnTop": "切换猫咪窗口是否置顶。"
         }
       },
@@ -212,7 +212,7 @@
         "preference": "偏好设置...",
         "hideCat": "隐藏猫咪",
         "showCat": "显示猫咪",
-        "passThrough": "窗口穿透",
+        "passThrough": "猫咪锁定",
         "windowSize": "窗口尺寸",
         "opacity": "不透明度",
         "restartApp": "重启应用",

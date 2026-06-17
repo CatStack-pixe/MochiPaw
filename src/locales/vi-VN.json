@@ -16,7 +16,7 @@
           "mouseMirror": "Phản chiếu chuột",
           "ignoreMouse": "Bỏ qua sự kiện chuột",
           "windowSettings": "Cài đặt Cửa sổ",
-          "passThrough": "Click xuyên",
+          "passThrough": "Khóa mèo",
           "alwaysOnTop": "Luôn trên cùng",
           "keepInScreen": "Giữ trong màn hình",
           "windowSize": "Kích thước",
@@ -36,7 +36,7 @@
           "motionSound": "Khi bật, mô hình sẽ phát các âm thanh tương ứng khi thực hiện hành động (nếu tồn tại).",
           "behavior": "Khi bật, các hành động và biểu cảm có thể được cấu hình và kích hoạt.",
           "typingExpression": "Khi bật, biểu cảm sẽ đổi khi gõ sau một độ trễ ngẫu nhiên trong khoảng này để tránh đổi quá thường xuyên.",
-          "passThrough": "Bật để cửa sổ không ảnh hưởng đến thao tác trên ứng dụng khác.",
+          "passThrough": "Bật để khóa tương tác với cửa sổ mèo và chuyển thao tác chuột xuống ứng dụng bên dưới.",
           "alwaysOnTop": "Bật để cửa sổ luôn nằm trên ứng dụng khác.",
           "keepInScreen": "Khi bật, cửa sổ sẽ tự động giữ trong ranh giới màn hình.",
           "windowSize": "Dùng thanh trượt để chỉnh nhanh hoặc nhập phần trăm để đặt chính xác.",
@@ -120,14 +120,14 @@
           "toggleCat": "Ẩn/Hiện Mèo",
           "togglePreferences": "Mở Tùy chỉnh",
           "mirrorMode": "Chế độ gương",
-          "passThrough": "Click xuyên",
+          "passThrough": "Khóa mèo",
           "alwaysOnTop": "Luôn trên cùng"
         },
         "hints": {
           "toggleCat": "Bật/Tắt cửa sổ mèo.",
           "togglePreferences": "Bật/Tắt cửa sổ tùy chỉnh.",
           "mirrorMode": "Bật/Tắt chế độ gương.",
-          "passThrough": "Bật/Tắt cho phép click xuyên cửa sổ mèo.",
+          "passThrough": "Bật/Tắt khóa tương tác với cửa sổ mèo.",
           "alwaysOnTop": "Bật/Tắt luôn giữ cửa sổ mèo trên cùng."
         }
       },
@@ -212,7 +212,7 @@
         "preference": "Tùy chỉnh...",
         "hideCat": "Ẩn Mèo",
         "showCat": "Hiện Mèo",
-        "passThrough": "Click xuyên",
+        "passThrough": "Khóa mèo",
         "windowSize": "Kích thước",
         "opacity": "Độ mờ",
         "restartApp": "Khởi động lại",

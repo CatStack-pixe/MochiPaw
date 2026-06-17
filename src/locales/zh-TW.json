@@ -16,7 +16,7 @@
           "mouseMirror": "滑鼠游標鏡像",
           "ignoreMouse": "忽略滑鼠事件",
           "windowSettings": "視窗設定",
-          "passThrough": "視窗穿透",
+          "passThrough": "貓咪鎖定",
           "alwaysOnTop": "視窗置頂",
           "keepInScreen": "保持在螢幕內",
           "windowSize": "視窗尺寸",
@@ -36,7 +36,7 @@
           "motionSound": "啟用後，模型執行動作時會播放對應音效（如果存在）。",
           "behavior": "啟用後，可以配置和觸發模型的動作與表情。",
           "typingExpression": "啟用後，打字時會在設定的隨機延遲範圍內切換表情，避免過於頻繁。",
-          "passThrough": "啟用後，視窗不影響對其他應用程式的操作。",
+          "passThrough": "啟用後，鎖定貓咪視窗互動，滑鼠操作會穿透到下方應用程式。",
           "alwaysOnTop": "啟用後，視窗始終顯示在其他應用程式上方。",
           "keepInScreen": "啟用後，視窗會自動調整位置，防止超出螢幕邊界。",
           "windowSize": "使用滑動條快速調整視窗大小，也可以輸入百分比精確設定。",
@@ -120,14 +120,14 @@
           "toggleCat": "開啟貓咪",
           "togglePreferences": "開啟偏好設定",
           "mirrorMode": "鏡像模式",
-          "passThrough": "視窗穿透",
+          "passThrough": "貓咪鎖定",
           "alwaysOnTop": "視窗置頂"
         },
         "hints": {
           "toggleCat": "切換貓咪視窗的顯示與隱藏。",
           "togglePreferences": "切換偏好設定視窗的顯示與隱藏。",
           "mirrorMode": "切換貓咪的鏡像模式。",
-          "passThrough": "切換貓咪視窗是否可穿透。",
+          "passThrough": "切換是否鎖定貓咪視窗互動。",
           "alwaysOnTop": "切換貓咪視窗是否置頂。"
         }
       },
@@ -212,7 +212,7 @@
         "preference": "偏好設定…",
         "hideCat": "隱藏貓咪",
         "showCat": "顯示貓咪",
-        "passThrough": "視窗穿透",
+        "passThrough": "貓咪鎖定",
         "windowSize": "視窗尺寸",
         "opacity": "不透明度",
         "restartApp": "重啟應用程式",
