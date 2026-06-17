@@ -30,6 +30,11 @@ export interface ModelMotionTarget {
 
 export interface ModelBehaviorConfig {
   group: string
+  mutexGroup?: string
+  resetDelay?: number
+}
+
+export interface ModelBehaviorGroupConfig {
   mutexGroup: string
   resetDelay: number
 }
@@ -81,6 +86,7 @@ export const useModelStore = defineStore('model', () => {
   const shortcuts = reactive<Record<string, string>>({})
   const behaviorNames = reactive<Record<string, string>>({})
   const behaviorConfigs = reactive<Record<string, ModelBehaviorConfig>>({})
+  const behaviorGroupConfigs = reactive<Record<string, ModelBehaviorGroupConfig>>({})
 
   const init = async () => {
     const modelsPath = await resolveResource('assets/models')
@@ -122,6 +128,7 @@ export const useModelStore = defineStore('model', () => {
     shortcuts,
     behaviorNames,
     behaviorConfigs,
+    behaviorGroupConfigs,
     init,
   }
 }, {

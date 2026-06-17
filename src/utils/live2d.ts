@@ -212,6 +212,16 @@ function removeModelFileExtension(file: string) {
     .replace(/\.[^.]+$/i, '')
 }
 
+function uniqueTargets(targets: ModelMotionTarget[]) {
+  const targetMap = new Map<string, ModelMotionTarget>()
+
+  for (const target of targets) {
+    targetMap.set(target.id, target)
+  }
+
+  return [...targetMap.values()]
+}
+
 async function getParameterNames(path: string, modelJSON: CubismModelJson) {
   const displayInfo = modelJSON.FileReferences?.DisplayInfo
 
@@ -232,6 +242,7 @@ class Live2d {
   private app: Application | null = null
   public model: Live2DSprite | null = null
   private behaviorResetTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private parameterValues = new Map<string, number>()
 
   constructor() { }
 
@@ -291,6 +302,8 @@ class Live2d {
   public destroy() {
     if (!this.model) return
 
+    this.clearBehaviorResetTimers()
+    this.parameterValues.clear()
     this.model?.destroy()
 
     this.model = null
@@ -327,6 +340,23 @@ class Live2d {
     this.behaviorResetTimers.delete(group)
   }
 
+  private clearBehaviorResetTimers() {
+    for (const timer of this.behaviorResetTimers.values()) {
+      clearTimeout(timer)
+    }
+
+    this.behaviorResetTimers.clear()
+  }
+
+  private getResetTargets(targets: ModelMotionTarget[], defaultTargets: ModelMotionTarget[] | undefined) {
+    const defaultTargetMap = new Map(defaultTargets?.map(target => [target.id, target.value]) ?? [])
+
+    return uniqueTargets(targets).map((target): ModelMotionTarget => ({
+      id: target.id,
+      value: this.parameterValues.get(target.id) ?? defaultTargetMap.get(target.id) ?? 0,
+    }))
+  }
+
   private scheduleBehaviorReset(group: string, targets: ModelMotionTarget[] | undefined, delay: number) {
     this.clearBehaviorResetTimer(group)
 
@@ -344,6 +374,7 @@ class Live2d {
   public playBehaviorMotion(motion: ModelMotionInfo, config?: ModelBehaviorConfig, mutexTargets: ModelMotionTarget[] = []) {
     if (motion.targets?.length) {
       const group = config?.group || motion.group
+      const resetTargets = this.getResetTargets([...mutexTargets, ...motion.targets], motion.defaultTargets)
 
       this.clearBehaviorResetTimer(group)
 
@@ -357,7 +388,7 @@ class Live2d {
         this.setParameterValue(target.id, target.value)
       }
 
-      this.scheduleBehaviorReset(group, motion.defaultTargets, config?.resetDelay ?? -1)
+      this.scheduleBehaviorReset(group, resetTargets, config?.resetDelay ?? -1)
 
       return
     }
@@ -372,6 +403,8 @@ class Live2d {
   public playBehaviorExpression(expression: ModelExpressionInfo, index: number, config?: ModelBehaviorConfig, mutexTargets: ModelMotionTarget[] = []) {
     const targets = expression.targets ?? []
     const group = config?.group || 'expression'
+    const appliedTargets = targets.length ? targets : expression.defaultTargets ?? []
+    const resetTargets = this.getResetTargets([...mutexTargets, ...appliedTargets], expression.defaultTargets)
 
     this.clearBehaviorResetTimer(group)
 
@@ -386,7 +419,7 @@ class Live2d {
         this.setParameterValue(target.id, target.value)
       }
 
-      this.scheduleBehaviorReset(group, expression.defaultTargets, config?.resetDelay ?? -1)
+      this.scheduleBehaviorReset(group, resetTargets, config?.resetDelay ?? -1)
 
       return
     }
@@ -405,7 +438,11 @@ class Live2d {
   }
 
   public setParameterValue(id: string, value: number | boolean) {
-    return this.model?.setParameterValueById(id, Number(value))
+    const numberValue = Number(value)
+
+    this.parameterValues.set(id, numberValue)
+
+    return this.model?.setParameterValueById(id, numberValue)
   }
 
   public setMotionSoundEnabled(enabled: boolean) {

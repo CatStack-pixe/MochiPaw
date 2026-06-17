@@ -84,13 +84,32 @@ export function useModel() {
     modelStore.behaviorNames[id] = label
   }
 
-  function ensureBehaviorConfig(id: string, group: string, mutexGroup = group) {
-    if (modelStore.behaviorConfigs[id]) return
+  function ensureBehaviorConfig(modelId: string, id: string, group: string) {
+    modelStore.behaviorConfigs[id] ??= { group }
+    modelStore.behaviorConfigs[id].group ||= group
 
-    modelStore.behaviorConfigs[id] = {
-      group,
+    const legacyMutexGroup = modelStore.behaviorConfigs[id].mutexGroup
+    const legacyResetDelay = modelStore.behaviorConfigs[id].resetDelay
+
+    ensureBehaviorGroupConfig(
+      modelId,
+      modelStore.behaviorConfigs[id].group,
+      legacyMutexGroup,
+      legacyResetDelay,
+    )
+
+    delete modelStore.behaviorConfigs[id].mutexGroup
+    delete modelStore.behaviorConfigs[id].resetDelay
+  }
+
+  function getBehaviorGroupConfigId(modelId: string, group: string) {
+    return `${modelId}:behavior-group:${group}`
+  }
+
+  function ensureBehaviorGroupConfig(modelId: string, group: string, mutexGroup = group, resetDelay = 0.8) {
+    modelStore.behaviorGroupConfigs[getBehaviorGroupConfigId(modelId, group)] ??= {
       mutexGroup,
-      resetDelay: 0.8,
+      resetDelay,
     }
   }
 
@@ -122,7 +141,7 @@ export function useModel() {
 
           behaviorIds.push(id)
           ensureBehaviorName(getBehaviorNameId(id), motion.displayName ?? motion.name)
-          ensureBehaviorConfig(id, motion.group)
+          ensureBehaviorConfig(modelId, id, motion.group)
         }
       }
 
@@ -134,7 +153,7 @@ export function useModel() {
           getBehaviorNameId(id),
           expression.displayName ?? expression.name ?? `Expression ${index + 1}`,
         )
-        ensureBehaviorConfig(id, 'expression')
+        ensureBehaviorConfig(modelId, id, 'expression')
       }
 
       for (const [index, id] of behaviorIds.entries()) {

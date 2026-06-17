@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ModelBehaviorConfig } from '@/stores/model'
 
-import { Button, Divider, Input, InputNumber } from 'antdv-next'
+import { Button, Divider, Input } from 'antdv-next'
 
 import Shortcut from '@/components/shortcut/index.vue'
 import { useKeyPress } from '@/composables/useKeyPress'
@@ -43,30 +43,14 @@ useKeyPress(shortcut, () => {
       </div>
     </div>
 
-    <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem] gap-2 text-[11px] text-text-tertiary">
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-2 text-[11px] text-text-tertiary">
       <span>Group</span>
-      <span>Mutex</span>
-      <span>Reset</span>
     </div>
 
-    <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem] gap-2">
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-2">
       <Input
         v-model:value="config.group"
         size="small"
-      />
-
-      <Input
-        v-model:value="config.mutexGroup"
-        size="small"
-      />
-
-      <InputNumber
-        v-model:value="config.resetDelay"
-        class="w-full"
-        :min="-1"
-        :precision="1"
-        size="small"
-        :step="0.1"
       />
     </div>
   </div>
