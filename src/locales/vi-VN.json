@@ -24,6 +24,7 @@
           "opacity": "Độ mờ",
           "motionSound": "Âm thanh hành động",
           "behavior": "Hành động và Biểu cảm",
+          "typingExpression": "Biểu cảm khi gõ",
           "autoReleaseDelay": "Độ trễ tự động nhả phím",
           "hideOnHover": "Ẩn khi di chuột",
           "maxFPS": "Tốc độ khung hình tối đa"
@@ -34,6 +35,7 @@
           "ignoreMouse": "Khi bật, mô hình sẽ không phản hồi sự kiện chuột. Hữu ích cho chế độ bàn phím hoặc chế độ tay cầm.",
           "motionSound": "Khi bật, mô hình sẽ phát các âm thanh tương ứng khi thực hiện hành động (nếu tồn tại).",
           "behavior": "Khi bật, các hành động và biểu cảm có thể được cấu hình và kích hoạt.",
+          "typingExpression": "Khi bật, biểu cảm sẽ đổi khi gõ sau một độ trễ ngẫu nhiên trong khoảng này để tránh đổi quá thường xuyên.",
           "passThrough": "Bật để cửa sổ không ảnh hưởng đến thao tác trên ứng dụng khác.",
           "alwaysOnTop": "Bật để cửa sổ luôn nằm trên ứng dụng khác.",
           "keepInScreen": "Khi bật, cửa sổ sẽ tự động giữ trong ranh giới màn hình.",

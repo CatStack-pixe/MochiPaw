@@ -47,6 +47,44 @@ const catStore = useCatStore()
     </ProListItem>
 
     <ProListItem
+      :description="$t('pages.preference.cat.hints.typingExpression')"
+      :title="$t('pages.preference.cat.labels.typingExpression')"
+    >
+      <Flex align="center">
+        <Switch v-model:checked="catStore.model.typingExpression" />
+
+        <Flex
+          align="center"
+          class="overflow-hidden transition-all"
+          :class="[catStore.model.typingExpression ? 'w-62 opacity-100' : 'w-0 opacity-0']"
+        >
+          <Divider type="vertical" />
+
+          <SpaceCompact>
+            <InputNumber
+              v-model:value="catStore.model.typingExpressionMinDelay"
+              class="w-18"
+              :max="catStore.model.typingExpressionMaxDelay"
+              :min="0"
+              :step="0.1"
+            />
+
+            <SpaceAddon>-</SpaceAddon>
+
+            <InputNumber
+              v-model:value="catStore.model.typingExpressionMaxDelay"
+              class="w-18"
+              :min="catStore.model.typingExpressionMinDelay"
+              :step="0.1"
+            />
+
+            <SpaceAddon>s</SpaceAddon>
+          </SpaceCompact>
+        </Flex>
+      </Flex>
+    </ProListItem>
+
+    <ProListItem
       v-if="isWindows"
       :description="$t('pages.preference.cat.hints.autoReleaseDelay')"
       :title="$t('pages.preference.cat.labels.autoReleaseDelay')"

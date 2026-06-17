@@ -24,6 +24,7 @@
           "opacity": "Opacidade",
           "motionSound": "Som de Ação",
           "behavior": "Movimentos e Expressões",
+          "typingExpression": "Expressões ao Digitar",
           "autoReleaseDelay": "Atraso de Liberação Automática",
           "hideOnHover": "Ocultar ao Passar o Mouse",
           "maxFPS": "Taxa Máxima de Quadros"
@@ -34,6 +35,7 @@
           "ignoreMouse": "Quando ativado, o modelo não responderá a eventos do mouse. Útil para o modo teclado ou modo controle.",
           "motionSound": "Quando ativado, o modelo reproduzirá efeitos sonoros correspondentes ao executar ações (se existirem).",
           "behavior": "Quando ativado, movimentos e expressões podem ser configurados e acionados.",
+          "typingExpression": "Quando ativado, a digitação troca expressões após um atraso aleatório dentro deste intervalo para evitar mudanças muito frequentes.",
           "passThrough": "Quando ativado, a janela não afetará operações em outros aplicativos.",
           "alwaysOnTop": "Quando ativado, a janela sempre ficará acima de outros aplicativos.",
           "keepInScreen": "Quando ativado, a janela permanece automaticamente dentro dos limites da tela.",

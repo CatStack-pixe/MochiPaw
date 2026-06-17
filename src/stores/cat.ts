@@ -7,6 +7,9 @@ export interface CatStore {
     mouseMirror: boolean
     motionSound: boolean
     behavior: boolean
+    typingExpression: boolean
+    typingExpressionMinDelay: number
+    typingExpressionMaxDelay: number
     autoReleaseDelay: number
     maxFPS: number
     ignoreMouse: boolean
@@ -53,6 +56,9 @@ export const useCatStore = defineStore('cat', () => {
     mouseMirror: false,
     motionSound: true,
     behavior: true,
+    typingExpression: true,
+    typingExpressionMinDelay: 7,
+    typingExpressionMaxDelay: 12,
     autoReleaseDelay: 3,
     maxFPS: 60,
     ignoreMouse: false,

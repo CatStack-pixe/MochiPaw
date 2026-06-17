@@ -15,7 +15,7 @@ useKeyPress(modelValue, () => {
 
 <template>
   <div class="flex items-center justify-between px-4 py-2 not-last:(b-b b-b-solid b-border-sec)">
-    <span>{{ label }}</span>
+    <span class="min-w-0 truncate">{{ label }}</span>
 
     <div class="flex items-center">
       <Shortcut v-model="modelValue" />

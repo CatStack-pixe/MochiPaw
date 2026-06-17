@@ -16,6 +16,10 @@ export interface Model {
   isPreset: boolean
 }
 
+export interface ModelExpressionInfo extends ExpressionInfo {
+  displayName?: string
+}
+
 interface PresetModel {
   id: string
   mode: ModelMode
@@ -52,7 +56,7 @@ export const useModelStore = defineStore('model', () => {
   const supportKeys = reactive<Record<string, string>>({})
   const pressedKeys = reactive<Record<string, string>>({})
   const currentMotions = ref<Array<[string, MotionInfo[]]>>([])
-  const currentExpressions = ref<ExpressionInfo[]>([])
+  const currentExpressions = ref<ModelExpressionInfo[]>([])
   const shortcuts = reactive<Record<string, string>>({})
 
   const init = async () => {

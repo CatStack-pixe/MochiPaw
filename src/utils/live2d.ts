@@ -1,4 +1,4 @@
-import type { MotionInfo } from 'easy-live2d'
+import type { ExpressionInfo, MotionInfo } from 'easy-live2d'
 
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
@@ -8,12 +8,85 @@ import JSON5 from 'json5'
 import { Application, Ticker } from 'pixi.js'
 
 import type { ModelSize } from '@/composables/useModel'
+import type { ModelExpressionInfo } from '@/stores/model'
 
 import { i18n } from '@/locales'
 
 import { join } from './path'
 
 Config.MouseFollow = false
+
+interface CubismDisplayInfo {
+  Parameters?: Array<{
+    Id?: string
+    Name?: string
+  }>
+}
+
+interface CubismModelJson {
+  FileReferences?: {
+    DisplayInfo?: string
+    Expressions?: Array<{
+      File?: string
+    }>
+  }
+}
+
+interface CubismExpressionJson {
+  Parameters?: Array<{
+    Id?: string
+  }>
+}
+
+export async function readCubismModelJSON(path: string) {
+  const files = await readDir(path)
+  const modelFile = files.find(file => file.name.endsWith('.model3.json'))
+
+  if (!modelFile) {
+    throw new Error(i18n.global.t('utils.live2d.hints.notFound'))
+  }
+
+  return JSON5.parse(await readTextFile(join(path, modelFile.name))) as CubismModelJson
+}
+
+export async function resolveModelExpressions(path: string, expressions: ExpressionInfo[]) {
+  const modelJSON = await readCubismModelJSON(path)
+  const parameterNames = await getParameterNames(path, modelJSON)
+
+  return Promise.all(expressions.map(async (expression, index): Promise<ModelExpressionInfo> => {
+    const expressionConfig = modelJSON.FileReferences?.Expressions?.[index]
+
+    if (!expressionConfig?.File) return expression
+
+    const expressionJSON = await readTextFile(join(path, expressionConfig.File))
+      .then(content => JSON5.parse(content) as CubismExpressionJson)
+      .catch(() => undefined)
+    const displayName = expressionJSON?.Parameters
+      ?.map(parameter => parameter.Id ? parameterNames.get(parameter.Id) : undefined)
+      .find(Boolean)
+
+    return {
+      ...expression,
+      displayName,
+    }
+  }))
+}
+
+async function getParameterNames(path: string, modelJSON: CubismModelJson) {
+  const displayInfo = modelJSON.FileReferences?.DisplayInfo
+
+  if (!displayInfo) return new Map<string, string>()
+
+  const displayInfoJSON = await readTextFile(join(path, displayInfo))
+    .then(content => JSON5.parse(content) as CubismDisplayInfo)
+    .catch(() => undefined)
+
+  return new Map(
+    displayInfoJSON?.Parameters
+      ?.filter(parameter => parameter.Id && parameter.Name)
+      .map(parameter => [parameter.Id!, parameter.Name!]) ?? [],
+  )
+}
 
 class Live2d {
   private app: Application | null = null
@@ -42,17 +115,7 @@ class Live2d {
 
     this.destroy()
 
-    const files = await readDir(path)
-
-    const modelFile = files.find(file => file.name.endsWith('.model3.json'))
-
-    if (!modelFile) {
-      throw new Error(i18n.global.t('utils.live2d.hints.notFound'))
-    }
-
-    const modelPath = join(path, modelFile.name)
-
-    const modelJSON = JSON5.parse(await readTextFile(modelPath))
+    const modelJSON = await readCubismModelJSON(path)
 
     const modelSetting = new CubismSetting({
       modelJSON,
@@ -74,7 +137,7 @@ class Live2d {
     const { width, height } = this.model
 
     const motions = groupBy(this.model.getMotions(), 'group')
-    const expressions = this.model.getExpressions()
+    const expressions = await resolveModelExpressions(path, this.model.getExpressions())
 
     return {
       width,

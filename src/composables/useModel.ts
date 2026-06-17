@@ -28,6 +28,9 @@ export function useModel() {
   const modelStore = useModelStore()
   const catStore = useCatStore()
   const modelSize = ref<ModelSize>()
+  let typingExpressionTimer: ReturnType<typeof setTimeout> | undefined
+  let typingExpressionIndex = 0
+  let nextTypingExpressionAt = 0
 
   function getBehaviorShortcut(index: number) {
     const primary = isMac ? 'Command' : 'Control'
@@ -136,7 +139,11 @@ export function useModel() {
     catStore.window.scale = round((size.width / width) * 100)
   }
 
-  const handlePress = (key: string) => {
+  const handlePress = (key: string, options: { triggerExpression?: boolean } = {}) => {
+    if (options.triggerExpression) {
+      handleTypingExpression()
+    }
+
     const path = modelStore.supportKeys[key]
 
     if (!path) return
@@ -167,6 +174,38 @@ export function useModel() {
     const id = key === 'Left' ? 'ParamMouseLeftDown' : 'ParamMouseRightDown'
 
     live2d.setParameterValue(id, pressed)
+  }
+
+  function handleTypingExpression() {
+    if (!catStore.model.behavior || !catStore.model.typingExpression || modelStore.currentExpressions.length <= 1) {
+      return
+    }
+
+    const now = Date.now()
+
+    if (now < nextTypingExpressionAt) return
+
+    typingExpressionIndex = typingExpressionIndex % (modelStore.currentExpressions.length - 1) + 1
+
+    live2d.setExpression(typingExpressionIndex)
+    const delay = getTypingExpressionDelay()
+
+    nextTypingExpressionAt = now + delay
+
+    if (typingExpressionTimer) {
+      clearTimeout(typingExpressionTimer)
+    }
+
+    typingExpressionTimer = setTimeout(() => {
+      live2d.setExpression(0)
+    }, Math.max(600, delay * 0.6))
+  }
+
+  function getTypingExpressionDelay() {
+    const min = Math.max(0, catStore.model.typingExpressionMinDelay)
+    const max = Math.max(min, catStore.model.typingExpressionMaxDelay)
+
+    return (min + Math.random() * (max - min)) * 1000
   }
 
   async function handleMouseMove(cursorPoint: PhysicalPosition) {

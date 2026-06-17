@@ -24,6 +24,7 @@
           "opacity": "不透明度",
           "motionSound": "动作音效",
           "behavior": "动作与表情",
+          "typingExpression": "打字随机表情",
           "autoReleaseDelay": "按键自动释放延迟",
           "hideOnHover": "鼠标移入隐藏",
           "maxFPS": "最大帧率"
@@ -34,6 +35,7 @@
           "ignoreMouse": "启用后，模型将不再响应鼠标事件，适用于键盘模式或手柄模式。",
           "motionSound": "启用后，模型执行动作时会播放对应音效（如果存在）。",
           "behavior": "启用后，可以配置和触发模型的动作与表情。",
+          "typingExpression": "启用后，打字时会在设置的随机延迟范围内切换表情，避免过于频繁。",
           "passThrough": "启用后，窗口不影响对其他应用程序的操作。",
           "alwaysOnTop": "启用后，窗口始终显示在其他应用程序上方。",
           "keepInScreen": "启用后，窗口会自动调整位置，防止超出屏幕边界。",

@@ -4,16 +4,19 @@ import type { MotionInfo } from 'easy-live2d'
 import { emit } from '@tauri-apps/api/event'
 import { Empty, Modal, Segmented } from 'antdv-next'
 import { isEmpty } from 'es-toolkit/compat'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { LISTEN_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
+import { resolveModelExpressions } from '@/utils/live2d'
 
 import BehaviorItem from './components/behavior-item/index.vue'
 
 const modelValue = defineModel<boolean>()
 const modelStore = useModelStore()
-const value = ref<'motion' | 'expression'>('motion')
+const value = ref<'motion' | 'expression'>('expression')
+const { t } = useI18n()
 
 function getMotionShortcutId(groupName: string, index: number) {
   return `${modelStore.currentModel?.id}:motion:${groupName}:${index}`
@@ -30,6 +33,20 @@ function startMotion(motion: MotionInfo) {
 function setExpression(index: number) {
   emit(LISTEN_KEY.SET_EXPRESSION, index)
 }
+
+function getExpressionLabel(index: number) {
+  return modelStore.currentExpressions[index]?.displayName
+    ?? t('pages.preference.model.behaviorModal.labels.expressionIndex', { index: index + 1 })
+}
+
+watch(modelValue, async (open) => {
+  if (!open || !modelStore.currentModel || isEmpty(modelStore.currentExpressions)) return
+
+  modelStore.currentExpressions = await resolveModelExpressions(
+    modelStore.currentModel.path,
+    modelStore.currentExpressions,
+  )
+})
 </script>
 
 <template>
@@ -101,7 +118,7 @@ function setExpression(index: number) {
         >
           <BehaviorItem
             v-model="modelStore.shortcuts[getExpressionShortcutId(index)]"
-            :label="$t('pages.preference.model.behaviorModal.labels.expressionIndex', { index: index + 1 })"
+            :label="getExpressionLabel(index)"
             @click="setExpression(index)"
           />
         </template>

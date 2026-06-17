@@ -168,7 +168,7 @@ export function useDevice() {
   }
 
   const handleAutoRelease = (key: string, delay = 100) => {
-    handlePress(key)
+    handlePress(key, { triggerExpression: true })
 
     if (releaseTimers.has(key)) {
       clearTimeout(releaseTimers.get(key))
@@ -202,7 +202,7 @@ export function useDevice() {
           return handleAutoRelease(nextValue, delay)
         }
 
-        return handlePress(nextValue)
+        return handlePress(nextValue, { triggerExpression: true })
       }
 
       return handleRelease(nextValue)
