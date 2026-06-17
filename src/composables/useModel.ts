@@ -19,6 +19,12 @@ const appWindow = getCurrentWebviewWindow()
 const digitKeys = '1234567890'.split('') as readonly string[]
 const letterKeys = 'QWERTYUIOPASDFGHJKLZXCVBNM'.split('') as readonly string[]
 
+function waitForNextFrame() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+}
+
 export interface ModelSize {
   width: number
   height: number
@@ -84,7 +90,7 @@ export function useModel() {
       modelStore.currentMotions = nextMotions
       modelStore.currentExpressions = expressions
 
-      handleResize()
+      await handleResize()
 
       const modelId = modelStore.currentModel.id
 
@@ -121,18 +127,21 @@ export function useModel() {
   async function handleResize() {
     if (!modelSize.value) return
 
-    live2d.resizeModel(modelSize.value)
-
     const { width, height } = modelSize.value
+    const expectedHeight = Math.ceil(innerWidth * (height / width))
 
-    if (round(innerWidth / innerHeight, 1) !== round(width / height, 1)) {
+    if (Math.abs(innerHeight - expectedHeight) > 1) {
       await appWindow.setSize(
         new LogicalSize({
           width: innerWidth,
-          height: Math.ceil(innerWidth * (height / width)),
+          height: expectedHeight,
         }),
       )
+
+      await waitForNextFrame()
     }
+
+    live2d.resizeModel(modelSize.value)
 
     const size = await appWindow.size()
 

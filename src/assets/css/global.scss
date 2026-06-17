@@ -1,10 +1,24 @@
 html {
   --uno: select-none overscroll-none antialiased;
 
+  width: 100%;
+  height: 100%;
   color-scheme: light;
+  overflow: hidden;
 
   body {
     --uno: text-3.5 transition-opacity-300;
+
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  #app {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
   }
 
   &.dark {
