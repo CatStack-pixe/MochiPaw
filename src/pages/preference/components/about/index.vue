@@ -35,7 +35,7 @@ let metricsTimer: ReturnType<typeof window.setInterval> | undefined
 const authors = [
   {
     name: 'InfinityXCat',
-    avatar: '/authors/infinityxcat.png',
+    avatar: '/authors/infinityxcat.jpg',
   },
   {
     name: 'Dev.Cloud.ZTR_OS',
