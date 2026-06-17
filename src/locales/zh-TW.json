@@ -139,19 +139,25 @@
           "appInfo": "軟體資訊",
           "openSource": "開源網址",
           "debugMonitor": "監控除錯",
-          "processMetrics": "行程佔用"
+          "processMetrics": "行程佔用",
+          "resourceMetrics": "模型資源佔用",
+          "currentModelResources": "目前模型資源明細"
         },
         "hints": {
           "appInfo": "複製軟體資訊並提供給 Bug Issue。",
           "copySuccess": "複製成功",
-          "debugMonitor": "每秒自動重新整理目前應用程式行程的 CPU、記憶體等佔用。CPU 首次取樣會顯示 --。"
+          "debugMonitor": "每秒自動重新整理目前應用程式行程的 CPU、記憶體等佔用。CPU 首次取樣會顯示 --。",
+          "resourceMetrics": "統計各模型資源的磁碟大小和估算解碼記憶體。貼圖依實際寬高以 RGBA 估算，其他資源依檔案大小估算。",
+          "compactMemorySuccess": "已壓縮目前行程記憶體"
         },
         "buttons": {
           "checkUpdate": "檢查更新",
           "copy": "複製",
           "feedbackIssues": "回饋問題",
           "viewLog": "查看日誌",
-          "refresh": "重新整理"
+          "refresh": "重新整理",
+          "refreshResources": "重新整理資源統計",
+          "compactMemory": "自身記憶體壓縮"
         },
         "metrics": {
           "pid": "PID",
@@ -159,7 +165,19 @@
           "memory": "記憶體佔用",
           "virtualMemory": "虛擬記憶體",
           "threads": "執行緒數",
-          "uptime": "執行時間"
+          "uptime": "執行時間",
+          "resourceUsageValue": "估算記憶體 {memory} / 檔案 {fileSize} / {files} 個檔案"
+        },
+        "resourceCategories": {
+          "model": "模型本體",
+          "texture": "貼圖資源",
+          "config": "設定檔",
+          "motion": "動作檔",
+          "expression": "表情檔",
+          "physics": "物理設定",
+          "audio": "音訊資源",
+          "auxiliary": "輔助資源",
+          "other": "其他資源"
         }
       }
     }

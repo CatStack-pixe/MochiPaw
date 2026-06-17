@@ -2,4 +2,4 @@
 
 [default]
 description = "Default permissions for the plugin"
-permissions = ["allow-is-running-as-administrator", "allow-get-process-metrics"]
+permissions = ["allow-is-running-as-administrator", "allow-get-process-metrics", "allow-compact-process-memory"]

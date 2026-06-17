@@ -139,19 +139,25 @@
           "appInfo": "Informações do Aplicativo",
           "openSource": "Código Aberto",
           "debugMonitor": "Monitor de Depuração",
-          "processMetrics": "Uso do Processo"
+          "processMetrics": "Uso do Processo",
+          "resourceMetrics": "Uso de Recursos do Modelo",
+          "currentModelResources": "Detalhes do Modelo Atual"
         },
         "hints": {
           "appInfo": "Copiar informações do aplicativo para incluir em relatórios de bugs.",
           "copySuccess": "Copiado com sucesso",
-          "debugMonitor": "Atualiza CPU, memória e uso relacionado do processo do aplicativo a cada segundo. A CPU mostra -- na primeira amostra."
+          "debugMonitor": "Atualiza CPU, memória e uso relacionado do processo do aplicativo a cada segundo. A CPU mostra -- na primeira amostra.",
+          "resourceMetrics": "Mostra o tamanho dos arquivos e a memória decodificada estimada de cada modelo. Texturas usam RGBA pelo tamanho real; outros recursos usam o tamanho do arquivo.",
+          "compactMemorySuccess": "A memória do processo atual foi compactada"
         },
         "buttons": {
           "checkUpdate": "Verificar atualizações",
           "copy": "Copiar",
           "feedbackIssues": "Reportar Problema",
           "viewLog": "Ver Logs",
-          "refresh": "Atualizar"
+          "refresh": "Atualizar",
+          "refreshResources": "Atualizar Recursos",
+          "compactMemory": "Compactar Memória"
         },
         "metrics": {
           "pid": "PID",
@@ -159,7 +165,19 @@
           "memory": "Memória",
           "virtualMemory": "Memória Virtual",
           "threads": "Threads",
-          "uptime": "Tempo em execução"
+          "uptime": "Tempo em execução",
+          "resourceUsageValue": "Memória estimada {memory} / arquivo {fileSize} / {files} arquivos"
+        },
+        "resourceCategories": {
+          "model": "Binário do Modelo",
+          "texture": "Texturas",
+          "config": "Configurações",
+          "motion": "Movimentos",
+          "expression": "Expressões",
+          "physics": "Física",
+          "audio": "Áudio",
+          "auxiliary": "Auxiliar",
+          "other": "Outros"
         }
       }
     }

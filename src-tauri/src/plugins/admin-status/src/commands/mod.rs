@@ -70,6 +70,22 @@ pub fn get_process_metrics() -> Result<ProcessMetrics, String> {
     }
 }
 
+#[command]
+pub fn compact_process_memory() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::{
+            System::{ProcessStatus::EmptyWorkingSet, Threading::GetCurrentProcess},
+        };
+
+        unsafe {
+            EmptyWorkingSet(GetCurrentProcess()).map_err(|error| error.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(target_os = "windows")]
 fn windows_process_metrics() -> Result<ProcessMetrics, String> {
     use std::mem::size_of;

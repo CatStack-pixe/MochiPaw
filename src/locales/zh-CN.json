@@ -139,19 +139,25 @@
           "appInfo": "软件信息",
           "openSource": "开源地址",
           "debugMonitor": "监控调试",
-          "processMetrics": "进程占用"
+          "processMetrics": "进程占用",
+          "resourceMetrics": "模型资源占用",
+          "currentModelResources": "当前模型资源明细"
         },
         "hints": {
           "appInfo": "复制软件信息并提供给 Bug Issue。",
           "copySuccess": "复制成功",
-          "debugMonitor": "每秒自动刷新当前应用进程的 CPU、内存等占用。CPU 首次采样会显示 --。"
+          "debugMonitor": "每秒自动刷新当前应用进程的 CPU、内存等占用。CPU 首次采样会显示 --。",
+          "resourceMetrics": "统计各模型资源的磁盘大小和估算解码内存。贴图按实际宽高以 RGBA 估算，其它资源按文件大小估算。",
+          "compactMemorySuccess": "已压缩当前进程内存"
         },
         "buttons": {
           "checkUpdate": "检查更新",
           "copy": "复制",
           "feedbackIssues": "反馈问题",
           "viewLog": "查看日志",
-          "refresh": "刷新"
+          "refresh": "刷新",
+          "refreshResources": "刷新资源统计",
+          "compactMemory": "自身内存压缩"
         },
         "metrics": {
           "pid": "PID",
@@ -159,7 +165,19 @@
           "memory": "内存占用",
           "virtualMemory": "虚拟内存",
           "threads": "线程数",
-          "uptime": "运行时长"
+          "uptime": "运行时长",
+          "resourceUsageValue": "估算内存 {memory} / 文件 {fileSize} / {files} 个文件"
+        },
+        "resourceCategories": {
+          "model": "模型本体",
+          "texture": "贴图资源",
+          "config": "配置文件",
+          "motion": "动作文件",
+          "expression": "表情文件",
+          "physics": "物理配置",
+          "audio": "音频资源",
+          "auxiliary": "辅助资源",
+          "other": "其它资源"
         }
       }
     }

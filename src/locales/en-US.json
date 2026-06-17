@@ -139,19 +139,25 @@
           "appInfo": "App Info",
           "openSource": "Open Source",
           "debugMonitor": "Debug Monitor",
-          "processMetrics": "Process Usage"
+          "processMetrics": "Process Usage",
+          "resourceMetrics": "Model Resource Usage",
+          "currentModelResources": "Current Model Resource Details"
         },
         "hints": {
           "appInfo": "Copy app information and provide it to bug issue.",
           "copySuccess": "Copied Successfully",
-          "debugMonitor": "Refreshes the current app process CPU, memory, and related usage every second. CPU shows -- on the first sample."
+          "debugMonitor": "Refreshes the current app process CPU, memory, and related usage every second. CPU shows -- on the first sample.",
+          "resourceMetrics": "Shows each model resource's file size and estimated decoded memory. Textures are estimated as RGBA by actual image size; other resources use file size.",
+          "compactMemorySuccess": "Current process memory has been compacted"
         },
         "buttons": {
           "checkUpdate": "Check for Updates",
           "copy": "Copy",
           "feedbackIssues": "Feedback Issues",
           "viewLog": "View Logs",
-          "refresh": "Refresh"
+          "refresh": "Refresh",
+          "refreshResources": "Refresh Resources",
+          "compactMemory": "Compact Own Memory"
         },
         "metrics": {
           "pid": "PID",
@@ -159,7 +165,19 @@
           "memory": "Memory",
           "virtualMemory": "Virtual Memory",
           "threads": "Threads",
-          "uptime": "Uptime"
+          "uptime": "Uptime",
+          "resourceUsageValue": "Estimated memory {memory} / file size {fileSize} / {files} files"
+        },
+        "resourceCategories": {
+          "model": "Model Binary",
+          "texture": "Textures",
+          "config": "Config Files",
+          "motion": "Motions",
+          "expression": "Expressions",
+          "physics": "Physics",
+          "audio": "Audio",
+          "auxiliary": "Auxiliary",
+          "other": "Other"
         }
       }
     }

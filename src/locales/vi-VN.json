@@ -139,19 +139,25 @@
           "appInfo": "Thông tin ứng dụng",
           "openSource": "Mã nguồn",
           "debugMonitor": "Giám sát gỡ lỗi",
-          "processMetrics": "Mức dùng tiến trình"
+          "processMetrics": "Mức dùng tiến trình",
+          "resourceMetrics": "Mức dùng tài nguyên mô hình",
+          "currentModelResources": "Chi tiết tài nguyên mô hình hiện tại"
         },
         "hints": {
           "appInfo": "Sao chép thông tin để gửi bug.",
           "copySuccess": "Đã sao chép",
-          "debugMonitor": "Tự động làm mới CPU, bộ nhớ và mức sử dụng liên quan của tiến trình ứng dụng mỗi giây. CPU hiển thị -- ở lần lấy mẫu đầu tiên."
+          "debugMonitor": "Tự động làm mới CPU, bộ nhớ và mức sử dụng liên quan của tiến trình ứng dụng mỗi giây. CPU hiển thị -- ở lần lấy mẫu đầu tiên.",
+          "resourceMetrics": "Hiển thị kích thước tệp và bộ nhớ giải mã ước tính của từng mô hình. Texture ước tính theo RGBA từ kích thước thật; tài nguyên khác dùng kích thước tệp.",
+          "compactMemorySuccess": "Đã nén bộ nhớ tiến trình hiện tại"
         },
         "buttons": {
           "checkUpdate": "Kiểm tra cập nhật",
           "copy": "Sao chép",
           "feedbackIssues": "Báo lỗi",
           "viewLog": "Xem nhật ký",
-          "refresh": "Làm mới"
+          "refresh": "Làm mới",
+          "refreshResources": "Làm mới tài nguyên",
+          "compactMemory": "Nén bộ nhớ"
         },
         "metrics": {
           "pid": "PID",
@@ -159,7 +165,19 @@
           "memory": "Bộ nhớ",
           "virtualMemory": "Bộ nhớ ảo",
           "threads": "Luồng",
-          "uptime": "Thời gian chạy"
+          "uptime": "Thời gian chạy",
+          "resourceUsageValue": "Bộ nhớ ước tính {memory} / tệp {fileSize} / {files} tệp"
+        },
+        "resourceCategories": {
+          "model": "Tệp mô hình",
+          "texture": "Texture",
+          "config": "Cấu hình",
+          "motion": "Chuyển động",
+          "expression": "Biểu cảm",
+          "physics": "Vật lý",
+          "audio": "Âm thanh",
+          "auxiliary": "Phụ trợ",
+          "other": "Khác"
         }
       }
     }

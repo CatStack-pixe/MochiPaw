@@ -10,24 +10,33 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { ProcessMetrics } from '@/plugins/adminStatus'
+import type { ModelResourceMetric, ResourceMetricCategory } from '@/utils/modelResourceMetrics'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
 import { GITHUB_LINK, LISTEN_KEY } from '@/constants'
-import { getProcessMetrics } from '@/plugins/adminStatus'
+import { compactProcessMemory, getProcessMetrics } from '@/plugins/adminStatus'
 import { useAppStore } from '@/stores/app'
+import { useModelStore } from '@/stores/model'
+import { getModelResourceMetrics } from '@/utils/modelResourceMetrics'
 
 const appStore = useAppStore()
+const modelStore = useModelStore()
 const logDir = ref('')
 const metrics = ref<ProcessMetrics>()
 const metricsError = ref('')
 const metricsLoading = ref(false)
+const resourceMetrics = ref<ModelResourceMetric[]>([])
+const resourceMetricsError = ref('')
+const resourceMetricsLoading = ref(false)
+const compactingMemory = ref(false)
 const { t } = useI18n()
 let metricsTimer: ReturnType<typeof window.setInterval> | undefined
 
 onMounted(async () => {
   logDir.value = await appLogDir()
   await refreshMetrics()
+  await refreshResourceMetrics()
   metricsTimer = window.setInterval(refreshMetrics, 1000)
 })
 
@@ -70,6 +79,33 @@ async function refreshMetrics() {
     metricsError.value = error instanceof Error ? error.message : String(error)
   } finally {
     metricsLoading.value = false
+  }
+}
+
+async function refreshResourceMetrics() {
+  resourceMetricsLoading.value = true
+
+  try {
+    resourceMetrics.value = await getModelResourceMetrics(modelStore.models)
+    resourceMetricsError.value = ''
+  } catch (error) {
+    resourceMetricsError.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    resourceMetricsLoading.value = false
+  }
+}
+
+async function handleCompactMemory() {
+  compactingMemory.value = true
+
+  try {
+    await compactProcessMemory()
+    await refreshMetrics()
+    message.success(t('pages.preference.about.hints.compactMemorySuccess'))
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+  } finally {
+    compactingMemory.value = false
   }
 }
 
@@ -130,6 +166,40 @@ const metricsItems = computed(() => [
     value: formatUptime(metrics.value?.uptimeSeconds),
   },
 ])
+
+const currentModelResourceMetric = computed(() => {
+  return resourceMetrics.value.find(item => item.modelId === modelStore.currentModel?.id)
+})
+
+function getCategoryLabel(category: ResourceMetricCategory) {
+  return t(`pages.preference.about.resourceCategories.${category}`)
+}
+
+const modelResourceItems = computed(() => {
+  return resourceMetrics.value.map((item) => {
+    return {
+      label: `${item.modelId} (${item.mode})`,
+      value: t('pages.preference.about.metrics.resourceUsageValue', {
+        memory: formatBytes(item.estimatedMemoryBytes),
+        fileSize: formatBytes(item.fileBytes),
+        files: item.fileCount,
+      }),
+    }
+  })
+})
+
+const currentModelResourceItems = computed(() => {
+  return currentModelResourceMetric.value?.categories.map((item) => {
+    return {
+      label: getCategoryLabel(item.category),
+      value: t('pages.preference.about.metrics.resourceUsageValue', {
+        memory: formatBytes(item.estimatedMemoryBytes),
+        fileSize: formatBytes(item.fileBytes),
+        files: item.fileCount,
+      }),
+    }
+  }) ?? []
+})
 </script>
 
 <template>
@@ -206,6 +276,62 @@ const metricsItems = computed(() => [
         @click="refreshMetrics"
       >
         {{ $t('pages.preference.about.buttons.refresh') }}
+      </Button>
+
+      <Button
+        :loading="compactingMemory"
+        type="primary"
+        @click="handleCompactMemory"
+      >
+        {{ $t('pages.preference.about.buttons.compactMemory') }}
+      </Button>
+    </ProListItem>
+
+    <ProListItem
+      :description="resourceMetricsError || $t('pages.preference.about.hints.resourceMetrics')"
+      :title="$t('pages.preference.about.labels.resourceMetrics')"
+      vertical
+    >
+      <Descriptions
+        bordered
+        class="w-full"
+        :column="1"
+        size="small"
+      >
+        <Descriptions.Item
+          v-for="item in modelResourceItems"
+          :key="item.label"
+          :label="item.label"
+        >
+          {{ item.value }}
+        </Descriptions.Item>
+      </Descriptions>
+
+      <Descriptions
+        v-if="currentModelResourceItems.length"
+        bordered
+        class="w-full"
+        :column="2"
+        size="small"
+      >
+        <template #title>
+          {{ $t('pages.preference.about.labels.currentModelResources') }}
+        </template>
+
+        <Descriptions.Item
+          v-for="item in currentModelResourceItems"
+          :key="item.label"
+          :label="item.label"
+        >
+          {{ item.value }}
+        </Descriptions.Item>
+      </Descriptions>
+
+      <Button
+        :loading="resourceMetricsLoading"
+        @click="refreshResourceMetrics"
+      >
+        {{ $t('pages.preference.about.buttons.refreshResources') }}
       </Button>
     </ProListItem>
   </ProList>
