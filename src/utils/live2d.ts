@@ -3,12 +3,12 @@ import type { ExpressionInfo, MotionInfo } from 'easy-live2d'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
 import { Config, CubismSetting, Live2DSprite, Priority } from 'easy-live2d'
-import { groupBy } from 'es-toolkit/compat'
+import { flatMap, groupBy } from 'es-toolkit/compat'
 import JSON5 from 'json5'
 import { Application, Ticker } from 'pixi.js'
 
 import type { ModelSize } from '@/composables/useModel'
-import type { ModelExpressionInfo } from '@/stores/model'
+import type { ModelExpressionInfo, ModelMotionInfo, ModelMotionTarget } from '@/stores/model'
 
 import { i18n } from '@/locales'
 
@@ -27,15 +27,46 @@ interface CubismModelJson {
   FileReferences?: {
     DisplayInfo?: string
     Expressions?: Array<{
+      Name?: string
       File?: string
     }>
+    Motions?: Record<string, Array<{
+      File?: string
+      Sound?: string
+      FadeInTime?: number
+      FadeOutTime?: number
+    }>>
   }
 }
 
 interface CubismExpressionJson {
   Parameters?: Array<{
     Id?: string
+    Value?: number
   }>
+}
+
+interface CubismMotionJson {
+  Curves?: Array<{
+    Target?: string
+    Id?: string
+    Segments?: number[]
+  }>
+}
+
+const MOTION_DISPLAY_NAMES: Record<string, string> = {
+  baozhiK: 'Newspaper On',
+  baozhiG: 'Newspaper Off',
+  heikuangK: 'Black Frame On',
+  heikuangG: 'Black Frame Off',
+  lianheiK: 'Dark Face On',
+  lianheiG: 'Dark Face Off',
+  mojingK: 'Sunglasses On',
+  mojingG: 'Sunglasses Off',
+  reshuihuG: 'Kettle On',
+  reshuihuK: 'Kettle Off',
+  youeryuanK: 'Kindergarten On',
+  youeryuanG: 'Kindergarten Off',
 }
 
 export async function readCubismModelJSON(path: string) {
@@ -47,6 +78,25 @@ export async function readCubismModelJSON(path: string) {
   }
 
   return JSON5.parse(await readTextFile(join(path, modelFile.name))) as CubismModelJson
+}
+
+export async function resolveModelMotions(path: string, motions: MotionInfo[]) {
+  const modelJSON = await readCubismModelJSON(path)
+  const motionsFromJSON = await readMotionsFromModelJSON(path, modelJSON)
+
+  if (!motions.length) return motionsFromJSON
+
+  return Promise.all(motions.map(async (motion): Promise<ModelMotionInfo> => {
+    const motionConfig = modelJSON.FileReferences?.Motions?.[motion.group]?.[motion.no]
+    const file = motionConfig?.File
+
+    return {
+      ...motion,
+      file,
+      displayName: getMotionDisplayName(file, motion.name),
+      targets: file ? await readMotionTargets(path, file) : undefined,
+    }
+  }))
 }
 
 export async function resolveModelExpressions(path: string, expressions: ExpressionInfo[]) {
@@ -67,9 +117,73 @@ export async function resolveModelExpressions(path: string, expressions: Express
 
     return {
       ...expression,
-      displayName,
+      displayName: displayName ?? expressionConfig.Name,
+      targets: await readExpressionTargets(path, expressionConfig.File),
     }
   }))
+}
+
+async function readMotionsFromModelJSON(path: string, modelJSON: CubismModelJson) {
+  const motionGroups = modelJSON.FileReferences?.Motions
+
+  if (!motionGroups) return []
+
+  const entries = await Promise.all(Object.entries(motionGroups).map(async ([group, items]) => {
+    return Promise.all(items.map(async (item, no): Promise<ModelMotionInfo> => {
+      const name = item.File ? removeModelFileExtension(item.File) : `${group}_${no}`
+
+      return {
+        group,
+        no,
+        name,
+        file: item.File,
+        displayName: getMotionDisplayName(item.File, name),
+        targets: item.File ? await readMotionTargets(path, item.File) : undefined,
+      }
+    }))
+  }))
+
+  return flatMap(entries, motions => motions)
+}
+
+async function readMotionTargets(path: string, file: string) {
+  const motionJSON = await readTextFile(join(path, file))
+    .then(content => JSON5.parse(content) as CubismMotionJson)
+    .catch(() => undefined)
+
+  return motionJSON?.Curves
+    ?.filter(curve => curve.Target === 'Parameter' && curve.Id && curve.Segments?.length)
+    .map((curve): ModelMotionTarget => ({
+      id: curve.Id!,
+      value: curve.Segments![curve.Segments!.length - 1],
+    }))
+}
+
+async function readExpressionTargets(path: string, file: string) {
+  const expressionJSON = await readTextFile(join(path, file))
+    .then(content => JSON5.parse(content) as CubismExpressionJson)
+    .catch(() => undefined)
+
+  return expressionJSON?.Parameters
+    ?.filter(parameter => parameter.Id)
+    .map((parameter): ModelMotionTarget => ({
+      id: parameter.Id!,
+      value: parameter.Value ?? 1,
+    }))
+}
+
+function getMotionDisplayName(file: string | undefined, fallback: string) {
+  if (!file) return fallback
+
+  const name = removeModelFileExtension(file)
+
+  return MOTION_DISPLAY_NAMES[name] ?? name
+}
+
+function removeModelFileExtension(file: string) {
+  return file
+    .replace(/\.(?:motion3|exp3|model3)\.json$/i, '')
+    .replace(/\.[^.]+$/i, '')
 }
 
 async function getParameterNames(path: string, modelJSON: CubismModelJson) {
@@ -136,7 +250,7 @@ class Live2d {
 
     const { width, height } = this.model
 
-    const motions = groupBy(this.model.getMotions(), 'group')
+    const motions = groupBy(await resolveModelMotions(path, this.model.getMotions()), 'group')
     const expressions = await resolveModelExpressions(path, this.model.getExpressions())
 
     return {
@@ -177,8 +291,32 @@ class Live2d {
     })
   }
 
+  public playBehaviorMotion(motion: ModelMotionInfo) {
+    if (motion.targets?.length) {
+      for (const target of motion.targets) {
+        this.setParameterValue(target.id, target.value)
+      }
+
+      return
+    }
+
+    return this.startMotion(motion)
+  }
+
   public setExpression(index: number) {
     return this.model?.setExpression({ index })
+  }
+
+  public playBehaviorExpression(expression: ModelExpressionInfo, index: number) {
+    if (expression.targets?.length) {
+      for (const target of expression.targets) {
+        this.setParameterValue(target.id, target.value)
+      }
+
+      return
+    }
+
+    return this.setExpression(index)
   }
 
   public getParameterValueRange(id: string) {

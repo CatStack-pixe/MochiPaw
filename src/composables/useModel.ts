@@ -74,6 +74,16 @@ export function useModel() {
     return `${modelId}:expression:${index}`
   }
 
+  function getBehaviorNameId(shortcutId: string) {
+    return `${shortcutId}:name`
+  }
+
+  function ensureBehaviorName(id: string, label: string) {
+    if (modelStore.behaviorNames[id]) return
+
+    modelStore.behaviorNames[id] = label
+  }
+
   async function handleLoad() {
     try {
       if (!modelStore.currentModel) return
@@ -97,13 +107,22 @@ export function useModel() {
       const behaviorIds: string[] = []
 
       for (const [groupName, items] of nextMotions) {
-        for (const [index] of items.entries()) {
-          behaviorIds.push(getMotionShortcutId(modelId, groupName, index))
+        for (const [index, motion] of items.entries()) {
+          const id = getMotionShortcutId(modelId, groupName, index)
+
+          behaviorIds.push(id)
+          ensureBehaviorName(getBehaviorNameId(id), motion.displayName ?? motion.name)
         }
       }
 
-      for (const [index] of expressions.entries()) {
-        behaviorIds.push(getExpressionShortcutId(modelId, index))
+      for (const [index, expression] of expressions.entries()) {
+        const id = getExpressionShortcutId(modelId, index)
+
+        behaviorIds.push(id)
+        ensureBehaviorName(
+          getBehaviorNameId(id),
+          expression.displayName ?? expression.name ?? `Expression ${index + 1}`,
+        )
       }
 
       for (const [index, id] of behaviorIds.entries()) {

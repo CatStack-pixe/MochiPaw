@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MotionInfo } from 'easy-live2d'
+import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
 
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { PhysicalSize } from '@tauri-apps/api/dpi'
@@ -127,12 +127,12 @@ watch(() => catStore.model.motionSound, live2d.setMotionSoundEnabled, { immediat
 
 watch(() => catStore.model.maxFPS, live2d.setMaxFPS, { immediate: true })
 
-useTauriListen<MotionInfo>(LISTEN_KEY.START_MOTION, ({ payload }) => {
-  live2d.startMotion(payload)
+useTauriListen<ModelMotionInfo>(LISTEN_KEY.START_MOTION, ({ payload }) => {
+  live2d.playBehaviorMotion(payload)
 })
 
-useTauriListen<number>(LISTEN_KEY.SET_EXPRESSION, ({ payload }) => {
-  live2d.setExpression(payload)
+useTauriListen<{ expression: ModelExpressionInfo, index: number }>(LISTEN_KEY.SET_EXPRESSION, ({ payload }) => {
+  live2d.playBehaviorExpression(payload.expression, payload.index)
 })
 
 function handleMouseDown() {

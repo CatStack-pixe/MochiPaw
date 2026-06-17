@@ -1,24 +1,28 @@
 <script setup lang="ts">
-import { Button, Divider } from 'antdv-next'
+import { Button, Divider, Input } from 'antdv-next'
 
 import Shortcut from '@/components/shortcut/index.vue'
 import { useKeyPress } from '@/composables/useKeyPress'
 
-const { label } = defineProps<{ label: string }>()
 const emit = defineEmits(['click'])
-const modelValue = defineModel<string>()
+const shortcut = defineModel<string>('shortcut')
+const name = defineModel<string>('name')
 
-useKeyPress(modelValue, () => {
+useKeyPress(shortcut, () => {
   emit('click')
 })
 </script>
 
 <template>
-  <div class="flex items-center justify-between px-4 py-2 not-last:(b-b b-b-solid b-border-sec)">
-    <span class="min-w-0 truncate">{{ label }}</span>
+  <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 not-last:(b-b b-b-solid b-border-sec)">
+    <Input
+      v-model:value="name"
+      class="min-w-0"
+      size="small"
+    />
 
     <div class="flex items-center">
-      <Shortcut v-model="modelValue" />
+      <Shortcut v-model="shortcut" />
 
       <Divider type="vertical" />
 

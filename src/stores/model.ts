@@ -18,6 +18,18 @@ export interface Model {
 
 export interface ModelExpressionInfo extends ExpressionInfo {
   displayName?: string
+  targets?: ModelMotionTarget[]
+}
+
+export interface ModelMotionTarget {
+  id: string
+  value: number
+}
+
+export interface ModelMotionInfo extends MotionInfo {
+  file?: string
+  displayName?: string
+  targets?: ModelMotionTarget[]
 }
 
 interface PresetModel {
@@ -55,9 +67,10 @@ export const useModelStore = defineStore('model', () => {
   const currentModel = ref<Model>()
   const supportKeys = reactive<Record<string, string>>({})
   const pressedKeys = reactive<Record<string, string>>({})
-  const currentMotions = ref<Array<[string, MotionInfo[]]>>([])
+  const currentMotions = ref<Array<[string, ModelMotionInfo[]]>>([])
   const currentExpressions = ref<ModelExpressionInfo[]>([])
   const shortcuts = reactive<Record<string, string>>({})
+  const behaviorNames = reactive<Record<string, string>>({})
 
   const init = async () => {
     const modelsPath = await resolveResource('assets/models')
@@ -97,6 +110,7 @@ export const useModelStore = defineStore('model', () => {
     currentMotions,
     currentExpressions,
     shortcuts,
+    behaviorNames,
     init,
   }
 }, {
