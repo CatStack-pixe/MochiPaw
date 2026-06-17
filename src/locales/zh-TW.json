@@ -137,6 +137,7 @@
           "aboutApp": "關於軟體",
           "appLog": "軟體日誌",
           "appInfo": "軟體資訊",
+          "authorInfo": "作者資訊",
           "openSource": "開源網址",
           "debugMonitor": "監控除錯",
           "processMetrics": "行程佔用",
@@ -145,6 +146,7 @@
         },
         "hints": {
           "appInfo": "複製軟體資訊並提供給 Bug Issue。",
+          "authorInfo": "專案作者與協作者資訊。",
           "copySuccess": "複製成功",
           "debugMonitor": "每秒自動重新整理目前應用程式行程的 CPU、記憶體等佔用。CPU 首次取樣會顯示 --。",
           "resourceMetrics": "統計各模型資源的磁碟大小和估算解碼記憶體。貼圖依實際寬高以 RGBA 估算，其他資源依檔案大小估算。",

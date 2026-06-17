@@ -137,6 +137,7 @@
           "aboutApp": "关于软件",
           "appLog": "软件日志",
           "appInfo": "软件信息",
+          "authorInfo": "作者信息",
           "openSource": "开源地址",
           "debugMonitor": "监控调试",
           "processMetrics": "进程占用",
@@ -145,6 +146,7 @@
         },
         "hints": {
           "appInfo": "复制软件信息并提供给 Bug Issue。",
+          "authorInfo": "项目作者与协作者信息。",
           "copySuccess": "复制成功",
           "debugMonitor": "每秒自动刷新当前应用进程的 CPU、内存等占用。CPU 首次采样会显示 --。",
           "resourceMetrics": "统计各模型资源的磁盘大小和估算解码内存。贴图按实际宽高以 RGBA 估算，其它资源按文件大小估算。",

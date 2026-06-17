@@ -137,6 +137,7 @@
           "aboutApp": "Thông tin ứng dụng",
           "appLog": "Nhật ký ứng dụng",
           "appInfo": "Thông tin ứng dụng",
+          "authorInfo": "Tác giả",
           "openSource": "Mã nguồn",
           "debugMonitor": "Giám sát gỡ lỗi",
           "processMetrics": "Mức dùng tiến trình",
@@ -145,6 +146,7 @@
         },
         "hints": {
           "appInfo": "Sao chép thông tin để gửi bug.",
+          "authorInfo": "Tác giả và cộng tác viên dự án.",
           "copySuccess": "Đã sao chép",
           "debugMonitor": "Tự động làm mới CPU, bộ nhớ và mức sử dụng liên quan của tiến trình ứng dụng mỗi giây. CPU hiển thị -- ở lần lấy mẫu đầu tiên.",
           "resourceMetrics": "Hiển thị kích thước tệp và bộ nhớ giải mã ước tính của từng mô hình. Texture ước tính theo RGBA từ kích thước thật; tài nguyên khác dùng kích thước tệp.",

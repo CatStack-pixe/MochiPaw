@@ -3,7 +3,7 @@ import { getTauriVersion } from '@tauri-apps/api/app'
 import { emit } from '@tauri-apps/api/event'
 import { appLogDir } from '@tauri-apps/api/path'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-import { openPath, openUrl } from '@tauri-apps/plugin-opener'
+import { openPath } from '@tauri-apps/plugin-opener'
 import { arch, platform, version } from '@tauri-apps/plugin-os'
 import { Button, Descriptions, message } from 'antdv-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -14,7 +14,7 @@ import type { ModelResourceMetric, ResourceMetricCategory } from '@/utils/modelR
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
-import { GITHUB_LINK, LISTEN_KEY } from '@/constants'
+import { LISTEN_KEY } from '@/constants'
 import { compactProcessMemory, getProcessMetrics } from '@/plugins/adminStatus'
 import { useAppStore } from '@/stores/app'
 import { useModelStore } from '@/stores/model'
@@ -32,6 +32,16 @@ const resourceMetricsLoading = ref(false)
 const compactingMemory = ref(false)
 const { t } = useI18n()
 let metricsTimer: ReturnType<typeof window.setInterval> | undefined
+const authors = [
+  {
+    name: 'InfinityXCat',
+    avatar: '/authors/infinityxcat.png',
+  },
+  {
+    name: 'Dev.Cloud.ZTR_OS',
+    avatar: '/authors/dev-cloud-ztros.jpg',
+  },
+]
 
 onMounted(async () => {
   logDir.value = await appLogDir()
@@ -63,10 +73,6 @@ async function copyInfo() {
   await writeText(JSON.stringify(info, null, 2))
 
   message.success(t('pages.preference.about.hints.copySuccess'))
-}
-
-function feedbackIssue() {
-  openUrl(`${GITHUB_LINK}/issues/new/choose`)
 }
 
 async function refreshMetrics() {
@@ -225,19 +231,24 @@ const currentModelResourceItems = computed(() => {
       </Button>
     </ProListItem>
 
-    <ProListItem :title="$t('pages.preference.about.labels.openSource')">
-      <Button
-        danger
-        @click="feedbackIssue"
-      >
-        {{ $t('pages.preference.about.buttons.feedbackIssues') }}
-      </Button>
-
-      <template #description>
-        <a :href="GITHUB_LINK">
-          {{ GITHUB_LINK }}
-        </a>
-      </template>
+    <ProListItem
+      :description="$t('pages.preference.about.hints.authorInfo')"
+      :title="$t('pages.preference.about.labels.authorInfo')"
+    >
+      <div class="author-list">
+        <div
+          v-for="author in authors"
+          :key="author.name"
+          class="author-item"
+        >
+          <img
+            :alt="author.name"
+            class="author-avatar"
+            :src="author.avatar"
+          >
+          <span>{{ author.name }}</span>
+        </div>
+      </div>
     </ProListItem>
 
     <ProListItem
@@ -336,3 +347,25 @@ const currentModelResourceItems = computed(() => {
     </ProListItem>
   </ProList>
 </template>
+
+<style scoped>
+.author-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.author-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+</style>

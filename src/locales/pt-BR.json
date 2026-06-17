@@ -137,6 +137,7 @@
           "aboutApp": "Sobre o Aplicativo",
           "appLog": "Logs do Aplicativo",
           "appInfo": "Informações do Aplicativo",
+          "authorInfo": "Autores",
           "openSource": "Código Aberto",
           "debugMonitor": "Monitor de Depuração",
           "processMetrics": "Uso do Processo",
@@ -145,6 +146,7 @@
         },
         "hints": {
           "appInfo": "Copiar informações do aplicativo para incluir em relatórios de bugs.",
+          "authorInfo": "Autores e colaboradores do projeto.",
           "copySuccess": "Copiado com sucesso",
           "debugMonitor": "Atualiza CPU, memória e uso relacionado do processo do aplicativo a cada segundo. A CPU mostra -- na primeira amostra.",
           "resourceMetrics": "Mostra o tamanho dos arquivos e a memória decodificada estimada de cada modelo. Texturas usam RGBA pelo tamanho real; outros recursos usam o tamanho do arquivo.",
