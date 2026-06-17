@@ -202,4 +202,3 @@ const summary = sectionPages
   .map(sp => `${sp.name}=${sp.pages.length}`)
   .join(', ')
 console.log(`[embed_text_hash] BCSEC v2 injected (${summary}) into ${exe}`)
-rmSync(tmp, { recursive: true, force: true })
