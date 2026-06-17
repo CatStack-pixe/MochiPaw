@@ -3,7 +3,7 @@ import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
 
 import { emit } from '@tauri-apps/api/event'
 import { Empty, Modal } from 'antdv-next'
-import { isEmpty } from 'es-toolkit/compat'
+import { groupBy, isEmpty } from 'es-toolkit/compat'
 import { watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -74,10 +74,12 @@ function ensureBehaviorNames() {
 watch(modelValue, async (open) => {
   if (!open || !modelStore.currentModel) return
 
-  modelStore.currentMotions = await resolveModelMotions(
+  const motions = await resolveModelMotions(
     modelStore.currentModel.path,
     modelStore.currentMotions.flatMap(([, motions]) => motions),
   )
+
+  modelStore.currentMotions = Object.entries(groupBy(motions, 'group'))
 
   if (!isEmpty(modelStore.currentExpressions)) {
     modelStore.currentExpressions = await resolveModelExpressions(

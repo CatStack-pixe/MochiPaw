@@ -114,7 +114,12 @@ export async function resolveModelExpressions(path: string, expressions: Express
   return Promise.all(expressions.map(async (expression, index): Promise<ModelExpressionInfo> => {
     const expressionConfig = modelJSON.FileReferences?.Expressions?.[index]
 
-    if (!expressionConfig?.File) return expression
+    if (!expressionConfig?.File) {
+      return {
+        ...expression,
+        mutexTargetIds: expressionTargetIds,
+      }
+    }
 
     const expressionJSON = await readTextFile(join(path, expressionConfig.File))
       .then(content => JSON5.parse(content) as CubismExpressionJson)
@@ -317,14 +322,16 @@ class Live2d {
   }
 
   public playBehaviorExpression(expression: ModelExpressionInfo, index: number) {
-    if (expression.targets?.length) {
-      for (const id of expression.mutexTargetIds ?? []) {
-        if (expression.targets.some(target => target.id === id)) continue
+    const targets = expression.targets ?? []
 
-        this.setParameterValue(id, 0)
-      }
+    for (const id of expression.mutexTargetIds ?? []) {
+      if (targets.some(target => target.id === id)) continue
 
-      for (const target of expression.targets) {
+      this.setParameterValue(id, 0)
+    }
+
+    if (targets.length) {
+      for (const target of targets) {
         this.setParameterValue(target.id, target.value)
       }
 
