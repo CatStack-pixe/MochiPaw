@@ -1,5 +1,8 @@
 {
   "identifier": "com.ZTROS.InfinityXCat.Live2D",
+  "build": {
+    "beforeBundleCommand": "pnpm run embed-text-hash"
+  },
   "bundle": {
     "windows": {
       "digestAlgorithm": "sha256",

@@ -1,17 +1,42 @@
 [package]
 name = "tauri-plugin-self-protect"
-version = "0.1.0"
+version = "0.4.0"
 edition = "2021"
 links = "tauri-plugin-self-protect"
+
+[features]
+# 默认空。Windows release 由 build.rs 输出 cargo:rustc-cfg=hardening 自动启用全部基础层(§A1-8)。
+# v0.3 §B 增量层亦默认随 hardening 启用,除标注 *关* 的项目。
+default = []
+hardening = []
+hardening_disable_win32k = ["hardening"]
+hardening_signature_enforce = ["hardening"]
+# §B14 RtlSetProcessIsCritical 蓝屏威慑,默认关(双刃剑)。
+hardening_critical_process = ["hardening"]
+# §B17 ETW 写入侧 hook 检测;默认随 hardening 开。
+hardening_etw_check = ["hardening"]
+# §B15 PAGE_GUARD 蜜罐;默认随 hardening 开。
+hardening_honeypot = ["hardening"]
+# §B10 Hell's Gate 直接 syscall;默认随 hardening 开。
+hardening_direct_syscall = ["hardening"]
 
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dependencies]
 tauri = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+once_cell = "1"
+parking_lot = "0.12"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true }
+sha2 = "0.10"
+hmac = "0.12"
+rand = "0.8"
+rand_core = "0.6"
+zeroize = { version = "1", features = ["zeroize_derive"] }
+obfstr = "0.4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
