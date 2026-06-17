@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { error } from '@tauri-apps/plugin-log'
 
 import type { WINDOW_LABEL } from '../constants'
 
@@ -15,24 +16,40 @@ const COMMAND = {
   SET_TASKBAR_VISIBILITY: 'plugin:custom-window|set_taskbar_visibility',
 }
 
+function formatWindowError(error: unknown) {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`
+  }
+
+  if (typeof error === 'string') return error
+
+  return JSON.stringify(error)
+}
+
+function catchWindowError(action: string) {
+  return (reason: unknown) => {
+    error(`[window:${action}] ${formatWindowError(reason)}`)
+  }
+}
+
 export function showWindow(label?: WindowLabel) {
   if (label) {
-    emit(LISTEN_KEY.SHOW_WINDOW, label)
+    return emit(LISTEN_KEY.SHOW_WINDOW, label).catch(catchWindowError('emit-show'))
   } else {
-    invoke(COMMAND.SHOW_WINDOW)
+    return invoke(COMMAND.SHOW_WINDOW).catch(catchWindowError('show'))
   }
 }
 
 export function hideWindow(label?: WindowLabel) {
   if (label) {
-    emit(LISTEN_KEY.HIDE_WINDOW, label)
+    return emit(LISTEN_KEY.HIDE_WINDOW, label).catch(catchWindowError('emit-hide'))
   } else {
-    invoke(COMMAND.HIDE_WINDOW)
+    return invoke(COMMAND.HIDE_WINDOW).catch(catchWindowError('hide'))
   }
 }
 
 export function setAlwaysOnTop(alwaysOnTop: boolean) {
-  invoke(COMMAND.SET_ALWAYS_ON_TOP, { alwaysOnTop })
+  return invoke(COMMAND.SET_ALWAYS_ON_TOP, { alwaysOnTop }).catch(catchWindowError('always-on-top'))
 }
 
 export async function toggleWindowVisible(label?: WindowLabel) {
@@ -50,5 +67,5 @@ export async function toggleWindowVisible(label?: WindowLabel) {
 }
 
 export async function setTaskbarVisibility(visible: boolean) {
-  invoke(COMMAND.SET_TASKBAR_VISIBILITY, { visible })
+  return invoke(COMMAND.SET_TASKBAR_VISIBILITY, { visible }).catch(catchWindowError('taskbar'))
 }

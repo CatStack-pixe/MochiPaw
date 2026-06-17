@@ -32,6 +32,17 @@ const { isRestored, restoreState } = useWindowState()
 const { darkAlgorithm, defaultAlgorithm } = theme
 const { locale } = useI18n()
 
+function formatError(reason: unknown) {
+  if (reason instanceof Error) {
+    return `${reason.name}: ${reason.message}\n${reason.stack ?? ''}`
+  }
+
+  if (isString(reason)) return reason
+  if (reason == null) return String(reason)
+
+  return JSON.stringify(reason, Object.getOwnPropertyNames(reason)) ?? String(reason)
+}
+
 onMounted(async () => {
   await appStore.$tauri.start()
   await appStore.init()
@@ -62,9 +73,7 @@ useTauriListen(LISTEN_KEY.HIDE_WINDOW, ({ payload }) => {
 })
 
 useEventListener('unhandledrejection', ({ reason }) => {
-  const message = isString(reason) ? reason : JSON.stringify(reason)
-
-  error(message)
+  error(formatError(reason))
 })
 
 useEventListener('click', (event) => {

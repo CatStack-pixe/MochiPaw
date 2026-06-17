@@ -98,9 +98,10 @@ watch(modelValue, async (open) => {
     :footer="null"
     force-render
     :title="$t('pages.preference.model.behaviorModal.title')"
+    width="900px"
   >
-    <div class="max-h-[70vh] flex flex-col gap-5 overflow-auto pr-1">
-      <section class="flex flex-col gap-3">
+    <div class="grid max-h-[70vh] grid-cols-1 gap-5 overflow-auto pr-1 lg:grid-cols-2">
+      <section class="min-w-0 flex flex-col gap-3">
         <div class="text-sm font-medium">
           {{ $t('pages.preference.model.behaviorModal.labels.motion') }}
         </div>
@@ -110,32 +111,32 @@ watch(modelValue, async (open) => {
           :image="Empty.PRESENTED_IMAGE_SIMPLE"
         />
 
-      <template v-else>
-        <div
-          v-for="([groupName, motions], groupIndex) in modelStore.currentMotions"
-          :key="groupName"
-        >
-          <div class="mb-2">
-            {{ $t('pages.preference.model.behaviorModal.labels.motionGroupIndex', { index: groupIndex + 1 }) }}
-          </div>
+        <template v-else>
+          <div
+            v-for="([groupName, motions], groupIndex) in modelStore.currentMotions"
+            :key="groupName"
+          >
+            <div class="mb-2">
+              {{ $t('pages.preference.model.behaviorModal.labels.motionGroupIndex', { index: groupIndex + 1 }) }}
+            </div>
 
-          <div class="b-1 b-solid b-border rounded-lg">
-            <template
-              v-for="(item, index) in motions"
-              :key="item.no"
-            >
-              <BehaviorItem
-                v-model:name="modelStore.behaviorNames[getMotionNameId(groupName, index)]"
-                v-model:shortcut="modelStore.shortcuts[getMotionShortcutId(groupName, index)]"
-                @click="startMotion(item)"
-              />
-            </template>
+            <div class="b-1 b-solid b-border rounded-lg">
+              <template
+                v-for="(item, index) in motions"
+                :key="item.no"
+              >
+                <BehaviorItem
+                  v-model:name="modelStore.behaviorNames[getMotionNameId(groupName, index)]"
+                  v-model:shortcut="modelStore.shortcuts[getMotionShortcutId(groupName, index)]"
+                  @click="startMotion(item)"
+                />
+              </template>
+            </div>
           </div>
-        </div>
         </template>
       </section>
 
-      <section class="flex flex-col gap-3">
+      <section class="min-w-0 flex flex-col gap-3">
         <div class="text-sm font-medium">
           {{ $t('pages.preference.model.behaviorModal.labels.expression') }}
         </div>

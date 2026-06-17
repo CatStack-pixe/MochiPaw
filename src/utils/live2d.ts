@@ -102,6 +102,14 @@ export async function resolveModelMotions(path: string, motions: MotionInfo[]) {
 export async function resolveModelExpressions(path: string, expressions: ExpressionInfo[]) {
   const modelJSON = await readCubismModelJSON(path)
   const parameterNames = await getParameterNames(path, modelJSON)
+  const expressionTargets = await Promise.all(
+    modelJSON.FileReferences?.Expressions?.map(async (expression) => {
+      return expression.File ? await readExpressionTargets(path, expression.File) : []
+    }) ?? [],
+  )
+  const expressionTargetIds = [...new Set(
+    flatMap(expressionTargets, targets => targets?.map(target => target.id) ?? []),
+  )]
 
   return Promise.all(expressions.map(async (expression, index): Promise<ModelExpressionInfo> => {
     const expressionConfig = modelJSON.FileReferences?.Expressions?.[index]
@@ -118,7 +126,8 @@ export async function resolveModelExpressions(path: string, expressions: Express
     return {
       ...expression,
       displayName: displayName ?? expressionConfig.Name,
-      targets: await readExpressionTargets(path, expressionConfig.File),
+      targets: expressionTargets[index],
+      mutexTargetIds: expressionTargetIds,
     }
   }))
 }
@@ -309,6 +318,12 @@ class Live2d {
 
   public playBehaviorExpression(expression: ModelExpressionInfo, index: number) {
     if (expression.targets?.length) {
+      for (const id of expression.mutexTargetIds ?? []) {
+        if (expression.targets.some(target => target.id === id)) continue
+
+        this.setParameterValue(id, 0)
+      }
+
       for (const target of expression.targets) {
         this.setParameterValue(target.id, target.value)
       }

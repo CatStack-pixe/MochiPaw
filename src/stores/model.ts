@@ -19,6 +19,7 @@ export interface Model {
 export interface ModelExpressionInfo extends ExpressionInfo {
   displayName?: string
   targets?: ModelMotionTarget[]
+  mutexTargetIds?: string[]
 }
 
 export interface ModelMotionTarget {
