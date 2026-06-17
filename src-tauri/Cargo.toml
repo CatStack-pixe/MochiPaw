@@ -23,6 +23,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tauri-plugin-custom-window.workspace = true
 tauri-plugin-admin-status.workspace = true
+tauri-plugin-self-protect = { path = "src/plugins/self-protect" }
 tauri-plugin-os = "2"
 tauri-plugin-process = "2"
 tauri-plugin-opener = "2"

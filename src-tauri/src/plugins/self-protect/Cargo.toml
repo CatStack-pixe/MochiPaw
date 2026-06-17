@@ -1,0 +1,17 @@
+[package]
+name = "tauri-plugin-self-protect"
+version = "0.1.0"
+edition = "2021"
+links = "tauri-plugin-self-protect"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dependencies]
+tauri = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"

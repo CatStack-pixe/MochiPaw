@@ -19,6 +19,16 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle();
 
+            std::thread::spawn(|| {
+                loop {
+                    if tauri_plugin_self_protect::is_debugged() {
+                        std::process::exit(0);
+                    }
+
+                    std::thread::sleep(std::time::Duration::from_secs(5));
+                }
+            });
+
             let main_window = app.get_webview_window(MAIN_WINDOW_LABEL).unwrap();
 
             let preference_window = app.get_webview_window(PREFERENCE_WINDOW_LABEL).unwrap();
@@ -62,6 +72,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_locale::init())
+        .plugin(tauri_plugin_self_protect::init())
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => {
                 let _ = window.hide();
