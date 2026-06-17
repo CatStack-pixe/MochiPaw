@@ -134,24 +134,21 @@ pub fn system_path_keywords_lowercase() -> Vec<String> {
 /// `KnownDlls` 段路径,§B11 通过 NtOpenSection 打开。
 /// 注意返回 UTF-16 序列(以 0 结尾)以适配 NT 内部 OBJECT_ATTRIBUTES。
 pub fn known_dll_ntdll_utf16() -> Vec<u16> {
-    let lit: &str = s!("\\KnownDlls\\ntdll.dll");
-    let mut v: Vec<u16> = lit.encode_utf16().collect();
+    let mut v: Vec<u16> = s!("\\KnownDlls\\ntdll.dll").encode_utf16().collect();
     v.push(0);
     v
 }
 
 /// §C20 KnownDlls\\kernelbase.dll(NT 路径,UTF-16 含 0)。
 pub fn known_dll_kernelbase_utf16() -> Vec<u16> {
-    let lit: &str = s!("\\KnownDlls\\kernelbase.dll");
-    let mut v: Vec<u16> = lit.encode_utf16().collect();
+    let mut v: Vec<u16> = s!("\\KnownDlls\\kernelbase.dll").encode_utf16().collect();
     v.push(0);
     v
 }
 
 /// §C20 KnownDlls\\kernel32.dll(NT 路径,UTF-16 含 0)。
 pub fn known_dll_kernel32_utf16() -> Vec<u16> {
-    let lit: &str = s!("\\KnownDlls\\kernel32.dll");
-    let mut v: Vec<u16> = lit.encode_utf16().collect();
+    let mut v: Vec<u16> = s!("\\KnownDlls\\kernel32.dll").encode_utf16().collect();
     v.push(0);
     v
 }

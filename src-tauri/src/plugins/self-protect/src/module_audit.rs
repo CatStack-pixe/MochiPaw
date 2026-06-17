@@ -282,7 +282,6 @@ pub fn start(cfg: &PolicyConfig) {
                 SNAPSHOT.last_check_ms.store(now_ms(), Ordering::Relaxed);
                 let cur = SNAPSHOT.anomalies.load(Ordering::Relaxed);
                 if cur > prev_anomalies {
-                    prev_anomalies = cur;
                     kill_self(exit_code::MANUAL_MAP, kill);
                     return;
                 }
