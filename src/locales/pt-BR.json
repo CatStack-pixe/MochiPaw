@@ -135,17 +135,29 @@
           "aboutApp": "Sobre o Aplicativo",
           "appLog": "Logs do Aplicativo",
           "appInfo": "Informações do Aplicativo",
-          "openSource": "Código Aberto"
+          "openSource": "Código Aberto",
+          "debugMonitor": "Monitor de Depuração",
+          "processMetrics": "Uso do Processo"
         },
         "hints": {
           "appInfo": "Copiar informações do aplicativo para incluir em relatórios de bugs.",
-          "copySuccess": "Copiado com sucesso"
+          "copySuccess": "Copiado com sucesso",
+          "debugMonitor": "Atualiza CPU, memória e uso relacionado do processo do aplicativo a cada segundo. A CPU mostra -- na primeira amostra."
         },
         "buttons": {
           "checkUpdate": "Verificar atualizações",
           "copy": "Copiar",
           "feedbackIssues": "Reportar Problema",
-          "viewLog": "Ver Logs"
+          "viewLog": "Ver Logs",
+          "refresh": "Atualizar"
+        },
+        "metrics": {
+          "pid": "PID",
+          "cpuUsage": "Uso de CPU",
+          "memory": "Memória",
+          "virtualMemory": "Memória Virtual",
+          "threads": "Threads",
+          "uptime": "Tempo em execução"
         }
       }
     }

@@ -135,17 +135,29 @@
           "aboutApp": "Thông tin ứng dụng",
           "appLog": "Nhật ký ứng dụng",
           "appInfo": "Thông tin ứng dụng",
-          "openSource": "Mã nguồn"
+          "openSource": "Mã nguồn",
+          "debugMonitor": "Giám sát gỡ lỗi",
+          "processMetrics": "Mức dùng tiến trình"
         },
         "hints": {
           "appInfo": "Sao chép thông tin để gửi bug.",
-          "copySuccess": "Đã sao chép"
+          "copySuccess": "Đã sao chép",
+          "debugMonitor": "Tự động làm mới CPU, bộ nhớ và mức sử dụng liên quan của tiến trình ứng dụng mỗi giây. CPU hiển thị -- ở lần lấy mẫu đầu tiên."
         },
         "buttons": {
           "checkUpdate": "Kiểm tra cập nhật",
           "copy": "Sao chép",
           "feedbackIssues": "Báo lỗi",
-          "viewLog": "Xem nhật ký"
+          "viewLog": "Xem nhật ký",
+          "refresh": "Làm mới"
+        },
+        "metrics": {
+          "pid": "PID",
+          "cpuUsage": "CPU",
+          "memory": "Bộ nhớ",
+          "virtualMemory": "Bộ nhớ ảo",
+          "threads": "Luồng",
+          "uptime": "Thời gian chạy"
         }
       }
     }

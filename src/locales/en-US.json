@@ -135,17 +135,29 @@
           "aboutApp": "About App",
           "appLog": "App Logs",
           "appInfo": "App Info",
-          "openSource": "Open Source"
+          "openSource": "Open Source",
+          "debugMonitor": "Debug Monitor",
+          "processMetrics": "Process Usage"
         },
         "hints": {
           "appInfo": "Copy app information and provide it to bug issue.",
-          "copySuccess": "Copied Successfully"
+          "copySuccess": "Copied Successfully",
+          "debugMonitor": "Refreshes the current app process CPU, memory, and related usage every second. CPU shows -- on the first sample."
         },
         "buttons": {
           "checkUpdate": "Check for Updates",
           "copy": "Copy",
           "feedbackIssues": "Feedback Issues",
-          "viewLog": "View Logs"
+          "viewLog": "View Logs",
+          "refresh": "Refresh"
+        },
+        "metrics": {
+          "pid": "PID",
+          "cpuUsage": "CPU Usage",
+          "memory": "Memory",
+          "virtualMemory": "Virtual Memory",
+          "threads": "Threads",
+          "uptime": "Uptime"
         }
       }
     }

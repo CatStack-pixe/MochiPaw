@@ -135,17 +135,29 @@
           "aboutApp": "关于软件",
           "appLog": "软件日志",
           "appInfo": "软件信息",
-          "openSource": "开源地址"
+          "openSource": "开源地址",
+          "debugMonitor": "监控调试",
+          "processMetrics": "进程占用"
         },
         "hints": {
           "appInfo": "复制软件信息并提供给 Bug Issue。",
-          "copySuccess": "复制成功"
+          "copySuccess": "复制成功",
+          "debugMonitor": "每秒自动刷新当前应用进程的 CPU、内存等占用。CPU 首次采样会显示 --。"
         },
         "buttons": {
           "checkUpdate": "检查更新",
           "copy": "复制",
           "feedbackIssues": "反馈问题",
-          "viewLog": "查看日志"
+          "viewLog": "查看日志",
+          "refresh": "刷新"
+        },
+        "metrics": {
+          "pid": "PID",
+          "cpuUsage": "CPU 占用",
+          "memory": "内存占用",
+          "virtualMemory": "虚拟内存",
+          "threads": "线程数",
+          "uptime": "运行时长"
         }
       }
     }

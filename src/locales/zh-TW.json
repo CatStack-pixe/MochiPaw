@@ -135,17 +135,29 @@
           "aboutApp": "關於軟體",
           "appLog": "軟體日誌",
           "appInfo": "軟體資訊",
-          "openSource": "開源網址"
+          "openSource": "開源網址",
+          "debugMonitor": "監控除錯",
+          "processMetrics": "行程佔用"
         },
         "hints": {
           "appInfo": "複製軟體資訊並提供給 Bug Issue。",
-          "copySuccess": "複製成功"
+          "copySuccess": "複製成功",
+          "debugMonitor": "每秒自動重新整理目前應用程式行程的 CPU、記憶體等佔用。CPU 首次取樣會顯示 --。"
         },
         "buttons": {
           "checkUpdate": "檢查更新",
           "copy": "複製",
           "feedbackIssues": "回饋問題",
-          "viewLog": "查看日誌"
+          "viewLog": "查看日誌",
+          "refresh": "重新整理"
+        },
+        "metrics": {
+          "pid": "PID",
+          "cpuUsage": "CPU 佔用",
+          "memory": "記憶體佔用",
+          "virtualMemory": "虛擬記憶體",
+          "threads": "執行緒數",
+          "uptime": "執行時間"
         }
       }
     }

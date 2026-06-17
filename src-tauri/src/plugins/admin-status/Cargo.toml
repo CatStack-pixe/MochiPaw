@@ -9,6 +9,7 @@ links = "tauri-plugin-admin-status"
 
 [dependencies]
 tauri.workspace = true
+serde.workspace = true
 
 [build-dependencies]
 tauri-plugin.workspace = true
