@@ -84,6 +84,16 @@ export function useModel() {
     modelStore.behaviorNames[id] = label
   }
 
+  function ensureBehaviorConfig(id: string, group: string, mutexGroup = group) {
+    if (modelStore.behaviorConfigs[id]) return
+
+    modelStore.behaviorConfigs[id] = {
+      group,
+      mutexGroup,
+      resetDelay: 0.8,
+    }
+  }
+
   async function handleLoad() {
     try {
       if (!modelStore.currentModel) return
@@ -112,6 +122,7 @@ export function useModel() {
 
           behaviorIds.push(id)
           ensureBehaviorName(getBehaviorNameId(id), motion.displayName ?? motion.name)
+          ensureBehaviorConfig(id, motion.group)
         }
       }
 
@@ -123,6 +134,7 @@ export function useModel() {
           getBehaviorNameId(id),
           expression.displayName ?? expression.name ?? `Expression ${index + 1}`,
         )
+        ensureBehaviorConfig(id, 'expression')
       }
 
       for (const [index, id] of behaviorIds.entries()) {

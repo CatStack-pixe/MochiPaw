@@ -19,6 +19,7 @@ export interface Model {
 export interface ModelExpressionInfo extends ExpressionInfo {
   displayName?: string
   targets?: ModelMotionTarget[]
+  defaultTargets?: ModelMotionTarget[]
   mutexTargetIds?: string[]
 }
 
@@ -27,10 +28,17 @@ export interface ModelMotionTarget {
   value: number
 }
 
+export interface ModelBehaviorConfig {
+  group: string
+  mutexGroup: string
+  resetDelay: number
+}
+
 export interface ModelMotionInfo extends MotionInfo {
   file?: string
   displayName?: string
   targets?: ModelMotionTarget[]
+  defaultTargets?: ModelMotionTarget[]
 }
 
 interface PresetModel {
@@ -72,6 +80,7 @@ export const useModelStore = defineStore('model', () => {
   const currentExpressions = ref<ModelExpressionInfo[]>([])
   const shortcuts = reactive<Record<string, string>>({})
   const behaviorNames = reactive<Record<string, string>>({})
+  const behaviorConfigs = reactive<Record<string, ModelBehaviorConfig>>({})
 
   const init = async () => {
     const modelsPath = await resolveResource('assets/models')
@@ -112,6 +121,7 @@ export const useModelStore = defineStore('model', () => {
     currentExpressions,
     shortcuts,
     behaviorNames,
+    behaviorConfigs,
     init,
   }
 }, {

@@ -8,7 +8,7 @@ import JSON5 from 'json5'
 import { Application, Ticker } from 'pixi.js'
 
 import type { ModelSize } from '@/composables/useModel'
-import type { ModelExpressionInfo, ModelMotionInfo, ModelMotionTarget } from '@/stores/model'
+import type { ModelBehaviorConfig, ModelExpressionInfo, ModelMotionInfo, ModelMotionTarget } from '@/stores/model'
 
 import { i18n } from '@/locales'
 
@@ -89,12 +89,13 @@ export async function resolveModelMotions(path: string, motions: MotionInfo[]) {
   return Promise.all(motions.map(async (motion): Promise<ModelMotionInfo> => {
     const motionConfig = modelJSON.FileReferences?.Motions?.[motion.group]?.[motion.no]
     const file = motionConfig?.File
+    const motionTargets = file ? await readMotionTargets(path, file) : {}
 
     return {
       ...motion,
       file,
       displayName: getMotionDisplayName(file, motion.name),
-      targets: file ? await readMotionTargets(path, file) : undefined,
+      ...motionTargets,
     }
   }))
 }
@@ -110,6 +111,7 @@ export async function resolveModelExpressions(path: string, expressions: Express
   const expressionTargetIds = [...new Set(
     flatMap(expressionTargets, targets => targets?.map(target => target.id) ?? []),
   )]
+  const defaultExpressionTargets = expressionTargetIds.map((id): ModelMotionTarget => ({ id, value: 0 }))
 
   return Promise.all(expressions.map(async (expression, index): Promise<ModelExpressionInfo> => {
     const expressionConfig = modelJSON.FileReferences?.Expressions?.[index]
@@ -117,6 +119,7 @@ export async function resolveModelExpressions(path: string, expressions: Express
     if (!expressionConfig?.File) {
       return {
         ...expression,
+        defaultTargets: defaultExpressionTargets,
         mutexTargetIds: expressionTargetIds,
       }
     }
@@ -132,6 +135,7 @@ export async function resolveModelExpressions(path: string, expressions: Express
       ...expression,
       displayName: displayName ?? expressionConfig.Name,
       targets: expressionTargets[index],
+      defaultTargets: defaultExpressionTargets,
       mutexTargetIds: expressionTargetIds,
     }
   }))
@@ -145,6 +149,7 @@ async function readMotionsFromModelJSON(path: string, modelJSON: CubismModelJson
   const entries = await Promise.all(Object.entries(motionGroups).map(async ([group, items]) => {
     return Promise.all(items.map(async (item, no): Promise<ModelMotionInfo> => {
       const name = item.File ? removeModelFileExtension(item.File) : `${group}_${no}`
+      const motionTargets = item.File ? await readMotionTargets(path, item.File) : {}
 
       return {
         group,
@@ -152,7 +157,7 @@ async function readMotionsFromModelJSON(path: string, modelJSON: CubismModelJson
         name,
         file: item.File,
         displayName: getMotionDisplayName(item.File, name),
-        targets: item.File ? await readMotionTargets(path, item.File) : undefined,
+        ...motionTargets,
       }
     }))
   }))
@@ -165,12 +170,19 @@ async function readMotionTargets(path: string, file: string) {
     .then(content => JSON5.parse(content) as CubismMotionJson)
     .catch(() => undefined)
 
-  return motionJSON?.Curves
+  const parameterCurves = motionJSON?.Curves
     ?.filter(curve => curve.Target === 'Parameter' && curve.Id && curve.Segments?.length)
-    .map((curve): ModelMotionTarget => ({
+
+  return {
+    targets: parameterCurves?.map((curve): ModelMotionTarget => ({
       id: curve.Id!,
       value: curve.Segments![curve.Segments!.length - 1],
-    }))
+    })),
+    defaultTargets: parameterCurves?.map((curve): ModelMotionTarget => ({
+      id: curve.Id!,
+      value: curve.Segments![1] ?? 0,
+    })),
+  }
 }
 
 async function readExpressionTargets(path: string, file: string) {
@@ -219,6 +231,7 @@ async function getParameterNames(path: string, modelJSON: CubismModelJson) {
 class Live2d {
   private app: Application | null = null
   public model: Live2DSprite | null = null
+  private behaviorResetTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   constructor() { }
 
@@ -305,11 +318,46 @@ class Live2d {
     })
   }
 
-  public playBehaviorMotion(motion: ModelMotionInfo) {
+  private clearBehaviorResetTimer(group: string) {
+    const timer = this.behaviorResetTimers.get(group)
+
+    if (!timer) return
+
+    clearTimeout(timer)
+    this.behaviorResetTimers.delete(group)
+  }
+
+  private scheduleBehaviorReset(group: string, targets: ModelMotionTarget[] | undefined, delay: number) {
+    this.clearBehaviorResetTimer(group)
+
+    if (!targets?.length || delay < 0) return
+
+    this.behaviorResetTimers.set(group, setTimeout(() => {
+      for (const target of targets) {
+        this.setParameterValue(target.id, target.value)
+      }
+
+      this.behaviorResetTimers.delete(group)
+    }, delay * 1000))
+  }
+
+  public playBehaviorMotion(motion: ModelMotionInfo, config?: ModelBehaviorConfig, mutexTargets: ModelMotionTarget[] = []) {
     if (motion.targets?.length) {
+      const group = config?.group || motion.group
+
+      this.clearBehaviorResetTimer(group)
+
+      for (const target of mutexTargets) {
+        if (motion.targets.some(item => item.id === target.id)) continue
+
+        this.setParameterValue(target.id, target.value)
+      }
+
       for (const target of motion.targets) {
         this.setParameterValue(target.id, target.value)
       }
+
+      this.scheduleBehaviorReset(group, motion.defaultTargets, config?.resetDelay ?? -1)
 
       return
     }
@@ -321,13 +369,16 @@ class Live2d {
     return this.model?.setExpression({ index })
   }
 
-  public playBehaviorExpression(expression: ModelExpressionInfo, index: number) {
+  public playBehaviorExpression(expression: ModelExpressionInfo, index: number, config?: ModelBehaviorConfig, mutexTargets: ModelMotionTarget[] = []) {
     const targets = expression.targets ?? []
+    const group = config?.group || 'expression'
 
-    for (const id of expression.mutexTargetIds ?? []) {
-      if (targets.some(target => target.id === id)) continue
+    this.clearBehaviorResetTimer(group)
 
-      this.setParameterValue(id, 0)
+    for (const target of mutexTargets) {
+      if (targets.some(item => item.id === target.id)) continue
+
+      this.setParameterValue(target.id, target.value)
     }
 
     if (targets.length) {
@@ -335,7 +386,15 @@ class Live2d {
         this.setParameterValue(target.id, target.value)
       }
 
+      this.scheduleBehaviorReset(group, expression.defaultTargets, config?.resetDelay ?? -1)
+
       return
+    }
+
+    if (expression.defaultTargets?.length) {
+      for (const target of expression.defaultTargets) {
+        this.setParameterValue(target.id, target.value)
+      }
     }
 
     return this.setExpression(index)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
+import type { ModelBehaviorConfig, ModelExpressionInfo, ModelMotionInfo, ModelMotionTarget } from '@/stores/model'
 
 import { emit } from '@tauri-apps/api/event'
 import { Empty, Modal } from 'antdv-next'
@@ -25,12 +25,25 @@ function getExpressionShortcutId(index: number) {
   return `${modelStore.currentModel?.id}:expression:${index}`
 }
 
-function startMotion(motion: ModelMotionInfo) {
-  emit(LISTEN_KEY.START_MOTION, motion)
+function startMotion(motion: ModelMotionInfo, index: number) {
+  const config = getBehaviorConfig(getMotionShortcutId(motion.group, index), motion.group)
+
+  emit(LISTEN_KEY.START_MOTION, {
+    motion,
+    config,
+    mutexTargets: getMotionMutexTargets(motion, config),
+  })
 }
 
 function setExpression(expression: ModelExpressionInfo, index: number) {
-  emit(LISTEN_KEY.SET_EXPRESSION, { expression, index })
+  const config = getBehaviorConfig(getExpressionShortcutId(index), 'expression')
+
+  emit(LISTEN_KEY.SET_EXPRESSION, {
+    expression,
+    index,
+    config,
+    mutexTargets: getExpressionMutexTargets(expression, config),
+  })
 }
 
 function getMotionNameId(groupName: string, index: number) {
@@ -59,16 +72,76 @@ function ensureBehaviorName(id: string, label: string) {
   modelStore.behaviorNames[id] = label
 }
 
+function getDefaultBehaviorConfig(group: string, mutexGroup = group): ModelBehaviorConfig {
+  return {
+    group,
+    mutexGroup,
+    resetDelay: 0.8,
+  }
+}
+
+function ensureBehaviorConfig(id: string, group: string, mutexGroup = group) {
+  modelStore.behaviorConfigs[id] ??= getDefaultBehaviorConfig(group, mutexGroup)
+}
+
+function getBehaviorConfig(id: string, group: string, mutexGroup = group) {
+  ensureBehaviorConfig(id, group, mutexGroup)
+
+  return modelStore.behaviorConfigs[id]
+}
+
 function ensureBehaviorNames() {
   for (const [, motions] of modelStore.currentMotions) {
     for (const [index, motion] of motions.entries()) {
+      const id = getMotionShortcutId(motion.group, index)
+
       ensureBehaviorName(getMotionNameId(motion.group, index), getMotionDefaultLabel(motion, index))
+      ensureBehaviorConfig(id, motion.group)
     }
   }
 
   for (const [index] of modelStore.currentExpressions.entries()) {
+    const id = getExpressionShortcutId(index)
+
     ensureBehaviorName(getExpressionNameId(index), getExpressionLabel(index))
+    ensureBehaviorConfig(id, 'expression')
   }
+}
+
+function uniqueTargets(targets: ModelMotionTarget[]) {
+  const targetMap = new Map<string, ModelMotionTarget>()
+
+  for (const target of targets) {
+    targetMap.set(target.id, target)
+  }
+
+  return [...targetMap.values()]
+}
+
+function getMotionMutexTargets(currentMotion: ModelMotionInfo, currentConfig: ModelBehaviorConfig) {
+  return uniqueTargets(modelStore.currentMotions.flatMap(([groupName, motions]) => {
+    return motions.flatMap((motion, index) => {
+      if (motion === currentMotion) return []
+
+      const config = getBehaviorConfig(getMotionShortcutId(groupName, index), groupName)
+
+      if (!config.mutexGroup || config.mutexGroup !== currentConfig.mutexGroup) return []
+
+      return motion.defaultTargets ?? []
+    })
+  }))
+}
+
+function getExpressionMutexTargets(currentExpression: ModelExpressionInfo, currentConfig: ModelBehaviorConfig) {
+  return uniqueTargets(modelStore.currentExpressions.flatMap((expression, index) => {
+    if (expression === currentExpression) return []
+
+    const config = getBehaviorConfig(getExpressionShortcutId(index), 'expression')
+
+    if (!config.mutexGroup || config.mutexGroup !== currentConfig.mutexGroup) return []
+
+    return expression.defaultTargets ?? []
+  }))
 }
 
 watch(modelValue, async (open) => {
@@ -128,9 +201,10 @@ watch(modelValue, async (open) => {
                 :key="item.no"
               >
                 <BehaviorItem
+                  v-model:config="modelStore.behaviorConfigs[getMotionShortcutId(groupName, index)]"
                   v-model:name="modelStore.behaviorNames[getMotionNameId(groupName, index)]"
                   v-model:shortcut="modelStore.shortcuts[getMotionShortcutId(groupName, index)]"
-                  @click="startMotion(item)"
+                  @click="startMotion(item, index)"
                 />
               </template>
             </div>
@@ -157,6 +231,7 @@ watch(modelValue, async (open) => {
             :key="item.name"
           >
             <BehaviorItem
+              v-model:config="modelStore.behaviorConfigs[getExpressionShortcutId(index)]"
               v-model:name="modelStore.behaviorNames[getExpressionNameId(index)]"
               v-model:shortcut="modelStore.shortcuts[getExpressionShortcutId(index)]"
               @click="setExpression(item, index)"
