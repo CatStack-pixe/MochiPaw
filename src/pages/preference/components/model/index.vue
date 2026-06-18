@@ -23,6 +23,22 @@ const { height } = useElementSize(firstCardRef)
 const { t } = useI18n()
 const openBehaviorModal = ref(false)
 
+function waitForFrames(count = 2) {
+  return new Promise<void>((resolve) => {
+    const wait = () => {
+      if (count <= 0) {
+        resolve()
+        return
+      }
+
+      count -= 1
+      requestAnimationFrame(wait)
+    }
+
+    requestAnimationFrame(wait)
+  })
+}
+
 const masonryItems = computed(() => {
   const items = modelStore.models.map((item) => {
     return {
@@ -44,19 +60,32 @@ function handleToggle(nextModel: Model) {
 
 async function handleDelete(item: Model) {
   const { id, path } = item
+  const previousModels = modelStore.models
+  const previousCurrentModel = modelStore.currentModel
+  const nextModels = previousModels.filter(model => model.id !== id)
+  const isCurrentModel = id === previousCurrentModel?.id
+
+  modelStore.models = nextModels
+
+  if (isCurrentModel) {
+    modelStore.modelReady = false
+    modelStore.currentModel = nextModels[0]
+  }
 
   try {
+    await waitForFrames()
+
     await remove(path, { recursive: true })
 
     message.success(t('pages.preference.model.hints.deleteSuccess'))
   } catch (error) {
-    message.error(String(error))
-  } finally {
-    modelStore.models = modelStore.models.filter(item => item.id !== id)
+    modelStore.models = previousModels
 
-    if (id === modelStore.currentModel?.id) {
-      modelStore.currentModel = modelStore.models[0]
+    if (isCurrentModel) {
+      modelStore.currentModel = previousCurrentModel
     }
+
+    message.error(String(error))
   }
 }
 </script>

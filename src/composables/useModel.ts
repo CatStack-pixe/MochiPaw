@@ -15,7 +15,7 @@ import { useModelStore } from '@/stores/model'
 import { getCursorMonitor } from '@/utils/monitor'
 import { isMac } from '@/utils/platform'
 
-import live2d from '../utils/live2d'
+import live2d, { isLive2dLoadCancelledError } from '../utils/live2d'
 
 const appWindow = getCurrentWebviewWindow()
 const digitKeys = '1234567890'.split('') as readonly string[]
@@ -201,6 +201,8 @@ export function useModel() {
 
       ensureDefaultBehaviorGroup(modelId, behaviorIds)
     } catch (error) {
+      if (isLive2dLoadCancelledError(error)) return
+
       message.error(String(error))
     }
   }

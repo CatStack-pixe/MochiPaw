@@ -14,6 +14,7 @@ export interface Model {
   path: string
   mode: ModelMode
   isPreset: boolean
+  fingerprint?: string
 }
 
 export interface ModelExpressionInfo extends ExpressionInfo {

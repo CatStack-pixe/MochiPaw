@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { open } from '@tauri-apps/plugin-dialog'
-import { copyFile, exists, mkdir, readDir, readTextFile, stat } from '@tauri-apps/plugin-fs'
+import { copyFile, exists, mkdir, readDir, readFile, readTextFile, stat } from '@tauri-apps/plugin-fs'
 import { message } from 'antdv-next'
 import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
@@ -36,10 +36,20 @@ interface LegacyGamepadConfig {
   righthand?: number[][]
 }
 
+interface CubismModelJSON {
+  FileReferences?: {
+    Moc?: string
+    Textures?: string[]
+    Physics?: string
+    DisplayInfo?: string
+  }
+}
+
 interface ImportVariant {
   mode: ModelMode
   rootPath: string
   modelPath: string
+  fingerprint: string
 }
 
 interface KeyImageRef {
@@ -179,6 +189,12 @@ watch(selectPaths, async (paths) => {
     try {
       const importedModels = await importFromPath(fromPath)
 
+      if (!importedModels.length) {
+        message.info('Model already imported')
+
+        continue
+      }
+
       for (const model of importedModels) {
         modelStore.models.push(model)
       }
@@ -199,8 +215,11 @@ async function importFromPath(fromPath: string) {
   }
 
   const models = []
+  const importedFingerprints = await getImportedFingerprints()
 
   for (const variant of variants) {
+    if (importedFingerprints.has(variant.fingerprint)) continue
+
     const id = nanoid()
     const toPath = join(await appDataDir(), 'custom-models', id)
 
@@ -216,7 +235,10 @@ async function importFromPath(fromPath: string) {
       path: toPath,
       mode: variant.mode,
       isPreset: false,
+      fingerprint: variant.fingerprint,
     })
+
+    importedFingerprints.add(variant.fingerprint)
   }
 
   return models
@@ -272,6 +294,7 @@ async function discoverLegacyVariants(sourcePath: string) {
         mode,
         rootPath,
         modelPath,
+        fingerprint: await getModelFingerprint(modelPath, mode),
       })
     }
   }
@@ -282,11 +305,16 @@ async function discoverLegacyVariants(sourcePath: string) {
 async function discoverCubismVariants(sourcePath: string) {
   const modelPaths = await findModelDirectories(sourcePath)
 
-  return await Promise.all(modelPaths.map(async (modelPath): Promise<ImportVariant> => ({
-    mode: await inferMode(modelPath),
-    rootPath: modelPath,
-    modelPath,
-  })))
+  return await Promise.all(modelPaths.map(async (modelPath): Promise<ImportVariant> => {
+    const mode = await inferMode(modelPath)
+
+    return {
+      mode,
+      rootPath: modelPath,
+      modelPath,
+      fingerprint: await getModelFingerprint(modelPath, mode),
+    }
+  }))
 }
 
 async function findDirectoriesNamed(rootPath: string, name: string) {
@@ -345,6 +373,82 @@ async function inferMode(modelPath: string): Promise<ModelMode> {
   const fileNames = files.map(file => file.name.split('.')[0])
 
   return fileNames.includes('East') ? 'gamepad' : 'keyboard'
+}
+
+async function getImportedFingerprints() {
+  const fingerprints = new Set<string>()
+
+  for (const model of modelStore.models) {
+    const fingerprint = model.fingerprint ?? await getModelFingerprint(model.path, model.mode).catch(() => undefined)
+
+    if (!fingerprint) continue
+
+    model.fingerprint = fingerprint
+    fingerprints.add(fingerprint)
+  }
+
+  return fingerprints
+}
+
+async function getModelFingerprint(modelPath: string, mode: ModelMode) {
+  const modelFile = await findModelFile(modelPath)
+  const modelJSONText = await readTextFile(modelFile)
+  const modelJSON = JSON5.parse(modelJSONText) as CubismModelJSON
+  const references = modelJSON.FileReferences
+  const files = [
+    { key: modelFile.split(/[\\/]/).at(-1) ?? 'model3.json', path: modelFile },
+    references?.Moc ? { key: references.Moc, path: join(modelPath, references.Moc) } : undefined,
+    references?.Physics ? { key: references.Physics, path: join(modelPath, references.Physics) } : undefined,
+    references?.DisplayInfo ? { key: references.DisplayInfo, path: join(modelPath, references.DisplayInfo) } : undefined,
+    ...references?.Textures?.map(texture => ({ key: texture, path: join(modelPath, texture) })) ?? [],
+  ].filter(file => file !== undefined)
+  const encoder = new TextEncoder()
+  const chunks: Uint8Array[] = []
+  let totalLength = 0
+
+  for (const file of files) {
+    const keyBytes = encoder.encode(file.key)
+
+    chunks.push(keyBytes)
+    totalLength += keyBytes.length
+
+    if (!await exists(file.path)) continue
+
+    const fileBytes = await readFile(file.path)
+
+    chunks.push(fileBytes)
+    totalLength += fileBytes.length
+  }
+
+  const digest = await crypto.subtle.digest('SHA-256', concatBytes(chunks, totalLength))
+  const hash = [...new Uint8Array(digest)]
+    .map(value => value.toString(16).padStart(2, '0'))
+    .join('')
+
+  return `${mode}:${hash}`
+}
+
+function concatBytes(chunks: Uint8Array[], totalLength: number) {
+  const bytes = new Uint8Array(totalLength)
+  let offset = 0
+
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.length
+  }
+
+  return bytes
+}
+
+async function findModelFile(modelPath: string) {
+  const files = await readDir(modelPath)
+  const modelFile = files.find(file => file.isFile && file.name.endsWith('.model3.json'))
+
+  if (!modelFile) {
+    throw new Error('No model3.json found')
+  }
+
+  return join(modelPath, modelFile.name)
 }
 
 async function normalizeResources(variant: ImportVariant, modelPath: string) {

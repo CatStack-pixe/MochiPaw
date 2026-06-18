@@ -60,6 +60,36 @@ const MOTION_DISPLAY_NAMES: Record<string, string> = {
   youeryuanG: 'Kindergarten Off',
 }
 
+export class Live2dLoadCancelledError extends Error {
+  constructor() {
+    super('Live2D load cancelled')
+  }
+}
+
+export function isLive2dLoadCancelledError(error: unknown) {
+  return error instanceof Live2dLoadCancelledError
+}
+
+type RenderableLive2DSprite = Live2DSprite & {
+  onRender: null | ((...args: unknown[]) => void)
+}
+
+export function destroyLive2dSprite(model: Live2DSprite | null | undefined, app?: Application | null) {
+  detachLive2dSprite(model, app)
+  model?.destroy()
+}
+
+export function detachLive2dSprite(model: Live2DSprite | null | undefined, app?: Application | null) {
+  if (!model) return
+
+  const renderableModel = model as RenderableLive2DSprite
+
+  renderableModel.visible = false
+  renderableModel.renderable = false
+  renderableModel.onRender = null
+  app?.stage.removeChild(model)
+}
+
 export async function readCubismModelJSON(path: string) {
   const files = await readDir(path)
   const modelFile = files.find(file => file.name.endsWith('.model3.json'))
@@ -166,32 +196,57 @@ async function getParameterNames(path: string, modelJSON: CubismModelJson) {
 
 class Live2d {
   private app: Application | null = null
+  private appInitPromise: Promise<void> | null = null
+  private loadVersion = 0
   public model: Live2DSprite | null = null
 
   constructor() { }
 
-  private initApp() {
-    if (this.app) return
+  private async initApp() {
+    if (this.app) {
+      await this.appInitPromise
+      return
+    }
 
     const view = document.getElementById('live2dCanvas') as HTMLCanvasElement
 
     this.app = new Application()
 
-    return this.app.init({
+    this.appInitPromise = this.app.init({
       view,
       resizeTo: window,
       backgroundAlpha: 0,
       autoDensity: true,
       resolution: devicePixelRatio,
     })
+
+    try {
+      await this.appInitPromise
+    } finally {
+      this.appInitPromise = null
+    }
   }
 
   public async load(path: string) {
+    const version = ++this.loadVersion
+
     await this.initApp()
 
-    this.destroy()
+    if (version !== this.loadVersion) {
+      throw new Live2dLoadCancelledError()
+    }
+
+    this.destroyCurrentModel()
+
+    if (version !== this.loadVersion) {
+      throw new Live2dLoadCancelledError()
+    }
 
     const modelJSON = await readCubismModelJSON(path)
+
+    if (version !== this.loadVersion) {
+      throw new Live2dLoadCancelledError()
+    }
 
     const modelSetting = new CubismSetting({
       modelJSON,
@@ -201,19 +256,45 @@ class Live2d {
       return convertFileSrc(join(path, file))
     })
 
-    this.model = new Live2DSprite({
+    const model = new Live2DSprite({
       modelSetting,
       ticker: Ticker.shared,
     })
 
-    this.app?.stage.addChild(this.model)
+    this.model = model
+    this.app?.stage.addChild(model)
 
-    await this.model.ready
+    await model.ready
 
-    const { width, height } = this.model
+    if (version !== this.loadVersion || this.model !== model) {
+      if (this.model === model) {
+        this.destroyCurrentModel()
+      }
 
-    const motions = groupBy(await resolveModelMotions(path, this.model.getMotions()), 'group')
-    const expressions = await resolveModelExpressions(path, this.model.getExpressions())
+      throw new Live2dLoadCancelledError()
+    }
+
+    const { width, height } = model
+
+    const motions = groupBy(await resolveModelMotions(path, model.getMotions()), 'group')
+
+    if (version !== this.loadVersion || this.model !== model) {
+      if (this.model === model) {
+        this.destroyCurrentModel()
+      }
+
+      throw new Live2dLoadCancelledError()
+    }
+
+    const expressions = await resolveModelExpressions(path, model.getExpressions())
+
+    if (version !== this.loadVersion || this.model !== model) {
+      if (this.model === model) {
+        this.destroyCurrentModel()
+      }
+
+      throw new Live2dLoadCancelledError()
+    }
 
     return {
       width,
@@ -224,11 +305,20 @@ class Live2d {
   }
 
   public destroy() {
-    if (!this.model) return
+    this.loadVersion += 1
+    this.destroyCurrentModel()
+  }
 
-    this.model?.destroy()
+  private destroyCurrentModel() {
+    const model = this.model
 
     this.model = null
+
+    this.destroySprite(model)
+  }
+
+  private destroySprite(model: Live2DSprite | null) {
+    destroyLive2dSprite(model, this.app)
   }
 
   public resizeModel(modelSize: ModelSize) {
