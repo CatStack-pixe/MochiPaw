@@ -211,7 +211,7 @@ export function useModel() {
     live2d.destroy()
   }
 
-  async function handleResize() {
+  async function handleResize(options: { syncScale?: boolean } = {}) {
     if (!modelSize.value) return
 
     const { width, height } = modelSize.value
@@ -229,6 +229,8 @@ export function useModel() {
     }
 
     live2d.resizeModel(modelSize.value)
+
+    if (options.syncScale === false) return
 
     const size = await appWindow.size()
 

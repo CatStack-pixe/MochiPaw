@@ -35,23 +35,40 @@ const catStore = useCatStore()
 const { getBaseMenu, getExitMenu } = useAppMenu()
 const modelStore = useModelStore()
 const generalStore = useGeneralStore()
-const resizing = ref(false)
 const backgroundImagePath = ref<string>()
 const { stickActive } = useGamepad()
+let pendingScaleDelta = 0
+let scaleFrame = 0
+let resizeFrame = 0
+let scalingWithShortcut = false
+let scaleSyncTimer: ReturnType<typeof setTimeout> | undefined
+let lastShortcutResizeAt = 0
+
+const SCALE_DRAG_SENSITIVITY = 0.12
+const SHORTCUT_RESIZE_INTERVAL = 33
+
+function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
+  if (!modelSizeValue) return
+
+  const { width, height } = modelSizeValue
+
+  appWindow.setSize(
+    new PhysicalSize({
+      width: Math.round(width * (scale / 100)),
+      height: Math.round(height * (scale / 100)),
+    }),
+  )
+}
 
 onMounted(startListening)
 
 onUnmounted(handleDestroy)
 
 const debouncedResize = useDebounceFn(async () => {
-  await handleResize()
-
-  resizing.value = false
-}, 100)
+  await handleResize({ syncScale: !scalingWithShortcut })
+}, 16)
 
 useEventListener('resize', () => {
-  resizing.value = true
-
   debouncedResize()
 })
 
@@ -86,17 +103,22 @@ watch(() => modelStore.currentModel, async (model) => {
   modelStore.modelReady = true
 }, { deep: true, immediate: true })
 
-watch([() => catStore.window.scale, modelSize], async ([scale, modelSize]) => {
+watch([() => catStore.window.scale, modelSize], ([scale, modelSize]) => {
   if (!modelSize) return
 
-  const { width, height } = modelSize
+  cancelAnimationFrame(resizeFrame)
 
-  appWindow.setSize(
-    new PhysicalSize({
-      width: Math.round(width * (scale / 100)),
-      height: Math.round(height * (scale / 100)),
-    }),
-  )
+  resizeFrame = requestAnimationFrame(() => {
+    if (scalingWithShortcut) {
+      const now = performance.now()
+
+      if (now - lastShortcutResizeAt < SHORTCUT_RESIZE_INTERVAL) return
+
+      lastShortcutResizeAt = now
+    }
+
+    applyWindowScale(scale, modelSize)
+  })
 }, { immediate: true })
 
 watch([modelStore.pressedKeys, stickActive], ([keys, stickActive]) => {
@@ -147,7 +169,7 @@ function handleMouseDown(event: MouseEvent) {
 async function handleContextmenu(event: MouseEvent) {
   event.preventDefault()
 
-  if (event.shiftKey || event.ctrlKey) return
+  if (event.ctrlKey) return
 
   const menu = await Menu.new({
     items: [
@@ -171,14 +193,37 @@ async function handleContextmenu(event: MouseEvent) {
 }
 
 function handleMouseMove(event: MouseEvent) {
-  const { buttons, ctrlKey, shiftKey, movementX, movementY } = event
+  const { buttons, ctrlKey, movementX, movementY } = event
 
-  if (catStore.window.passThrough || buttons !== 2 || (!ctrlKey && !shiftKey)) return
+  if (catStore.window.passThrough || buttons !== 2 || !ctrlKey) return
 
-  const delta = (movementX + movementY) * 0.5
-  const nextScale = Math.max(10, Math.min(catStore.window.scale + delta, 500))
+  pendingScaleDelta += (movementX + movementY) * SCALE_DRAG_SENSITIVITY
 
-  catStore.window.scale = round(nextScale)
+  if (scaleFrame) return
+
+  scaleFrame = requestAnimationFrame(() => {
+    scaleFrame = 0
+
+    if (Math.abs(pendingScaleDelta) < 0.1) {
+      pendingScaleDelta = 0
+      return
+    }
+
+    const nextScale = Math.max(10, Math.min(catStore.window.scale + pendingScaleDelta, 500))
+
+    pendingScaleDelta = 0
+    scalingWithShortcut = true
+    catStore.window.scale = round(nextScale)
+
+    if (scaleSyncTimer) {
+      clearTimeout(scaleSyncTimer)
+    }
+
+    scaleSyncTimer = setTimeout(() => {
+      applyWindowScale(catStore.window.scale)
+      scalingWithShortcut = false
+    }, 120)
+  })
 }
 </script>
 
@@ -210,12 +255,8 @@ function handleMouseMove(event: MouseEvent) {
     >
 
     <div
-      v-show="resizing || !modelStore.modelReady"
+      v-show="!modelStore.modelReady"
       class="flex items-center justify-center bg-black"
-    >
-      <span class="text-center text-[10vw] text-[#fff]">
-        {{ resizing ? $t('pages.main.hints.redrawing') : $t('pages.main.hints.switching') }}
-      </span>
-    </div>
+    />
   </div>
 </template>
