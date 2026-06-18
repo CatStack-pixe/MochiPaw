@@ -1,5 +1,6 @@
 const COMMANDS: &[&str] = &[
     "is_running_as_administrator",
+    "relaunch_as_administrator",
     "get_process_metrics",
     "compact_process_memory",
 ];

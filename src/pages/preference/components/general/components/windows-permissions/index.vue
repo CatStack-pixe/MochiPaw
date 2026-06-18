@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { confirm } from '@tauri-apps/plugin-dialog'
-import { exit } from '@tauri-apps/plugin-process'
+import { confirm, message } from '@tauri-apps/plugin-dialog'
 import { Space } from 'antdv-next'
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
-import { isRunningAsAdministrator } from '@/plugins/adminStatus'
+import { isRunningAsAdministrator, relaunchAsAdministrator } from '@/plugins/adminStatus'
 
 const authorized = ref(true)
+const restarting = ref(false)
 const { t } = useI18n()
 
 onMounted(async () => {
@@ -21,16 +21,30 @@ onMounted(async () => {
 })
 
 async function showAdministratorGuide() {
+  if (restarting.value) return
+
   const confirmed = await confirm(t('pages.preference.general.hints.administratorPermissionGuide'), {
     title: t('pages.preference.general.labels.administratorPermission'),
-    okLabel: t('pages.preference.general.buttons.exitApp'),
+    okLabel: t('pages.preference.general.buttons.restartAsAdministrator'),
     cancelLabel: t('pages.preference.general.buttons.setLater'),
     kind: 'warning',
   })
 
   if (!confirmed) return
 
-  exit(0)
+  try {
+    restarting.value = true
+
+    await relaunchAsAdministrator()
+  } catch (error) {
+    console.error(error)
+    await message(t('pages.preference.general.hints.administratorRelaunchFailed'), {
+      title: t('pages.preference.general.labels.administratorPermission'),
+      kind: 'error',
+    })
+  } finally {
+    restarting.value = false
+  }
 }
 </script>
 
@@ -58,9 +72,12 @@ async function showAdministratorGuide() {
         :size="4"
         @click="showAdministratorGuide"
       >
-        <div class="i-solar:round-arrow-right-bold text-4.5" />
+        <div
+          class="i-solar:restart-bold text-4.5"
+          :class="{ 'animate-spin': restarting }"
+        />
 
-        <span class="whitespace-nowrap">{{ $t('pages.preference.general.status.viewGuide') }}</span>
+        <span class="whitespace-nowrap">{{ $t('pages.preference.general.buttons.restartAsAdministrator') }}</span>
       </Space>
     </ProListItem>
   </ProList>
