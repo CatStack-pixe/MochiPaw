@@ -99,7 +99,8 @@
           "deleteSuccess": "Xóa thành công",
           "deleteModel": "Bạn chắc muốn xóa mô hình này?",
           "importSuccess": "Nhập thành công",
-          "clickOrDragToImport": "Nhấp hoặc kéo tệp vào đây"
+          "clickOrDragToImport": "Nhấp hoặc kéo tệp vào đây",
+          "importing": "Đang nhập {current}/{total}"
         },
         "tooltips": {
           "createModel": "Tạo mô hình",

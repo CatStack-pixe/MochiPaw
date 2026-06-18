@@ -99,7 +99,8 @@
           "deleteSuccess": "删除成功",
           "deleteModel": "你确定要删除此模型吗？",
           "importSuccess": "导入成功",
-          "clickOrDragToImport": "点击或拖动至此区域导入"
+          "clickOrDragToImport": "点击或拖动至此区域导入",
+          "importing": "正在导入 {current}/{total}"
         },
         "tooltips": {
           "createModel": "制作模型",

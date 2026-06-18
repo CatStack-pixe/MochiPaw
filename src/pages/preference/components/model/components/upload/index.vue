@@ -7,7 +7,7 @@ import { copyFile, exists, mkdir, readDir, readFile, readTextFile, stat } from '
 import { message } from 'antdv-next'
 import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
-import { onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { ModelMode } from '@/stores/model'
@@ -61,6 +61,8 @@ interface KeyImageRef {
 
 const dropRef = useTemplateRef('drop')
 const dragenter = ref(false)
+const importing = ref(false)
+const importProgress = ref({ current: 0, total: 0 })
 const selectPaths = ref<string[]>([])
 const modelStore = useModelStore()
 const { t } = useI18n()
@@ -145,6 +147,8 @@ onMounted(() => {
   const appWindow = getCurrentWebviewWindow()
 
   appWindow.onDragDropEvent(({ payload }) => {
+    if (importing.value) return
+
     const { type } = payload
 
     if (type === 'over') {
@@ -168,7 +172,20 @@ onMounted(() => {
   })
 })
 
+const importHint = computed(() => {
+  if (!importing.value) {
+    return t('pages.preference.model.hints.clickOrDragToImport')
+  }
+
+  return t('pages.preference.model.hints.importing', {
+    current: importProgress.value.current,
+    total: importProgress.value.total,
+  })
+})
+
 async function handleUpload() {
+  if (importing.value) return
+
   const selected = await open({
     multiple: true,
     filters: [
@@ -185,7 +202,14 @@ async function handleUpload() {
 }
 
 watch(selectPaths, async (paths) => {
-  for await (const fromPath of paths) {
+  if (!paths.length || importing.value) return
+
+  importing.value = true
+  importProgress.value = { current: 1, total: paths.length }
+
+  for (const [index, fromPath] of paths.entries()) {
+    importProgress.value = { current: index + 1, total: paths.length }
+
     try {
       const importedModels = await importFromPath(fromPath)
 
@@ -204,6 +228,10 @@ watch(selectPaths, async (paths) => {
       message.error(String(error))
     }
   }
+
+  importing.value = false
+  importProgress.value = { current: 0, total: 0 }
+  selectPaths.value = []
 })
 
 async function importFromPath(fromPath: string) {
@@ -582,12 +610,19 @@ async function copyFirstExistingFile(fromPaths: string[], toPath: string) {
 <template>
   <div
     ref="drop"
-    class="w-full flex flex-col cursor-pointer items-center justify-center gap-4 b-1 b-dashed bg-[--ant-color-fill-quaternary] transition b-border rounded-lg hover:border-primary"
-    :class="{ 'border-primary': dragenter }"
+    class="w-full flex flex-col items-center justify-center gap-4 b-1 b-dashed bg-[--ant-color-fill-quaternary] transition b-border rounded-lg hover:border-primary"
+    :class="{
+      'border-primary': dragenter || importing,
+      'cursor-not-allowed opacity-70': importing,
+      'cursor-pointer': !importing,
+    }"
     @click="handleUpload"
   >
-    <div class="i-solar:upload-square-outline text-12 text-primary" />
+    <div
+      class="text-12 text-primary"
+      :class="importing ? 'i-solar:refresh-bold animate-spin' : 'i-solar:upload-square-outline'"
+    />
 
-    <span>{{ $t('pages.preference.model.hints.clickOrDragToImport') }}</span>
+    <span>{{ importHint }}</span>
   </div>
 </template>

@@ -99,7 +99,8 @@
           "deleteSuccess": "Excluído com sucesso",
           "deleteModel": "Tem certeza de que deseja excluir este modelo?",
           "importSuccess": "Importação bem-sucedida",
-          "clickOrDragToImport": "Clique ou arraste para importar"
+          "clickOrDragToImport": "Clique ou arraste para importar",
+          "importing": "Importando {current}/{total}"
         },
         "tooltips": {
           "createModel": "Criar modelo",
