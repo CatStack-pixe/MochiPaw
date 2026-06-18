@@ -115,7 +115,9 @@
             "motionIndex": "Motion {index}",
             "motionGroupIndex": "Motion Group {index}",
             "expressionIndex": "Expression {index}",
-            "randomGroups": "Random groups"
+            "randomGroups": "Random groups",
+            "mutualExclusionRules": "Mutual exclusion rules",
+            "ruleIndex": "Rule {index}"
           }
         }
       },

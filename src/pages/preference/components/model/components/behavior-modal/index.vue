@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { emit } from '@tauri-apps/api/event'
-import { Button, Empty, Input, Modal } from 'antdv-next'
+import { Button, Empty, Input, Modal, Select } from 'antdv-next'
 import { groupBy, isEmpty } from 'es-toolkit/compat'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { ModelBehaviorGroup, ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
+import type { ModelBehaviorGroup, ModelBehaviorRule, ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
 
 import { LISTEN_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
@@ -34,13 +34,19 @@ function getExpressionNameId(index: number) {
   return `${getExpressionShortcutId(index)}:name`
 }
 
-function startMotion(motion: ModelMotionInfo) {
-  emit(LISTEN_KEY.START_MOTION, motion)
+function startMotion(id: string, motion: ModelMotionInfo) {
+  emit(LISTEN_KEY.START_MOTION, {
+    groupId: currentGroup.value?.id,
+    id,
+    motion,
+  })
 }
 
-function setExpression(expression: ModelExpressionInfo, index: number) {
+function setExpression(id: string, expression: ModelExpressionInfo, index: number) {
   emit(LISTEN_KEY.SET_EXPRESSION, {
+    id,
     expression,
+    groupId: currentGroup.value?.id,
     index,
   })
 }
@@ -97,9 +103,12 @@ function ensureBehaviorGroups(modelId: string, behaviorIds: string[]) {
       id: 'default',
       name: 'default',
       items: [],
+      rules: [],
     }
     groups.unshift(defaultGroup)
   }
+
+  defaultGroup.rules ??= []
 
   const existing = new Set(defaultGroup.items)
 
@@ -135,10 +144,52 @@ function addBehaviorGroup() {
     id: `group-${Date.now()}`,
     name: `Group ${index}`,
     items: [],
+    rules: [],
   }
 
   groups.push(group)
   currentGroupId.value = group.id
+}
+
+const behaviorOptions = computed(() => {
+  return getAllBehaviorIds().map(id => ({
+    label: modelStore.behaviorNames[`${id}:name`] ?? id,
+    value: id,
+  }))
+})
+
+const currentGroupRules = computed(() => {
+  const group = currentGroup.value
+
+  if (!group) return []
+
+  group.rules ??= []
+
+  return group.rules
+})
+
+function addBehaviorRule() {
+  const group = currentGroup.value
+
+  if (!group) return
+
+  group.rules ??= []
+
+  const index = group.rules.length + 1
+
+  group.rules.push({
+    id: `rule-${Date.now()}`,
+    name: t('pages.preference.model.behaviorModal.labels.ruleIndex', { index }),
+    items: [],
+  })
+}
+
+function removeBehaviorRule(rule: ModelBehaviorRule) {
+  const group = currentGroup.value
+
+  if (!group?.rules) return
+
+  group.rules = group.rules.filter(item => item.id !== rule.id)
 }
 
 function isBehaviorChecked(id: string) {
@@ -236,6 +287,63 @@ watch(modelValue, async (open) => {
             />
           </div>
         </div>
+
+        <div class="b-t b-t-solid px-4 py-3 b-border">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <span class="font-medium text-sm">
+              {{ $t('pages.preference.model.behaviorModal.labels.mutualExclusionRules') }}
+            </span>
+
+            <Button
+              class="inline-flex items-center justify-center"
+              size="small"
+              @click="addBehaviorRule"
+            >
+              <template #icon>
+                <div class="i-lucide:plus" />
+              </template>
+            </Button>
+          </div>
+
+          <Empty
+            v-if="isEmpty(currentGroupRules)"
+            :image="Empty.PRESENTED_IMAGE_SIMPLE"
+          />
+
+          <div
+            v-else
+            class="grid gap-2"
+          >
+            <div
+              v-for="rule in currentGroupRules"
+              :key="rule.id"
+              class="grid grid-cols-[minmax(0,160px)_minmax(0,1fr)_auto] items-center gap-2"
+            >
+              <Input
+                v-model:value="rule.name"
+                size="small"
+              />
+
+              <Select
+                v-model:value="rule.items"
+                mode="multiple"
+                :options="behaviorOptions"
+                size="small"
+              />
+
+              <Button
+                class="inline-flex items-center justify-center"
+                danger
+                size="small"
+                @click="removeBehaviorRule(rule)"
+              >
+                <template #icon>
+                  <div class="i-lucide:trash-2" />
+                </template>
+              </Button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -265,7 +373,7 @@ watch(modelValue, async (open) => {
                   v-model:name="modelStore.behaviorNames[getMotionNameId(groupName, index)]"
                   v-model:shortcut="modelStore.shortcuts[getMotionShortcutId(groupName, index)]"
                   :checked="isBehaviorChecked(getMotionShortcutId(groupName, index))"
-                  @click="startMotion(item)"
+                  @click="startMotion(getMotionShortcutId(groupName, index), item)"
                   @update:checked="setBehaviorChecked(getMotionShortcutId(groupName, index), $event)"
                 />
               </div>
@@ -291,7 +399,7 @@ watch(modelValue, async (open) => {
                 v-model:name="modelStore.behaviorNames[getExpressionNameId(index)]"
                 v-model:shortcut="modelStore.shortcuts[getExpressionShortcutId(index)]"
                 :checked="isBehaviorChecked(getExpressionShortcutId(index))"
-                @click="setExpression(expression, index)"
+                @click="setExpression(getExpressionShortcutId(index), expression, index)"
                 @update:checked="setBehaviorChecked(getExpressionShortcutId(index), $event)"
               />
             </div>

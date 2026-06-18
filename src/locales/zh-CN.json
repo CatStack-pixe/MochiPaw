@@ -115,7 +115,9 @@
             "motionIndex": "动作{index}",
             "motionGroupIndex": "动作组{index}",
             "expressionIndex": "表情{index}",
-            "randomGroups": "随机组"
+            "randomGroups": "随机组",
+            "mutualExclusionRules": "互斥规则",
+            "ruleIndex": "规则 {index}"
           }
         }
       },

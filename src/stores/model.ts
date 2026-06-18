@@ -33,10 +33,17 @@ export interface ModelBehaviorRef {
   type: ModelBehaviorType
 }
 
+export interface ModelBehaviorRule {
+  id: string
+  name: string
+  items: string[]
+}
+
 export interface ModelBehaviorGroup {
   id: string
   name: string
   items: string[]
+  rules?: ModelBehaviorRule[]
 }
 
 interface PresetModel {

@@ -115,7 +115,9 @@
             "motionIndex": "Chuyển động {index}",
             "motionGroupIndex": "Nhóm chuyển động {index}",
             "expressionIndex": "Biểu cảm {index}",
-            "randomGroups": "Nh?m ng?u nhi?n"
+            "randomGroups": "Nh?m ng?u nhi?n",
+            "mutualExclusionRules": "Mutual exclusion rules",
+            "ruleIndex": "Rule {index}"
           }
         }
       },

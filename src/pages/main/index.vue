@@ -10,7 +10,7 @@ import { round } from 'es-toolkit'
 import { nth } from 'es-toolkit/compat'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 
-import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
+import type { ModelMotionInfo } from '@/stores/model'
 
 import { useAppMenu } from '@/composables/useAppMenu'
 import { useDevice } from '@/composables/useDevice'
@@ -30,7 +30,15 @@ import { clearObject } from '@/utils/shared'
 
 const { startListening } = useDevice()
 const appWindow = getCurrentWebviewWindow()
-const { modelSize, handleLoad, handleDestroy, handleResize, handleKeyChange } = useModel()
+const {
+  modelSize,
+  handleLoad,
+  handleDestroy,
+  handleResize,
+  handleKeyChange,
+  playMotionBehavior,
+  playExpressionBehavior,
+} = useModel()
 const catStore = useCatStore()
 const { getBaseMenu, getExitMenu } = useAppMenu()
 const modelStore = useModelStore()
@@ -149,15 +157,20 @@ watch(() => catStore.model.motionSound, live2d.setMotionSoundEnabled, { immediat
 
 watch(() => catStore.model.maxFPS, live2d.setMaxFPS, { immediate: true })
 
-useTauriListen<ModelMotionInfo>(LISTEN_KEY.START_MOTION, ({ payload }) => {
-  live2d.startMotion(payload)
+useTauriListen<{
+  id: string
+  motion: ModelMotionInfo
+  groupId?: string
+}>(LISTEN_KEY.START_MOTION, ({ payload }) => {
+  playMotionBehavior(payload.id, payload.motion, payload.groupId)
 })
 
 useTauriListen<{
-  expression: ModelExpressionInfo
+  id: string
   index: number
+  groupId?: string
 }>(LISTEN_KEY.SET_EXPRESSION, ({ payload }) => {
-  live2d.setExpression(payload.index)
+  playExpressionBehavior(payload.id, payload.index, payload.groupId)
 })
 
 function handleMouseDown(event: MouseEvent) {

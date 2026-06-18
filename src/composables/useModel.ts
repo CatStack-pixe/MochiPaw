@@ -8,7 +8,7 @@ import { isNil, round } from 'es-toolkit'
 import { findKey, nth } from 'es-toolkit/compat'
 import { ref } from 'vue'
 
-import type { ModelBehaviorRef, ModelMotionInfo } from '@/stores/model'
+import type { ModelBehaviorGroup, ModelBehaviorRef, ModelMotionInfo } from '@/stores/model'
 
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
@@ -38,6 +38,9 @@ export function useModel() {
   const modelSize = ref<ModelSize>()
   let typingExpressionTimer: ReturnType<typeof setTimeout> | undefined
   let nextTypingExpressionAt = 0
+  let activeMotionBehaviorId: string | undefined
+  let currentExpressionBehaviorId: string | undefined
+  let activeMotionResetTimer: ReturnType<typeof setTimeout> | undefined
 
   function getBehaviorShortcut(index: number) {
     const primary = isMac ? 'Command' : 'Control'
@@ -90,6 +93,7 @@ export function useModel() {
       id: 'default',
       name: 'default',
       items: [],
+      rules: [],
     }]
 
     return modelStore.behaviorGroups[modelId]
@@ -104,9 +108,12 @@ export function useModel() {
         id: 'default',
         name: 'default',
         items: [],
+        rules: [],
       }
       groups.unshift(defaultGroup)
     }
+
+    defaultGroup.rules ??= []
 
     const existing = new Set(defaultGroup.items)
 
@@ -287,7 +294,7 @@ export function useModel() {
 
     if (!behavior) return
 
-    playTypingBehavior(behavior)
+    playBehavior(behavior)
 
     const delay = getTypingExpressionDelay()
     nextTypingExpressionAt = now + delay
@@ -297,7 +304,7 @@ export function useModel() {
     }
 
     typingExpressionTimer = setTimeout(() => {
-      live2d.setExpression(0)
+      resetExpression()
     }, Math.max(600, delay * 0.6))
   }
 
@@ -322,13 +329,67 @@ export function useModel() {
     return getExpressionIndexById(behavior.id) !== undefined
   }
 
-  function playTypingBehavior(behavior: ModelBehaviorRef) {
+  function playMotionBehavior(id: string, motion: ModelMotionInfo, groupId?: string) {
+    const behavior = getBehaviorRef(id)
+
+    if (!behavior) {
+      live2d.startMotion(motion)
+      return
+    }
+
+    playBehavior(behavior, motion, groupId)
+  }
+
+  function playExpressionBehavior(id: string, index: number, groupId?: string) {
+    const behavior = getBehaviorRef(id)
+
+    if (!behavior) {
+      live2d.setExpression(index)
+      return
+    }
+
+    playBehavior(behavior, undefined, groupId)
+  }
+
+  function playBehavior(behavior: ModelBehaviorRef, motionOverride?: ModelMotionInfo, groupId?: string) {
+    const group = getBehaviorRuleGroup(behavior.id, groupId)
+
+    if (isBehaviorBlockedByRules(behavior.id, group)) return
+
+    applyBehaviorRuleResets(behavior.id, group)
+
     if (behavior.type === 'motion') {
-      const motion = getMotionById(behavior.id)
+      const motion = motionOverride ?? getMotionById(behavior.id)
 
       if (!motion) return
 
-      live2d.startMotion(motion as ModelMotionInfo)
+      activeMotionBehaviorId = behavior.id
+
+      if (activeMotionResetTimer) {
+        clearTimeout(activeMotionResetTimer)
+      }
+
+      activeMotionResetTimer = setTimeout(() => {
+        if (activeMotionBehaviorId === behavior.id) {
+          activeMotionBehaviorId = undefined
+        }
+      }, 2000)
+
+      const result = live2d.startMotion(motion as ModelMotionInfo) as unknown
+
+      if (isPromiseLike(result)) {
+        void result.finally(() => {
+          if (activeMotionResetTimer) {
+            clearTimeout(activeMotionResetTimer)
+            activeMotionResetTimer = undefined
+          }
+
+          if (activeMotionBehaviorId === behavior.id) {
+            activeMotionBehaviorId = undefined
+          }
+        })
+      }
+
       return
     }
 
@@ -336,7 +397,57 @@ export function useModel() {
 
     if (index === undefined) return
 
+    currentExpressionBehaviorId = behavior.id
     live2d.setExpression(index)
+  }
+
+  function getBehaviorRuleGroup(behaviorId: string, groupId?: string): ModelBehaviorGroup | undefined {
+    if (!modelStore.currentModel) return
+
+    const groups = getBehaviorGroups(modelStore.currentModel.id)
+
+    if (groupId) {
+      const group = groups.find(group => group.id === groupId)
+
+      if (group?.items.includes(behaviorId)) return group
+    }
+
+    const selectedGroup = groups.find(group => group.id === catStore.model.typingBehaviorGroup)
+
+    if (selectedGroup?.items.includes(behaviorId)) return selectedGroup
+
+    return groups.find(group => group.items.includes(behaviorId))
+      ?? groups.find(group => group.id === 'default')
+  }
+
+  function getExclusiveBehaviorIds(behaviorId: string, group: ModelBehaviorGroup | undefined) {
+    return group?.rules
+      ?.filter(rule => rule.items.includes(behaviorId))
+      .flatMap(rule => rule.items)
+      .filter(id => id !== behaviorId) ?? []
+  }
+
+  function isBehaviorBlockedByRules(behaviorId: string, group: ModelBehaviorGroup | undefined) {
+    const exclusiveIds = getExclusiveBehaviorIds(behaviorId, group)
+
+    return Boolean(activeMotionBehaviorId && exclusiveIds.includes(activeMotionBehaviorId))
+  }
+
+  function applyBehaviorRuleResets(behaviorId: string, group: ModelBehaviorGroup | undefined) {
+    const exclusiveIds = getExclusiveBehaviorIds(behaviorId, group)
+
+    if (!currentExpressionBehaviorId || !exclusiveIds.includes(currentExpressionBehaviorId)) return
+
+    resetExpression()
+  }
+
+  function resetExpression() {
+    currentExpressionBehaviorId = undefined
+    live2d.setExpression(0)
+  }
+
+  function isPromiseLike(value: unknown): value is Promise<unknown> {
+    return Boolean(value && typeof (value as Promise<unknown>).finally === 'function')
   }
 
   function getTypingExpressionDelay() {
@@ -419,5 +530,7 @@ export function useModel() {
     handleMouseChange,
     handleMouseMove,
     handleAxisChange,
+    playMotionBehavior,
+    playExpressionBehavior,
   }
 }
