@@ -11,7 +11,7 @@ use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_custom_window::{
     MAIN_WINDOW_LABEL, PREFERENCE_WINDOW_LABEL, show_preference_window,
 };
-use utils::fs_extra::copy_dir;
+use utils::fs_extra::{copy_dir, extract_zip};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -39,6 +39,7 @@ pub fn run() {
         })
         .invoke_handler(generate_handler![
             copy_dir,
+            extract_zip,
             start_device_listening,
             start_gamepad_listing,
             stop_gamepad_listing

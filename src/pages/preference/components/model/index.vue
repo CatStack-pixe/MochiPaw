@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { convertFileSrc } from '@tauri-apps/api/core'
 import { remove } from '@tauri-apps/plugin-fs'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { useElementSize } from '@vueuse/core'
@@ -11,10 +10,10 @@ import type { Model } from '@/stores/model'
 
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
-import { join } from '@/utils/path'
 
 import BehaviorModal from './components/behavior-modal/index.vue'
 import FloatMenu from './components/float-menu/index.vue'
+import ModelPreview from './components/model-preview/index.vue'
 import Upload from './components/upload/index.vue'
 
 const catStore = useCatStore()
@@ -84,10 +83,7 @@ async function handleDelete(item: Model) {
         @click="handleToggle(data)"
       >
         <template #cover>
-          <img
-            alt="example"
-            :src="convertFileSrc(join(data.path, 'resources', 'cover.png'))"
-          >
+          <ModelPreview :model="data" />
         </template>
 
         <template #actions>
