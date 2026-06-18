@@ -6,7 +6,7 @@ import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { openPath } from '@tauri-apps/plugin-opener'
 import { arch, platform, version } from '@tauri-apps/plugin-os'
 import { Button, Descriptions, message } from 'antdv-next'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { ProcessMetrics } from '@/plugins/adminStatus'
@@ -18,7 +18,7 @@ import { LISTEN_KEY } from '@/constants'
 import { compactProcessMemory, getProcessMetrics } from '@/plugins/adminStatus'
 import { useAppStore } from '@/stores/app'
 import { useModelStore } from '@/stores/model'
-import { getModelResourceMetrics } from '@/utils/modelResourceMetrics'
+import { getModelResourceMetric, getModelResourceMetrics } from '@/utils/modelResourceMetrics'
 
 const appStore = useAppStore()
 const modelStore = useModelStore()
@@ -29,6 +29,8 @@ const metricsLoading = ref(false)
 const resourceMetrics = ref<ModelResourceMetric[]>([])
 const resourceMetricsError = ref('')
 const resourceMetricsLoading = ref(false)
+const resourceMetricsProgress = ref({ scanned: 0, total: 0 })
+const resourceMetricsUpdatedAt = ref<Date>()
 const compactingMemory = ref(false)
 const { t } = useI18n()
 let metricsTimer: ReturnType<typeof window.setInterval> | undefined
@@ -46,7 +48,7 @@ const authors = [
 onMounted(async () => {
   logDir.value = await appLogDir()
   await refreshMetrics()
-  await refreshResourceMetrics()
+  await refreshCurrentModelResourceMetrics()
   metricsTimer = window.setInterval(refreshMetrics, 1000)
 })
 
@@ -90,10 +92,38 @@ async function refreshMetrics() {
 
 async function refreshResourceMetrics() {
   resourceMetricsLoading.value = true
+  resourceMetricsProgress.value = { scanned: 0, total: modelStore.models.length }
 
   try {
-    resourceMetrics.value = await getModelResourceMetrics(modelStore.models)
+    resourceMetrics.value = await getModelResourceMetrics(modelStore.models, {
+      force: true,
+      onProgress: (progress) => {
+        resourceMetricsProgress.value = progress
+      },
+    })
     resourceMetricsError.value = ''
+    resourceMetricsUpdatedAt.value = new Date()
+  } catch (error) {
+    resourceMetricsError.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    resourceMetricsLoading.value = false
+  }
+}
+
+async function refreshCurrentModelResourceMetrics() {
+  if (!modelStore.currentModel || resourceMetricsLoading.value) return
+
+  resourceMetricsLoading.value = true
+  resourceMetricsProgress.value = { scanned: 0, total: 1 }
+
+  try {
+    const metric = await getModelResourceMetric(modelStore.currentModel, { force: true })
+    const nextMetrics = resourceMetrics.value.filter(item => !isSameModelMetric(item, metric))
+
+    resourceMetrics.value = [metric, ...nextMetrics]
+    resourceMetricsProgress.value = { scanned: 1, total: 1 }
+    resourceMetricsError.value = ''
+    resourceMetricsUpdatedAt.value = new Date()
   } catch (error) {
     resourceMetricsError.value = error instanceof Error ? error.message : String(error)
   } finally {
@@ -174,7 +204,41 @@ const metricsItems = computed(() => [
 ])
 
 const currentModelResourceMetric = computed(() => {
-  return resourceMetrics.value.find(item => item.modelId === modelStore.currentModel?.id)
+  const currentModel = modelStore.currentModel
+
+  if (!currentModel) return undefined
+
+  return resourceMetrics.value.find((item) => {
+    return item.modelId === currentModel.id
+      && item.mode === currentModel.mode
+      && item.path === currentModel.path
+  })
+})
+
+function isSameModelMetric(left: ModelResourceMetric, right: ModelResourceMetric) {
+  return left.modelId === right.modelId
+    && left.mode === right.mode
+    && left.path === right.path
+}
+
+const resourceMetricsDescription = computed(() => {
+  if (resourceMetricsError.value) return resourceMetricsError.value
+
+  const parts = [t('pages.preference.about.hints.resourceMetrics')]
+
+  if (resourceMetricsLoading.value && resourceMetricsProgress.value.total) {
+    parts.push(`${resourceMetricsProgress.value.scanned}/${resourceMetricsProgress.value.total}`)
+  }
+
+  if (resourceMetricsUpdatedAt.value) {
+    parts.push(resourceMetricsUpdatedAt.value.toLocaleTimeString())
+  }
+
+  if (modelStore.models.length) {
+    parts.push(`${resourceMetrics.value.length}/${modelStore.models.length}`)
+  }
+
+  return parts.join(' · ')
 })
 
 function getCategoryLabel(category: ResourceMetricCategory) {
@@ -182,7 +246,15 @@ function getCategoryLabel(category: ResourceMetricCategory) {
 }
 
 const modelResourceItems = computed(() => {
-  return resourceMetrics.value.map((item) => {
+  const currentModelId = modelStore.currentModel?.id
+  const sortedMetrics = [...resourceMetrics.value].sort((left, right) => {
+    if (left.modelId === currentModelId) return -1
+    if (right.modelId === currentModelId) return 1
+
+    return left.modelId.localeCompare(right.modelId)
+  })
+
+  return sortedMetrics.map((item) => {
     return {
       label: `${item.modelId} (${item.mode})`,
       value: t('pages.preference.about.metrics.resourceUsageValue', {
@@ -205,6 +277,14 @@ const currentModelResourceItems = computed(() => {
       }),
     }
   }) ?? []
+})
+
+watch(() => [
+  modelStore.currentModel?.id,
+  modelStore.currentModel?.mode,
+  modelStore.currentModel?.path,
+], () => {
+  refreshCurrentModelResourceMetrics()
 })
 </script>
 
@@ -299,7 +379,7 @@ const currentModelResourceItems = computed(() => {
     </ProListItem>
 
     <ProListItem
-      :description="resourceMetricsError || $t('pages.preference.about.hints.resourceMetrics')"
+      :description="resourceMetricsDescription"
       :title="$t('pages.preference.about.labels.resourceMetrics')"
       vertical
     >

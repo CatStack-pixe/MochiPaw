@@ -35,6 +35,11 @@ export interface ModelResourceMetric {
   categories: ResourceCategoryMetric[]
 }
 
+export interface ModelResourceMetricsOptions {
+  force?: boolean
+  onProgress?: (progress: { scanned: number, total: number }) => void
+}
+
 interface ResourceFile {
   path: string
   name: string
@@ -43,6 +48,7 @@ interface ResourceFile {
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp'])
 const AUDIO_EXTENSIONS = new Set(['.flac', '.mp3', '.wav', '.ogg'])
+const resourceMetricCache = new Map<string, ModelResourceMetric>()
 
 function getExtension(name: string) {
   const index = name.lastIndexOf('.')
@@ -53,40 +59,46 @@ function getExtension(name: string) {
 function getCategory(file: ResourceFile): ResourceMetricCategory {
   const name = file.name.toLowerCase()
   const extension = getExtension(name)
+  const pathParts = file.path.toLowerCase().split(/[\\/]/)
 
   if (extension === '.moc3') return 'model'
-  if (IMAGE_EXTENSIONS.has(extension)) return 'texture'
+  if (name === 'background.png' || name === 'cover.png' || pathParts.includes('resources')) return 'auxiliary'
   if (name.endsWith('.motion3.json')) return 'motion'
   if (name.endsWith('.exp3.json')) return 'expression'
   if (name.endsWith('.physics3.json')) return 'physics'
   if (name.endsWith('.json')) return 'config'
+  if (IMAGE_EXTENSIONS.has(extension)) return 'texture'
   if (AUDIO_EXTENSIONS.has(extension)) return 'audio'
-  if (name === 'background.png' || name === 'cover.png' || file.path.includes('resources')) return 'auxiliary'
 
   return 'other'
 }
 
 async function collectFiles(path: string): Promise<ResourceFile[]> {
-  const entries = await readDir(path).catch(() => [] as DirEntry[])
   const files: ResourceFile[] = []
+  const pending = [path]
 
-  for (const entry of entries) {
-    const entryPath = join(path, entry.name)
+  while (pending.length) {
+    const currentPath = pending.pop()!
+    const entries = await readDir(currentPath).catch(() => [] as DirEntry[])
 
-    if (entry.isDirectory) {
-      files.push(...await collectFiles(entryPath))
-      continue
+    for (const entry of entries) {
+      const entryPath = join(currentPath, entry.name)
+
+      if (entry.isDirectory) {
+        pending.push(entryPath)
+        continue
+      }
+
+      if (!entry.isFile) continue
+
+      const metadata = await stat(entryPath).catch(() => null)
+
+      files.push({
+        path: entryPath,
+        name: entry.name,
+        bytes: metadata?.size ?? 0,
+      })
     }
-
-    if (!entry.isFile) continue
-
-    const metadata = await stat(entryPath).catch(() => null)
-
-    files.push({
-      path: entryPath,
-      name: entry.name,
-      bytes: metadata?.size ?? 0,
-    })
   }
 
   return files
@@ -207,41 +219,60 @@ async function estimateMemoryBytes(file: ResourceFile, category: ResourceMetricC
   return file.bytes
 }
 
-export async function getModelResourceMetrics(models: Model[]) {
-  const result: ModelResourceMetric[] = []
+function getCacheKey(model: Model) {
+  return `${model.mode}:${model.id}:${model.path}:${model.isPreset ? 'preset' : 'custom'}`
+}
 
-  for (const model of models) {
-    const files = await collectFiles(model.path)
-    const categories = new Map<ResourceMetricCategory, ResourceCategoryMetric>()
+export async function getModelResourceMetric(model: Model, options: ModelResourceMetricsOptions = {}) {
+  const cacheKey = getCacheKey(model)
+  const cached = resourceMetricCache.get(cacheKey)
 
-    for (const file of files) {
-      const category = getCategory(file)
-      const metric = categories.get(category) ?? {
-        category,
-        fileCount: 0,
-        fileBytes: 0,
-        estimatedMemoryBytes: 0,
-      }
+  if (cached && !options.force) return cached
 
-      metric.fileCount += 1
-      metric.fileBytes += file.bytes
-      metric.estimatedMemoryBytes += await estimateMemoryBytes(file, category)
+  const files = await collectFiles(model.path)
+  const categories = new Map<ResourceMetricCategory, ResourceCategoryMetric>()
 
-      categories.set(category, metric)
+  for (const file of files) {
+    const category = getCategory(file)
+    const metric = categories.get(category) ?? {
+      category,
+      fileCount: 0,
+      fileBytes: 0,
+      estimatedMemoryBytes: 0,
     }
 
-    const categoryMetrics = Array.from(categories.values())
+    metric.fileCount += 1
+    metric.fileBytes += file.bytes
+    metric.estimatedMemoryBytes += await estimateMemoryBytes(file, category)
 
-    result.push({
-      modelId: model.id,
-      mode: model.mode,
-      isPreset: model.isPreset,
-      path: model.path,
-      fileCount: files.length,
-      fileBytes: categoryMetrics.reduce((total, item) => total + item.fileBytes, 0),
-      estimatedMemoryBytes: categoryMetrics.reduce((total, item) => total + item.estimatedMemoryBytes, 0),
-      categories: categoryMetrics,
-    })
+    categories.set(category, metric)
+  }
+
+  const categoryMetrics = Array.from(categories.values())
+  const metric = {
+    modelId: model.id,
+    mode: model.mode,
+    isPreset: model.isPreset,
+    path: model.path,
+    fileCount: files.length,
+    fileBytes: categoryMetrics.reduce((total, item) => total + item.fileBytes, 0),
+    estimatedMemoryBytes: categoryMetrics.reduce((total, item) => total + item.estimatedMemoryBytes, 0),
+    categories: categoryMetrics,
+  }
+
+  resourceMetricCache.set(cacheKey, metric)
+
+  return metric
+}
+
+export async function getModelResourceMetrics(models: Model[], options: ModelResourceMetricsOptions = {}) {
+  const result: ModelResourceMetric[] = []
+  let scanned = 0
+
+  for (const model of models) {
+    result.push(await getModelResourceMetric(model, options))
+    scanned += 1
+    options.onProgress?.({ scanned, total: models.length })
   }
 
   return result
