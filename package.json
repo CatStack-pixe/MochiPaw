@@ -15,6 +15,7 @@
     "build:icon": "tsx scripts/buildIcon.ts",
     "preview": "vite preview",
     "tauri": "tauri",
+    "package:portable": "node scripts/packagePortable.mjs",
     "lint": "eslint --fix src",
     "preinstall": "npx only-allow pnpm",
     "prepare": "simple-git-hooks",
