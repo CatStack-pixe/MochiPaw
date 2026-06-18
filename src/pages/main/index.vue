@@ -138,14 +138,16 @@ useTauriListen<{
   live2d.setExpression(payload.index)
 })
 
-function handleMouseDown() {
+function handleMouseDown(event: MouseEvent) {
+  if (catStore.window.passThrough || event.button !== 0) return
+
   appWindow.startDragging()
 }
 
 async function handleContextmenu(event: MouseEvent) {
   event.preventDefault()
 
-  if (event.shiftKey) return
+  if (event.shiftKey || event.ctrlKey) return
 
   const menu = await Menu.new({
     items: [
@@ -169,9 +171,9 @@ async function handleContextmenu(event: MouseEvent) {
 }
 
 function handleMouseMove(event: MouseEvent) {
-  const { buttons, shiftKey, movementX, movementY } = event
+  const { buttons, ctrlKey, shiftKey, movementX, movementY } = event
 
-  if (buttons !== 2 || !shiftKey) return
+  if (catStore.window.passThrough || buttons !== 2 || (!ctrlKey && !shiftKey)) return
 
   const delta = (movementX + movementY) * 0.5
   const nextScale = Math.max(10, Math.min(catStore.window.scale + delta, 500))
