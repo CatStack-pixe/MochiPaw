@@ -1,17 +1,11 @@
 <script setup lang="ts">
-import type {
-  ModelBehaviorConfig,
-  ModelBehaviorGroupConfig,
-  ModelExpressionInfo,
-  ModelMotionInfo,
-  ModelMotionTarget,
-} from '@/stores/model'
-
 import { emit } from '@tauri-apps/api/event'
-import { Empty, Input, InputNumber, Modal } from 'antdv-next'
+import { Button, Empty, Input, Modal } from 'antdv-next'
 import { groupBy, isEmpty } from 'es-toolkit/compat'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import type { ModelBehaviorGroup, ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
 
 import { LISTEN_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
@@ -19,50 +13,10 @@ import { resolveModelExpressions, resolveModelMotions } from '@/utils/live2d'
 
 import BehaviorItem from './components/behavior-item/index.vue'
 
-interface BehaviorMotionGroup {
-  key: string
-  title: string
-  motions: ModelMotionInfo[]
-}
-
-interface BehaviorExpressionGroup {
-  key: string
-  title: string
-  expressions: Array<{
-    expression: ModelExpressionInfo
-    index: number
-  }>
-}
-
 const modelValue = defineModel<boolean>()
 const modelStore = useModelStore()
 const { t } = useI18n()
-
-const motionGroups = computed<BehaviorMotionGroup[]>(() => {
-  const groups = groupBy(
-    modelStore.currentMotions.flatMap(([, motions]) => motions),
-    motion => getBehaviorConfig(getMotionShortcutId(motion.group, motion.no), motion.group).group,
-  )
-
-  return Object.entries(groups).map(([key, motions], index) => ({
-    key,
-    title: key || t('pages.preference.model.behaviorModal.labels.motionGroupIndex', { index: index + 1 }),
-    motions,
-  }))
-})
-
-const expressionGroups = computed<BehaviorExpressionGroup[]>(() => {
-  const groups = groupBy(
-    modelStore.currentExpressions.map((expression, index) => ({ expression, index })),
-    item => getBehaviorConfig(getExpressionShortcutId(item.index), 'expression').group,
-  )
-
-  return Object.entries(groups).map(([key, expressions], index) => ({
-    key,
-    title: key || t('pages.preference.model.behaviorModal.labels.expressionGroupIndex', { index: index + 1 }),
-    expressions,
-  }))
-})
+const currentGroupId = ref('default')
 
 function getMotionShortcutId(groupName: string, index: number) {
   return `${modelStore.currentModel?.id}:motion:${groupName}:${index}`
@@ -70,10 +24,6 @@ function getMotionShortcutId(groupName: string, index: number) {
 
 function getExpressionShortcutId(index: number) {
   return `${modelStore.currentModel?.id}:expression:${index}`
-}
-
-function getBehaviorGroupConfigId(group: string) {
-  return `${modelStore.currentModel?.id}:behavior-group:${group}`
 }
 
 function getMotionNameId(groupName: string, index: number) {
@@ -85,34 +35,14 @@ function getExpressionNameId(index: number) {
 }
 
 function startMotion(motion: ModelMotionInfo) {
-  const config = getBehaviorConfig(getMotionShortcutId(motion.group, motion.no), motion.group)
-  const groupConfig = getBehaviorGroupConfig(config.group)
-
-  emit(LISTEN_KEY.START_MOTION, {
-    motion,
-    config: toPlayConfig(config, groupConfig),
-    mutexTargets: getMotionMutexTargets(motion, config, groupConfig),
-  })
+  emit(LISTEN_KEY.START_MOTION, motion)
 }
 
 function setExpression(expression: ModelExpressionInfo, index: number) {
-  const config = getBehaviorConfig(getExpressionShortcutId(index), 'expression')
-  const groupConfig = getBehaviorGroupConfig(config.group)
-
   emit(LISTEN_KEY.SET_EXPRESSION, {
     expression,
     index,
-    config: toPlayConfig(config, groupConfig),
-    mutexTargets: getExpressionMutexTargets(expression, config, groupConfig),
   })
-}
-
-function toPlayConfig(config: ModelBehaviorConfig, groupConfig: ModelBehaviorGroupConfig): Required<ModelBehaviorConfig> {
-  return {
-    group: config.group,
-    mutexGroup: groupConfig.mutexGroup,
-    resetDelay: groupConfig.resetDelay,
-  }
 }
 
 function getMotionDefaultLabel(motion: ModelMotionInfo, index: number) {
@@ -133,120 +63,102 @@ function ensureBehaviorName(id: string, label: string) {
   modelStore.behaviorNames[id] = label
 }
 
-function ensureBehaviorConfig(id: string, group: string) {
-  modelStore.behaviorConfigs[id] ??= { group }
-  modelStore.behaviorConfigs[id].group ||= group
-
-  const legacyMutexGroup = modelStore.behaviorConfigs[id].mutexGroup
-  const legacyResetDelay = modelStore.behaviorConfigs[id].resetDelay
-
-  ensureBehaviorGroupConfig(modelStore.behaviorConfigs[id].group, legacyMutexGroup, legacyResetDelay)
-
-  delete modelStore.behaviorConfigs[id].mutexGroup
-  delete modelStore.behaviorConfigs[id].resetDelay
-}
-
-function getBehaviorConfig(id: string, group: string) {
-  ensureBehaviorConfig(id, group)
-
-  return modelStore.behaviorConfigs[id]
-}
-
-function ensureBehaviorGroupConfig(group: string, mutexGroup = group, resetDelay = 0.8) {
-  const id = getBehaviorGroupConfigId(group)
-
-  modelStore.behaviorGroupConfigs[id] ??= {
-    mutexGroup,
-    resetDelay,
-  }
-
-  modelStore.behaviorGroupConfigs[id].mutexGroup ||= mutexGroup || group
-}
-
-function getBehaviorGroupConfig(group: string) {
-  ensureBehaviorGroupConfig(group)
-
-  return modelStore.behaviorGroupConfigs[getBehaviorGroupConfigId(group)]
-}
-
-function renameBehaviorGroup(oldGroup: string, nextGroup: string) {
-  const group = nextGroup || oldGroup
-
-  if (group !== oldGroup) {
-    modelStore.behaviorGroupConfigs[getBehaviorGroupConfigId(group)] ??= { ...getBehaviorGroupConfig(oldGroup) }
-  }
-
-  for (const config of Object.values(modelStore.behaviorConfigs)) {
-    if (config.group === oldGroup) {
-      config.group = group
-    }
-  }
-}
-
-function ensureBehaviorSettings() {
-  for (const [, motions] of modelStore.currentMotions) {
+function ensureBehaviorNames() {
+  for (const [groupName, motions] of modelStore.currentMotions) {
     for (const [index, motion] of motions.entries()) {
-      const id = getMotionShortcutId(motion.group, motion.no)
-
-      ensureBehaviorName(getMotionNameId(motion.group, motion.no), getMotionDefaultLabel(motion, index))
-      ensureBehaviorConfig(id, motion.group)
+      ensureBehaviorName(getMotionNameId(groupName, index), getMotionDefaultLabel(motion, index))
     }
   }
 
   for (const [index] of modelStore.currentExpressions.entries()) {
-    const id = getExpressionShortcutId(index)
-
     ensureBehaviorName(getExpressionNameId(index), getExpressionLabel(index))
-    ensureBehaviorConfig(id, 'expression')
   }
 }
 
-function uniqueTargets(targets: ModelMotionTarget[]) {
-  const targetMap = new Map<string, ModelMotionTarget>()
+const currentModelGroups = computed(() => {
+  if (!modelStore.currentModel) return []
 
-  for (const target of targets) {
-    targetMap.set(target.id, target)
+  return ensureBehaviorGroups(modelStore.currentModel.id, getAllBehaviorIds())
+})
+
+const currentGroup = computed(() => {
+  return currentModelGroups.value.find(group => group.id === currentGroupId.value)
+    ?? currentModelGroups.value[0]
+})
+
+function ensureBehaviorGroups(modelId: string, behaviorIds: string[]) {
+  modelStore.behaviorGroups[modelId] ??= []
+
+  const groups = modelStore.behaviorGroups[modelId]
+  let defaultGroup = groups.find(group => group.id === 'default')
+
+  if (!defaultGroup) {
+    defaultGroup = {
+      id: 'default',
+      name: 'default',
+      items: [],
+    }
+    groups.unshift(defaultGroup)
   }
 
-  return [...targetMap.values()]
+  const existing = new Set(defaultGroup.items)
+
+  for (const id of behaviorIds) {
+    if (existing.has(id)) continue
+
+    defaultGroup.items.push(id)
+    existing.add(id)
+  }
+
+  if (!groups.some(group => group.id === currentGroupId.value)) {
+    currentGroupId.value = 'default'
+  }
+
+  return groups
 }
 
-function getMotionMutexTargets(
-  currentMotion: ModelMotionInfo,
-  currentConfig: ModelBehaviorConfig,
-  currentGroupConfig: ModelBehaviorGroupConfig,
-) {
-  return uniqueTargets(modelStore.currentMotions.flatMap(([, motions]) => {
-    return motions.flatMap((motion) => {
-      if (motion === currentMotion) return []
+function getAllBehaviorIds() {
+  const motionIds = modelStore.currentMotions.flatMap(([groupName, motions]) => {
+    return motions.map((_, index) => getMotionShortcutId(groupName, index))
+  })
+  const expressionIds = modelStore.currentExpressions.map((_, index) => getExpressionShortcutId(index))
 
-      const config = getBehaviorConfig(getMotionShortcutId(motion.group, motion.no), motion.group)
-      const groupConfig = getBehaviorGroupConfig(config.group)
-
-      if (!currentGroupConfig.mutexGroup || groupConfig.mutexGroup !== currentGroupConfig.mutexGroup) return []
-      if (config.group === currentConfig.group) return []
-
-      return motion.defaultTargets ?? []
-    })
-  }))
+  return [...motionIds, ...expressionIds]
 }
 
-function getExpressionMutexTargets(
-  currentExpression: ModelExpressionInfo,
-  currentConfig: ModelBehaviorConfig,
-  currentGroupConfig: ModelBehaviorGroupConfig,
-) {
-  return uniqueTargets(modelStore.currentExpressions.flatMap((expression, index) => {
-    if (expression === currentExpression) return []
+function addBehaviorGroup() {
+  if (!modelStore.currentModel) return
 
-    const config = getBehaviorConfig(getExpressionShortcutId(index), 'expression')
-    const groupConfig = getBehaviorGroupConfig(config.group)
+  const groups = ensureBehaviorGroups(modelStore.currentModel.id, getAllBehaviorIds())
+  const index = groups.length + 1
+  const group: ModelBehaviorGroup = {
+    id: `group-${Date.now()}`,
+    name: `Group ${index}`,
+    items: [],
+  }
 
-    if (!currentGroupConfig.mutexGroup || groupConfig.mutexGroup !== currentGroupConfig.mutexGroup) return []
-    if (config.group === currentConfig.group) return []
+  groups.push(group)
+  currentGroupId.value = group.id
+}
 
-    return expression.defaultTargets ?? []
-  }))
+function isBehaviorChecked(id: string) {
+  return Boolean(currentGroup.value?.items.includes(id))
+}
+
+function setBehaviorChecked(id: string, checked: boolean) {
+  const group = currentGroup.value
+
+  if (!group) return
+
+  if (checked) {
+    if (!group.items.includes(id)) {
+      group.items.push(id)
+    }
+
+    return
+  }
+
+  group.items = group.items.filter(item => item !== id)
 }
 
 watch(modelValue, async (open) => {
@@ -266,7 +178,11 @@ watch(modelValue, async (open) => {
     )
   }
 
-  ensureBehaviorSettings()
+  ensureBehaviorNames()
+
+  if (modelStore.currentModel) {
+    ensureBehaviorGroups(modelStore.currentModel.id, getAllBehaviorIds())
+  }
 })
 </script>
 
@@ -280,122 +196,108 @@ watch(modelValue, async (open) => {
     :title="$t('pages.preference.model.behaviorModal.title')"
     width="980px"
   >
-    <div class="grid max-h-[70vh] grid-cols-1 gap-5 overflow-auto pr-1 lg:grid-cols-2">
-      <section class="min-w-0 flex flex-col gap-3">
-        <div class="text-sm font-medium">
-          {{ $t('pages.preference.model.behaviorModal.labels.motion') }}
+    <div class="max-h-[70vh] flex flex-col gap-5 overflow-auto pr-1">
+      <section class="b-1 b-solid b-border rounded-lg">
+        <div class="bg-fill-sec flex items-center justify-between gap-3 px-4 py-3">
+          <span class="font-medium text-sm">
+            {{ $t('pages.preference.model.behaviorModal.labels.randomGroups') }}
+          </span>
+
+          <Button
+            class="inline-flex items-center justify-center"
+            size="small"
+            @click="addBehaviorGroup"
+          >
+            <template #icon>
+              <div class="i-lucide:plus" />
+            </template>
+          </Button>
         </div>
 
-        <Empty
-          v-if="isEmpty(modelStore.currentMotions)"
-          :image="Empty.PRESENTED_IMAGE_SIMPLE"
-        />
-
-        <template v-else>
+        <div class="grid gap-2 px-4 py-3">
           <div
-            v-for="group in motionGroups"
-            :key="group.key"
-            class="b-1 b-solid b-border rounded-lg"
+            v-for="group in currentModelGroups"
+            :key="group.id"
+            class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2"
           >
-            <div class="grid gap-2 bg-fill-sec px-4 py-3">
-              <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem] gap-2 text-[11px] text-text-tertiary">
-                <span>Group</span>
-                <span>Mutex</span>
-                <span>Reset</span>
+            <Button
+              class="inline-flex items-center justify-center"
+              size="small"
+              @click="currentGroupId = group.id"
+            >
+              <template #icon>
+                <div :class="currentGroupId === group.id ? 'i-lucide:check' : 'i-lucide:circle'" />
+              </template>
+            </Button>
+
+            <Input
+              v-model:value="group.name"
+              size="small"
+            />
+          </div>
+        </div>
+      </section>
+
+      <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <section class="min-w-0 flex flex-col gap-3">
+          <div class="font-medium text-sm">
+            {{ $t('pages.preference.model.behaviorModal.labels.motion') }}
+          </div>
+
+          <Empty
+            v-if="isEmpty(modelStore.currentMotions)"
+            :image="Empty.PRESENTED_IMAGE_SIMPLE"
+          />
+
+          <template v-else>
+            <div
+              v-for="([groupName, motions], groupIndex) in modelStore.currentMotions"
+              :key="groupName"
+            >
+              <div class="mb-2">
+                {{ $t('pages.preference.model.behaviorModal.labels.motionGroupIndex', { index: groupIndex + 1 }) }}
               </div>
 
-              <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem] gap-2">
-                <Input
-                  :value="group.key"
-                  size="small"
-                  @update:value="renameBehaviorGroup(group.key, String($event))"
-                />
-
-                <Input
-                  v-model:value="modelStore.behaviorGroupConfigs[getBehaviorGroupConfigId(group.key)].mutexGroup"
-                  size="small"
-                />
-
-                <InputNumber
-                  v-model:value="modelStore.behaviorGroupConfigs[getBehaviorGroupConfigId(group.key)].resetDelay"
-                  class="w-full"
-                  :min="-1"
-                  :precision="1"
-                  size="small"
-                  :step="0.1"
+              <div class="b-1 b-solid b-border rounded-lg">
+                <BehaviorItem
+                  v-for="(item, index) in motions"
+                  :key="item.no"
+                  v-model:name="modelStore.behaviorNames[getMotionNameId(groupName, index)]"
+                  v-model:shortcut="modelStore.shortcuts[getMotionShortcutId(groupName, index)]"
+                  :checked="isBehaviorChecked(getMotionShortcutId(groupName, index))"
+                  @click="startMotion(item)"
+                  @update:checked="setBehaviorChecked(getMotionShortcutId(groupName, index), $event)"
                 />
               </div>
             </div>
+          </template>
+        </section>
 
-            <BehaviorItem
-              v-for="item in group.motions"
-              :key="`${item.group}:${item.no}`"
-              v-model:config="modelStore.behaviorConfigs[getMotionShortcutId(item.group, item.no)]"
-              v-model:name="modelStore.behaviorNames[getMotionNameId(item.group, item.no)]"
-              v-model:shortcut="modelStore.shortcuts[getMotionShortcutId(item.group, item.no)]"
-              @click="startMotion(item)"
-            />
+        <section class="min-w-0 flex flex-col gap-3">
+          <div class="font-medium text-sm">
+            {{ $t('pages.preference.model.behaviorModal.labels.expression') }}
           </div>
-        </template>
-      </section>
 
-      <section class="min-w-0 flex flex-col gap-3">
-        <div class="text-sm font-medium">
-          {{ $t('pages.preference.model.behaviorModal.labels.expression') }}
-        </div>
+          <Empty
+            v-if="isEmpty(modelStore.currentExpressions)"
+            :image="Empty.PRESENTED_IMAGE_SIMPLE"
+          />
 
-        <Empty
-          v-if="isEmpty(modelStore.currentExpressions)"
-          :image="Empty.PRESENTED_IMAGE_SIMPLE"
-        />
-
-        <template v-else>
-          <div
-            v-for="group in expressionGroups"
-            :key="group.key"
-            class="b-1 b-solid b-border rounded-lg"
-          >
-            <div class="grid gap-2 bg-fill-sec px-4 py-3">
-              <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem] gap-2 text-[11px] text-text-tertiary">
-                <span>Group</span>
-                <span>Mutex</span>
-                <span>Reset</span>
-              </div>
-
-              <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem] gap-2">
-                <Input
-                  :value="group.key"
-                  size="small"
-                  @update:value="renameBehaviorGroup(group.key, String($event))"
-                />
-
-                <Input
-                  v-model:value="modelStore.behaviorGroupConfigs[getBehaviorGroupConfigId(group.key)].mutexGroup"
-                  size="small"
-                />
-
-                <InputNumber
-                  v-model:value="modelStore.behaviorGroupConfigs[getBehaviorGroupConfigId(group.key)].resetDelay"
-                  class="w-full"
-                  :min="-1"
-                  :precision="1"
-                  size="small"
-                  :step="0.1"
-                />
-              </div>
+          <template v-else>
+            <div class="b-1 b-solid b-border rounded-lg">
+              <BehaviorItem
+                v-for="(expression, index) in modelStore.currentExpressions"
+                :key="expression.name"
+                v-model:name="modelStore.behaviorNames[getExpressionNameId(index)]"
+                v-model:shortcut="modelStore.shortcuts[getExpressionShortcutId(index)]"
+                :checked="isBehaviorChecked(getExpressionShortcutId(index))"
+                @click="setExpression(expression, index)"
+                @update:checked="setBehaviorChecked(getExpressionShortcutId(index), $event)"
+              />
             </div>
-
-            <BehaviorItem
-              v-for="{ expression, index } in group.expressions"
-              :key="expression.name"
-              v-model:config="modelStore.behaviorConfigs[getExpressionShortcutId(index)]"
-              v-model:name="modelStore.behaviorNames[getExpressionNameId(index)]"
-              v-model:shortcut="modelStore.shortcuts[getExpressionShortcutId(index)]"
-              @click="setExpression(expression, index)"
-            />
-          </div>
-        </template>
-      </section>
+          </template>
+        </section>
+      </div>
     </div>
   </Modal>
 </template>

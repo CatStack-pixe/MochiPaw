@@ -8,7 +8,7 @@ import JSON5 from 'json5'
 import { Application, Ticker } from 'pixi.js'
 
 import type { ModelSize } from '@/composables/useModel'
-import type { ModelBehaviorConfig, ModelExpressionInfo, ModelMotionInfo, ModelMotionTarget } from '@/stores/model'
+import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
 
 import { i18n } from '@/locales'
 
@@ -42,15 +42,6 @@ interface CubismModelJson {
 interface CubismExpressionJson {
   Parameters?: Array<{
     Id?: string
-    Value?: number
-  }>
-}
-
-interface CubismMotionJson {
-  Curves?: Array<{
-    Target?: string
-    Id?: string
-    Segments?: number[]
   }>
 }
 
@@ -82,20 +73,18 @@ export async function readCubismModelJSON(path: string) {
 
 export async function resolveModelMotions(path: string, motions: MotionInfo[]) {
   const modelJSON = await readCubismModelJSON(path)
-  const motionsFromJSON = await readMotionsFromModelJSON(path, modelJSON)
+  const motionsFromJSON = readMotionsFromModelJSON(modelJSON)
 
   if (!motions.length) return motionsFromJSON
 
   return Promise.all(motions.map(async (motion): Promise<ModelMotionInfo> => {
     const motionConfig = modelJSON.FileReferences?.Motions?.[motion.group]?.[motion.no]
     const file = motionConfig?.File
-    const motionTargets = file ? await readMotionTargets(path, file) : {}
 
     return {
       ...motion,
       file,
       displayName: getMotionDisplayName(file, motion.name),
-      ...motionTargets,
     }
   }))
 }
@@ -103,26 +92,11 @@ export async function resolveModelMotions(path: string, motions: MotionInfo[]) {
 export async function resolveModelExpressions(path: string, expressions: ExpressionInfo[]) {
   const modelJSON = await readCubismModelJSON(path)
   const parameterNames = await getParameterNames(path, modelJSON)
-  const expressionTargets = await Promise.all(
-    modelJSON.FileReferences?.Expressions?.map(async (expression) => {
-      return expression.File ? await readExpressionTargets(path, expression.File) : []
-    }) ?? [],
-  )
-  const expressionTargetIds = [...new Set(
-    flatMap(expressionTargets, targets => targets?.map(target => target.id) ?? []),
-  )]
-  const defaultExpressionTargets = expressionTargetIds.map((id): ModelMotionTarget => ({ id, value: 0 }))
 
   return Promise.all(expressions.map(async (expression, index): Promise<ModelExpressionInfo> => {
     const expressionConfig = modelJSON.FileReferences?.Expressions?.[index]
 
-    if (!expressionConfig?.File) {
-      return {
-        ...expression,
-        defaultTargets: defaultExpressionTargets,
-        mutexTargetIds: expressionTargetIds,
-      }
-    }
+    if (!expressionConfig?.File) return expression
 
     const expressionJSON = await readTextFile(join(path, expressionConfig.File))
       .then(content => JSON5.parse(content) as CubismExpressionJson)
@@ -134,22 +108,18 @@ export async function resolveModelExpressions(path: string, expressions: Express
     return {
       ...expression,
       displayName: displayName ?? expressionConfig.Name,
-      targets: expressionTargets[index],
-      defaultTargets: defaultExpressionTargets,
-      mutexTargetIds: expressionTargetIds,
     }
   }))
 }
 
-async function readMotionsFromModelJSON(path: string, modelJSON: CubismModelJson) {
+function readMotionsFromModelJSON(modelJSON: CubismModelJson) {
   const motionGroups = modelJSON.FileReferences?.Motions
 
   if (!motionGroups) return []
 
-  const entries = await Promise.all(Object.entries(motionGroups).map(async ([group, items]) => {
-    return Promise.all(items.map(async (item, no): Promise<ModelMotionInfo> => {
+  const entries = Object.entries(motionGroups).map(([group, items]) => {
+    return items.map((item, no): ModelMotionInfo => {
       const name = item.File ? removeModelFileExtension(item.File) : `${group}_${no}`
-      const motionTargets = item.File ? await readMotionTargets(path, item.File) : {}
 
       return {
         group,
@@ -157,45 +127,11 @@ async function readMotionsFromModelJSON(path: string, modelJSON: CubismModelJson
         name,
         file: item.File,
         displayName: getMotionDisplayName(item.File, name),
-        ...motionTargets,
       }
-    }))
-  }))
+    })
+  })
 
   return flatMap(entries, motions => motions)
-}
-
-async function readMotionTargets(path: string, file: string) {
-  const motionJSON = await readTextFile(join(path, file))
-    .then(content => JSON5.parse(content) as CubismMotionJson)
-    .catch(() => undefined)
-
-  const parameterCurves = motionJSON?.Curves
-    ?.filter(curve => curve.Target === 'Parameter' && curve.Id && curve.Segments?.length)
-
-  return {
-    targets: parameterCurves?.map((curve): ModelMotionTarget => ({
-      id: curve.Id!,
-      value: curve.Segments![curve.Segments!.length - 1],
-    })),
-    defaultTargets: parameterCurves?.map((curve): ModelMotionTarget => ({
-      id: curve.Id!,
-      value: curve.Segments![1] ?? 0,
-    })),
-  }
-}
-
-async function readExpressionTargets(path: string, file: string) {
-  const expressionJSON = await readTextFile(join(path, file))
-    .then(content => JSON5.parse(content) as CubismExpressionJson)
-    .catch(() => undefined)
-
-  return expressionJSON?.Parameters
-    ?.filter(parameter => parameter.Id)
-    .map((parameter): ModelMotionTarget => ({
-      id: parameter.Id!,
-      value: parameter.Value ?? 1,
-    }))
 }
 
 function getMotionDisplayName(file: string | undefined, fallback: string) {
@@ -209,17 +145,7 @@ function getMotionDisplayName(file: string | undefined, fallback: string) {
 function removeModelFileExtension(file: string) {
   return file
     .replace(/\.(?:motion3|exp3|model3)\.json$/i, '')
-    .replace(/\.[^.]+$/i, '')
-}
-
-function uniqueTargets(targets: ModelMotionTarget[]) {
-  const targetMap = new Map<string, ModelMotionTarget>()
-
-  for (const target of targets) {
-    targetMap.set(target.id, target)
-  }
-
-  return [...targetMap.values()]
+    .replace(/\.[^.]+$/, '')
 }
 
 async function getParameterNames(path: string, modelJSON: CubismModelJson) {
@@ -241,8 +167,6 @@ async function getParameterNames(path: string, modelJSON: CubismModelJson) {
 class Live2d {
   private app: Application | null = null
   public model: Live2DSprite | null = null
-  private behaviorResetTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private parameterValues = new Map<string, number>()
 
   constructor() { }
 
@@ -302,8 +226,6 @@ class Live2d {
   public destroy() {
     if (!this.model) return
 
-    this.clearBehaviorResetTimers()
-    this.parameterValues.clear()
     this.model?.destroy()
 
     this.model = null
@@ -331,106 +253,8 @@ class Live2d {
     })
   }
 
-  private clearBehaviorResetTimer(group: string) {
-    const timer = this.behaviorResetTimers.get(group)
-
-    if (!timer) return
-
-    clearTimeout(timer)
-    this.behaviorResetTimers.delete(group)
-  }
-
-  private clearBehaviorResetTimers() {
-    for (const timer of this.behaviorResetTimers.values()) {
-      clearTimeout(timer)
-    }
-
-    this.behaviorResetTimers.clear()
-  }
-
-  private getResetTargets(targets: ModelMotionTarget[], defaultTargets: ModelMotionTarget[] | undefined) {
-    const defaultTargetMap = new Map(defaultTargets?.map(target => [target.id, target.value]) ?? [])
-
-    return uniqueTargets(targets).map((target): ModelMotionTarget => ({
-      id: target.id,
-      value: this.parameterValues.get(target.id) ?? defaultTargetMap.get(target.id) ?? 0,
-    }))
-  }
-
-  private scheduleBehaviorReset(group: string, targets: ModelMotionTarget[] | undefined, delay: number) {
-    this.clearBehaviorResetTimer(group)
-
-    if (!targets?.length || delay < 0) return
-
-    this.behaviorResetTimers.set(group, setTimeout(() => {
-      for (const target of targets) {
-        this.setParameterValue(target.id, target.value)
-      }
-
-      this.behaviorResetTimers.delete(group)
-    }, delay * 1000))
-  }
-
-  public playBehaviorMotion(motion: ModelMotionInfo, config?: ModelBehaviorConfig, mutexTargets: ModelMotionTarget[] = []) {
-    if (motion.targets?.length) {
-      const group = config?.group || motion.group
-      const resetTargets = this.getResetTargets([...mutexTargets, ...motion.targets], motion.defaultTargets)
-
-      this.clearBehaviorResetTimer(group)
-
-      for (const target of mutexTargets) {
-        if (motion.targets.some(item => item.id === target.id)) continue
-
-        this.setParameterValue(target.id, target.value)
-      }
-
-      for (const target of motion.targets) {
-        this.setParameterValue(target.id, target.value)
-      }
-
-      this.scheduleBehaviorReset(group, resetTargets, config?.resetDelay ?? -1)
-
-      return
-    }
-
-    return this.startMotion(motion)
-  }
-
   public setExpression(index: number) {
     return this.model?.setExpression({ index })
-  }
-
-  public playBehaviorExpression(expression: ModelExpressionInfo, index: number, config?: ModelBehaviorConfig, mutexTargets: ModelMotionTarget[] = []) {
-    const targets = expression.targets ?? []
-    const group = config?.group || 'expression'
-    const appliedTargets = targets.length ? targets : expression.defaultTargets ?? []
-    const resetTargets = this.getResetTargets([...mutexTargets, ...appliedTargets], expression.defaultTargets)
-
-    this.clearBehaviorResetTimer(group)
-
-    for (const target of mutexTargets) {
-      if (targets.some(item => item.id === target.id)) continue
-
-      this.setParameterValue(target.id, target.value)
-    }
-
-    if (targets.length) {
-      for (const target of targets) {
-        this.setParameterValue(target.id, target.value)
-      }
-
-      this.scheduleBehaviorReset(group, resetTargets, config?.resetDelay ?? -1)
-
-      return
-    }
-
-    if (expression.defaultTargets?.length) {
-      for (const target of expression.defaultTargets) {
-        this.setParameterValue(target.id, target.value)
-      }
-    }
-
-    return this.setExpression(index)
   }
 
   public getParameterValueRange(id: string) {
@@ -438,11 +262,7 @@ class Live2d {
   }
 
   public setParameterValue(id: string, value: number | boolean) {
-    const numberValue = Number(value)
-
-    this.parameterValues.set(id, numberValue)
-
-    return this.model?.setParameterValueById(id, numberValue)
+    return this.model?.setParameterValueById(id, Number(value))
   }
 
   public setMotionSoundEnabled(enabled: boolean) {

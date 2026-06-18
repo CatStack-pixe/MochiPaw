@@ -27,7 +27,8 @@
           "typingExpression": "打字隨機表情",
           "autoReleaseDelay": "按鍵自動釋放延遲",
           "hideOnHover": "滑鼠游標移入隱藏",
-          "maxFPS": "最大幀率"
+          "maxFPS": "最大幀率",
+          "typingBehaviorGroup": "隨機組"
         },
         "hints": {
           "mirrorMode": "啟用後，模型將水平鏡像翻轉。",
@@ -35,7 +36,7 @@
           "ignoreMouse": "啟用後，模型將不再回應滑鼠事件，適用於鍵盤模式或手柄模式。",
           "motionSound": "啟用後，模型執行動作時會播放對應音效（如果存在）。",
           "behavior": "啟用後，可以配置和觸發模型的動作與表情。",
-          "typingExpression": "啟用後，打字時會在設定的隨機延遲範圍內切換表情，避免過於頻繁。",
+          "typingExpression": "啟用後，打字時會在設定的隨機延遲範圍內，從選中的組裡隨機觸發動作或表情。",
           "passThrough": "啟用後，鎖定貓咪視窗互動，滑鼠操作會穿透到下方應用程式。",
           "alwaysOnTop": "啟用後，視窗始終顯示在其他應用程式上方。",
           "keepInScreen": "啟用後，視窗會自動調整位置，防止超出螢幕邊界。",
@@ -110,7 +111,8 @@
             "expression": "表情",
             "motionIndex": "動作{index}",
             "motionGroupIndex": "動作組{index}",
-            "expressionIndex": "表情{index}"
+            "expressionIndex": "表情{index}",
+            "randomGroups": "隨機組"
           }
         }
       },

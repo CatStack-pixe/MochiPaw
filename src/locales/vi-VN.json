@@ -27,7 +27,8 @@
           "typingExpression": "Biểu cảm khi gõ",
           "autoReleaseDelay": "Độ trễ tự động nhả phím",
           "hideOnHover": "Ẩn khi di chuột",
-          "maxFPS": "Tốc độ khung hình tối đa"
+          "maxFPS": "Tốc độ khung hình tối đa",
+          "typingBehaviorGroup": "Nh?m ng?u nhi?n"
         },
         "hints": {
           "mirrorMode": "Bật để lật ngang mô hình.",
@@ -35,7 +36,7 @@
           "ignoreMouse": "Khi bật, mô hình sẽ không phản hồi sự kiện chuột. Hữu ích cho chế độ bàn phím hoặc chế độ tay cầm.",
           "motionSound": "Khi bật, mô hình sẽ phát các âm thanh tương ứng khi thực hiện hành động (nếu tồn tại).",
           "behavior": "Khi bật, các hành động và biểu cảm có thể được cấu hình và kích hoạt.",
-          "typingExpression": "Khi bật, biểu cảm sẽ đổi khi gõ sau một độ trễ ngẫu nhiên trong khoảng này để tránh đổi quá thường xuyên.",
+          "typingExpression": "Khi b?t, vi?c g? s? k?ch ho?t ng?u nhi?n m?t chuy?n ??ng ho?c bi?u c?m trong nh?m ?? ch?n sau kho?ng tr? n?y.",
           "passThrough": "Bật để khóa tương tác với cửa sổ mèo và chuyển thao tác chuột xuống ứng dụng bên dưới.",
           "alwaysOnTop": "Bật để cửa sổ luôn nằm trên ứng dụng khác.",
           "keepInScreen": "Khi bật, cửa sổ sẽ tự động giữ trong ranh giới màn hình.",
@@ -110,7 +111,8 @@
             "expression": "Biểu cảm",
             "motionIndex": "Chuyển động {index}",
             "motionGroupIndex": "Nhóm chuyển động {index}",
-            "expressionIndex": "Biểu cảm {index}"
+            "expressionIndex": "Biểu cảm {index}",
+            "randomGroups": "Nh?m ng?u nhi?n"
           }
         }
       },

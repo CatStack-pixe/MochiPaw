@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { ModelBehaviorConfig, ModelExpressionInfo, ModelMotionInfo, ModelMotionTarget } from '@/stores/model'
-
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { PhysicalSize } from '@tauri-apps/api/dpi'
 import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
@@ -11,6 +9,8 @@ import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
 import { nth } from 'es-toolkit/compat'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+
+import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
 
 import { useAppMenu } from '@/composables/useAppMenu'
 import { useDevice } from '@/composables/useDevice'
@@ -127,21 +127,15 @@ watch(() => catStore.model.motionSound, live2d.setMotionSoundEnabled, { immediat
 
 watch(() => catStore.model.maxFPS, live2d.setMaxFPS, { immediate: true })
 
-useTauriListen<{
-  motion: ModelMotionInfo
-  config?: ModelBehaviorConfig
-  mutexTargets?: ModelMotionTarget[]
-}>(LISTEN_KEY.START_MOTION, ({ payload }) => {
-  live2d.playBehaviorMotion(payload.motion, payload.config, payload.mutexTargets)
+useTauriListen<ModelMotionInfo>(LISTEN_KEY.START_MOTION, ({ payload }) => {
+  live2d.startMotion(payload)
 })
 
 useTauriListen<{
   expression: ModelExpressionInfo
   index: number
-  config?: ModelBehaviorConfig
-  mutexTargets?: ModelMotionTarget[]
 }>(LISTEN_KEY.SET_EXPRESSION, ({ payload }) => {
-  live2d.playBehaviorExpression(payload.expression, payload.index, payload.config, payload.mutexTargets)
+  live2d.setExpression(payload.index)
 })
 
 function handleMouseDown() {

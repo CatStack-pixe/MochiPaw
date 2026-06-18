@@ -8,6 +8,8 @@ import { isNil, round } from 'es-toolkit'
 import { findKey, nth } from 'es-toolkit/compat'
 import { ref } from 'vue'
 
+import type { ModelBehaviorRef, ModelMotionInfo } from '@/stores/model'
+
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { getCursorMonitor } from '@/utils/monitor'
@@ -35,7 +37,6 @@ export function useModel() {
   const catStore = useCatStore()
   const modelSize = ref<ModelSize>()
   let typingExpressionTimer: ReturnType<typeof setTimeout> | undefined
-  let typingExpressionIndex = 0
   let nextTypingExpressionAt = 0
 
   function getBehaviorShortcut(index: number) {
@@ -84,33 +85,67 @@ export function useModel() {
     modelStore.behaviorNames[id] = label
   }
 
-  function ensureBehaviorConfig(modelId: string, id: string, group: string) {
-    modelStore.behaviorConfigs[id] ??= { group }
-    modelStore.behaviorConfigs[id].group ||= group
+  function getBehaviorGroups(modelId: string) {
+    modelStore.behaviorGroups[modelId] ??= [{
+      id: 'default',
+      name: 'default',
+      items: [],
+    }]
 
-    const legacyMutexGroup = modelStore.behaviorConfigs[id].mutexGroup
-    const legacyResetDelay = modelStore.behaviorConfigs[id].resetDelay
-
-    ensureBehaviorGroupConfig(
-      modelId,
-      modelStore.behaviorConfigs[id].group,
-      legacyMutexGroup,
-      legacyResetDelay,
-    )
-
-    delete modelStore.behaviorConfigs[id].mutexGroup
-    delete modelStore.behaviorConfigs[id].resetDelay
+    return modelStore.behaviorGroups[modelId]
   }
 
-  function getBehaviorGroupConfigId(modelId: string, group: string) {
-    return `${modelId}:behavior-group:${group}`
-  }
+  function ensureDefaultBehaviorGroup(modelId: string, behaviorIds: string[]) {
+    const groups = getBehaviorGroups(modelId)
+    let defaultGroup = groups.find(group => group.id === 'default')
 
-  function ensureBehaviorGroupConfig(modelId: string, group: string, mutexGroup = group, resetDelay = 0.8) {
-    modelStore.behaviorGroupConfigs[getBehaviorGroupConfigId(modelId, group)] ??= {
-      mutexGroup,
-      resetDelay,
+    if (!defaultGroup) {
+      defaultGroup = {
+        id: 'default',
+        name: 'default',
+        items: [],
+      }
+      groups.unshift(defaultGroup)
     }
+
+    const existing = new Set(defaultGroup.items)
+
+    for (const id of behaviorIds) {
+      if (existing.has(id)) continue
+
+      defaultGroup.items.push(id)
+      existing.add(id)
+    }
+  }
+
+  function getBehaviorRef(id: string): ModelBehaviorRef | undefined {
+    const [, type] = id.split(':')
+
+    if (type !== 'motion' && type !== 'expression') return
+
+    return {
+      id,
+      type,
+    }
+  }
+
+  function getMotionById(id: string) {
+    const parts = id.split(':')
+    const groupName = parts[2]
+    const index = Number(parts[3])
+
+    if (!groupName || Number.isNaN(index)) return
+
+    return modelStore.currentMotions
+      .find(([currentGroupName]) => currentGroupName === groupName)?.[1][index]
+  }
+
+  function getExpressionIndexById(id: string) {
+    const index = Number(id.split(':')[2])
+
+    if (Number.isNaN(index) || !modelStore.currentExpressions[index]) return
+
+    return index
   }
 
   async function handleLoad() {
@@ -141,7 +176,6 @@ export function useModel() {
 
           behaviorIds.push(id)
           ensureBehaviorName(getBehaviorNameId(id), motion.displayName ?? motion.name)
-          ensureBehaviorConfig(modelId, id, motion.group)
         }
       }
 
@@ -153,7 +187,6 @@ export function useModel() {
           getBehaviorNameId(id),
           expression.displayName ?? expression.name ?? `Expression ${index + 1}`,
         )
-        ensureBehaviorConfig(modelId, id, 'expression')
       }
 
       for (const [index, id] of behaviorIds.entries()) {
@@ -165,6 +198,8 @@ export function useModel() {
 
         modelStore.shortcuts[id] = shortcut
       }
+
+      ensureDefaultBehaviorGroup(modelId, behaviorIds)
     } catch (error) {
       message.error(String(error))
     }
@@ -236,7 +271,7 @@ export function useModel() {
   }
 
   function handleTypingExpression() {
-    if (!catStore.model.behavior || !catStore.model.typingExpression || modelStore.currentExpressions.length <= 1) {
+    if (!catStore.model.behavior || !catStore.model.typingExpression || !modelStore.currentModel) {
       return
     }
 
@@ -244,11 +279,13 @@ export function useModel() {
 
     if (now < nextTypingExpressionAt) return
 
-    typingExpressionIndex = typingExpressionIndex % (modelStore.currentExpressions.length - 1) + 1
+    const behavior = getRandomTypingBehavior()
 
-    live2d.setExpression(typingExpressionIndex)
+    if (!behavior) return
+
+    playTypingBehavior(behavior)
+
     const delay = getTypingExpressionDelay()
-
     nextTypingExpressionAt = now + delay
 
     if (typingExpressionTimer) {
@@ -258,6 +295,44 @@ export function useModel() {
     typingExpressionTimer = setTimeout(() => {
       live2d.setExpression(0)
     }, Math.max(600, delay * 0.6))
+  }
+
+  function getRandomTypingBehavior() {
+    if (!modelStore.currentModel) return
+
+    const groups = getBehaviorGroups(modelStore.currentModel.id)
+    const selectedGroup = groups.find(group => group.id === catStore.model.typingBehaviorGroup)
+      ?? groups.find(group => group.id === 'default')
+    const refs = selectedGroup?.items
+      .map(getBehaviorRef)
+      .filter(item => item && isTypingBehaviorAvailable(item)) ?? []
+
+    if (!refs.length) return
+
+    return refs[Math.floor(Math.random() * refs.length)]
+  }
+
+  function isTypingBehaviorAvailable(behavior: ModelBehaviorRef) {
+    if (behavior.type === 'motion') return Boolean(getMotionById(behavior.id))
+
+    return getExpressionIndexById(behavior.id) !== undefined
+  }
+
+  function playTypingBehavior(behavior: ModelBehaviorRef) {
+    if (behavior.type === 'motion') {
+      const motion = getMotionById(behavior.id)
+
+      if (!motion) return
+
+      live2d.startMotion(motion as ModelMotionInfo)
+      return
+    }
+
+    const index = getExpressionIndexById(behavior.id)
+
+    if (index === undefined) return
+
+    live2d.setExpression(index)
   }
 
   function getTypingExpressionDelay() {

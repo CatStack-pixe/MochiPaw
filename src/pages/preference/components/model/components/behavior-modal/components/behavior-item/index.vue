@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import type { ModelBehaviorConfig } from '@/stores/model'
-
-import { Button, Divider, Input } from 'antdv-next'
+import { Button, Checkbox, Divider, Input } from 'antdv-next'
 
 import Shortcut from '@/components/shortcut/index.vue'
 import { useKeyPress } from '@/composables/useKeyPress'
@@ -9,9 +7,7 @@ import { useKeyPress } from '@/composables/useKeyPress'
 const emit = defineEmits(['click'])
 const shortcut = defineModel<string>('shortcut')
 const name = defineModel<string>('name')
-const config = defineModel<ModelBehaviorConfig>('config', {
-  required: true,
-})
+const checked = defineModel<boolean>('checked')
 
 useKeyPress(shortcut, () => {
   emit('click')
@@ -19,39 +15,31 @@ useKeyPress(shortcut, () => {
 </script>
 
 <template>
-  <div class="grid gap-2 px-4 py-2 not-last:(b-b b-b-solid b-border-sec)">
-    <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-      <Input
-        v-model:value="name"
-        class="min-w-0"
-        size="small"
-      />
+  <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 not-last:(b-b b-b-solid b-border-sec)">
+    <Checkbox
+      v-if="checked !== undefined"
+      v-model:checked="checked"
+    />
 
-      <div class="flex items-center">
-        <Shortcut v-model="shortcut" />
+    <Input
+      v-model:value="name"
+      class="min-w-0"
+      size="small"
+    />
 
-        <Divider type="vertical" />
+    <div class="flex items-center">
+      <Shortcut v-model="shortcut" />
 
-        <Button
-          class="inline-flex items-center justify-center"
-          @click="emit('click')"
-        >
-          <template #icon>
-            <div class="i-lucide:play" />
-          </template>
-        </Button>
-      </div>
-    </div>
+      <Divider type="vertical" />
 
-    <div class="grid grid-cols-[minmax(0,1fr)] gap-2 text-[11px] text-text-tertiary">
-      <span>Group</span>
-    </div>
-
-    <div class="grid grid-cols-[minmax(0,1fr)] gap-2">
-      <Input
-        v-model:value="config.group"
-        size="small"
-      />
+      <Button
+        class="inline-flex items-center justify-center"
+        @click="emit('click')"
+      >
+        <template #icon>
+          <div class="i-lucide:play" />
+        </template>
+      </Button>
     </div>
   </div>
 </template>

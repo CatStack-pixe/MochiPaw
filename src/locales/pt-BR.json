@@ -27,7 +27,8 @@
           "typingExpression": "Expressões ao Digitar",
           "autoReleaseDelay": "Atraso de Liberação Automática",
           "hideOnHover": "Ocultar ao Passar o Mouse",
-          "maxFPS": "Taxa Máxima de Quadros"
+          "maxFPS": "Taxa Máxima de Quadros",
+          "typingBehaviorGroup": "Grupo aleat?rio"
         },
         "hints": {
           "mirrorMode": "Quando ativado, o modelo será invertido horizontalmente.",
@@ -35,7 +36,7 @@
           "ignoreMouse": "Quando ativado, o modelo não responderá a eventos do mouse. Útil para o modo teclado ou modo controle.",
           "motionSound": "Quando ativado, o modelo reproduzirá efeitos sonoros correspondentes ao executar ações (se existirem).",
           "behavior": "Quando ativado, movimentos e expressões podem ser configurados e acionados.",
-          "typingExpression": "Quando ativado, a digitação troca expressões após um atraso aleatório dentro deste intervalo para evitar mudanças muito frequentes.",
+          "typingExpression": "Quando ativado, a digita??o aciona aleatoriamente um movimento ou express?o do grupo selecionado ap?s um atraso neste intervalo.",
           "passThrough": "Quando ativado, a interação com a janela do gato fica bloqueada e o mouse passa para os aplicativos abaixo.",
           "alwaysOnTop": "Quando ativado, a janela sempre ficará acima de outros aplicativos.",
           "keepInScreen": "Quando ativado, a janela permanece automaticamente dentro dos limites da tela.",
@@ -110,7 +111,8 @@
             "expression": "Expressão",
             "motionIndex": "Movimento {index}",
             "motionGroupIndex": "Grupo de Movimento {index}",
-            "expressionIndex": "Expressão {index}"
+            "expressionIndex": "Expressão {index}",
+            "randomGroups": "Grupos aleat?rios"
           }
         }
       },

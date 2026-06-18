@@ -10,6 +10,7 @@ export interface CatStore {
     typingExpression: boolean
     typingExpressionMinDelay: number
     typingExpressionMaxDelay: number
+    typingBehaviorGroup: string
     autoReleaseDelay: number
     maxFPS: number
     ignoreMouse: boolean
@@ -57,8 +58,9 @@ export const useCatStore = defineStore('cat', () => {
     motionSound: true,
     behavior: true,
     typingExpression: true,
-    typingExpressionMinDelay: 7,
-    typingExpressionMaxDelay: 12,
+    typingExpressionMinDelay: 18,
+    typingExpressionMaxDelay: 30,
+    typingBehaviorGroup: 'default',
     autoReleaseDelay: 3,
     maxFPS: 60,
     ignoreMouse: false,

@@ -1,12 +1,31 @@
 <script setup lang="ts">
-import { Divider, Flex, InputNumber, Slider, SpaceAddon, SpaceCompact, Switch } from 'antdv-next'
+import { Divider, Flex, InputNumber, Select, Slider, SpaceAddon, SpaceCompact, Switch } from 'antdv-next'
+import { computed } from 'vue'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
 import { useCatStore } from '@/stores/cat'
+import { useModelStore } from '@/stores/model'
 import { isWindows } from '@/utils/platform'
 
 const catStore = useCatStore()
+const modelStore = useModelStore()
+
+const typingBehaviorGroupOptions = computed(() => {
+  if (!modelStore.currentModel) {
+    return [{
+      label: 'default',
+      value: 'default',
+    }]
+  }
+
+  const groups = modelStore.behaviorGroups[modelStore.currentModel.id] ?? []
+
+  return (groups.length ? groups : [{ id: 'default', name: 'default' }]).map(group => ({
+    label: group.name || group.id,
+    value: group.id,
+  }))
+})
 </script>
 
 <template>
@@ -56,11 +75,11 @@ const catStore = useCatStore()
         <Flex
           align="center"
           class="overflow-hidden transition-all"
-          :class="[catStore.model.typingExpression ? 'w-62 opacity-100' : 'w-0 opacity-0']"
+          :class="[catStore.model.typingExpression ? 'w-100 opacity-100' : 'w-0 opacity-0']"
         >
           <Divider type="vertical" />
 
-          <SpaceCompact>
+          <SpaceCompact class="mr-2">
             <InputNumber
               v-model:value="catStore.model.typingExpressionMinDelay"
               class="w-18"
@@ -80,6 +99,13 @@ const catStore = useCatStore()
 
             <SpaceAddon>s</SpaceAddon>
           </SpaceCompact>
+
+          <Select
+            v-model:value="catStore.model.typingBehaviorGroup"
+            class="w-34"
+            :options="typingBehaviorGroupOptions"
+            :placeholder="$t('pages.preference.cat.labels.typingBehaviorGroup')"
+          />
         </Flex>
       </Flex>
     </ProListItem>

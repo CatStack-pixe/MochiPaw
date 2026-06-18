@@ -18,32 +18,24 @@ export interface Model {
 
 export interface ModelExpressionInfo extends ExpressionInfo {
   displayName?: string
-  targets?: ModelMotionTarget[]
-  defaultTargets?: ModelMotionTarget[]
-  mutexTargetIds?: string[]
-}
-
-export interface ModelMotionTarget {
-  id: string
-  value: number
-}
-
-export interface ModelBehaviorConfig {
-  group: string
-  mutexGroup?: string
-  resetDelay?: number
-}
-
-export interface ModelBehaviorGroupConfig {
-  mutexGroup: string
-  resetDelay: number
 }
 
 export interface ModelMotionInfo extends MotionInfo {
   file?: string
   displayName?: string
-  targets?: ModelMotionTarget[]
-  defaultTargets?: ModelMotionTarget[]
+}
+
+export type ModelBehaviorType = 'motion' | 'expression'
+
+export interface ModelBehaviorRef {
+  id: string
+  type: ModelBehaviorType
+}
+
+export interface ModelBehaviorGroup {
+  id: string
+  name: string
+  items: string[]
 }
 
 interface PresetModel {
@@ -85,8 +77,7 @@ export const useModelStore = defineStore('model', () => {
   const currentExpressions = ref<ModelExpressionInfo[]>([])
   const shortcuts = reactive<Record<string, string>>({})
   const behaviorNames = reactive<Record<string, string>>({})
-  const behaviorConfigs = reactive<Record<string, ModelBehaviorConfig>>({})
-  const behaviorGroupConfigs = reactive<Record<string, ModelBehaviorGroupConfig>>({})
+  const behaviorGroups = reactive<Record<string, ModelBehaviorGroup[]>>({})
 
   const init = async () => {
     const modelsPath = await resolveResource('assets/models')
@@ -127,8 +118,7 @@ export const useModelStore = defineStore('model', () => {
     currentExpressions,
     shortcuts,
     behaviorNames,
-    behaviorConfigs,
-    behaviorGroupConfigs,
+    behaviorGroups,
     init,
   }
 }, {

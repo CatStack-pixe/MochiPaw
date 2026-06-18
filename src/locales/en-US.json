@@ -27,7 +27,8 @@
           "typingExpression": "Typing Expressions",
           "autoReleaseDelay": "Auto Release Delay",
           "hideOnHover": "Hide on Hover",
-          "maxFPS": "Max Frame Rate"
+          "maxFPS": "Max Frame Rate",
+          "typingBehaviorGroup": "Random Group"
         },
         "hints": {
           "mirrorMode": "When enabled, the model will be mirrored horizontally.",
@@ -35,7 +36,7 @@
           "ignoreMouse": "When enabled, the model will not respond to mouse events. Useful for keyboard mode or gamepad mode.",
           "motionSound": "When enabled, the model will play corresponding sound effects when performing actions (if they exist).",
           "behavior": "When enabled, motions and expressions can be configured and triggered.",
-          "typingExpression": "When enabled, typing switches expressions after a random delay within this range to avoid changing too often.",
+          "typingExpression": "When enabled, typing randomly triggers a motion or expression from the selected group after a random delay within this range.",
           "passThrough": "When enabled, cat window interaction is locked and mouse input passes to apps underneath.",
           "alwaysOnTop": "When enabled, the window stays above all other windows.",
           "keepInScreen": "When enabled, the window automatically stays within the screen boundaries.",
@@ -110,7 +111,8 @@
             "expression": "Expression",
             "motionIndex": "Motion {index}",
             "motionGroupIndex": "Motion Group {index}",
-            "expressionIndex": "Expression {index}"
+            "expressionIndex": "Expression {index}",
+            "randomGroups": "Random groups"
           }
         }
       },
