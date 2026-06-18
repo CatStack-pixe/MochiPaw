@@ -1,6 +1,6 @@
-# BongoCat
+# MochiPaw
 
-BongoCat is a Tauri + Vue desktop pet application.
+MochiPaw is a Tauri + Vue desktop pet application.
 
 ## Requirements
 
@@ -72,10 +72,10 @@ pnpm package:portable
 The portable archive is written to:
 
 ```text
-target/release/bundle/portable/BongoCat_<version>_windows_<arch>_portable.zip
+target/release/bundle/portable/MochiPaw_<version>_windows_<arch>_portable.zip
 ```
 
-The zip contains `BongoCat.exe` and bundled resources such as preset models and tray assets.
+The zip contains `MochiPaw.exe` and bundled resources such as preset models and tray assets.
 
 If a release executable already exists and you only want to recreate the zip:
 
@@ -91,7 +91,7 @@ Generated build outputs are ignored by git and can be deleted when needed:
 Remove-Item -Recurse -Force dist, target
 ```
 
-If Windows reports that files under `target` are in use, close any running `bongo-cat.exe` process and retry.
+If Windows reports that files under `target` are in use, close any running `MochiPaw.exe` or `mochi-paw.exe` process and retry.
 
 ## Checks
 
@@ -104,7 +104,7 @@ pnpm lint
 Run a Rust check for the Tauri app:
 
 ```bash
-cargo check -p bongo-cat
+cargo check -p mochi-paw
 ```
 
 Run a Rust check for the administrator status plugin:

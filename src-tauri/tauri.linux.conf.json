@@ -1,14 +1,14 @@
 {
-  "identifier": "com.ZTROS.InfinityXCat.Live2D",
+  "identifier": "com.ZTROS.MochiPaw",
   "bundle": {
     "linux": {
       "deb": {
         "depends": ["gstreamer1.0-plugins-good"],
-        "desktopTemplate": "./BongoCat.desktop"
+        "desktopTemplate": "./MochiPaw.desktop"
       },
       "rpm": {
         "depends": ["gstreamer1-plugins-good"],
-        "desktopTemplate": "./BongoCat.desktop"
+        "desktopTemplate": "./MochiPaw.desktop"
       }
     }
   }

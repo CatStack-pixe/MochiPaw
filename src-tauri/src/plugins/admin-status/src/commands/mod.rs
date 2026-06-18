@@ -1,8 +1,5 @@
 use tauri::command;
 
-#[cfg(target_os = "windows")]
-use std::os::windows::ffi::OsStrExt;
-
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessMetrics {
@@ -54,24 +51,25 @@ pub fn is_running_as_administrator() -> Result<bool, String> {
 }
 
 #[command]
-pub fn relaunch_as_administrator<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+pub fn relaunch_as_administrator() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         if is_running_as_administrator()? {
             return Ok(());
         }
 
-        if relaunch_windows_as_administrator()? {
-            app.exit(0);
-            return Ok(());
-        }
+        schedule_windows_administrator_relaunch()?;
 
-        Err("administrator relaunch was cancelled".to_string())
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::process::exit(0);
+        });
+
+        Ok(())
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = app;
         Ok(())
     }
 }
@@ -113,50 +111,55 @@ pub fn compact_process_memory() -> Result<(), String> {
 }
 
 #[cfg(target_os = "windows")]
-fn relaunch_windows_as_administrator() -> Result<bool, String> {
+fn schedule_windows_administrator_relaunch() -> Result<(), String> {
     use windows::{
         Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_HIDE},
         core::PCWSTR,
     };
 
     const SE_ERR_ACCESSDENIED: isize = 5;
+    const ADMIN_RELAUNCH_HELPER_ARG: &str = "--mochi-paw-admin-relaunch-helper";
 
+    let current_process_id = std::process::id();
     let exe_path = std::env::current_exe().map_err(|error| error.to_string())?;
-    let parameters = std::env::args_os()
-        .skip(1)
-        .map(|argument| quote_windows_argument(&argument.to_string_lossy()))
-        .collect::<Vec<_>>()
-        .join(" ");
-    let directory = exe_path
+    let working_directory = exe_path
         .parent()
-        .map(|path| to_wide_os_str(path.as_os_str()));
+        .ok_or_else(|| "current executable has no parent directory".to_string())?;
+    let parameters = [
+        quote_windows_argument(ADMIN_RELAUNCH_HELPER_ARG),
+        quote_windows_argument(&current_process_id.to_string()),
+        quote_windows_argument("--"),
+    ]
+    .into_iter()
+    .chain(
+        std::env::args_os()
+            .skip(1)
+            .map(|argument| quote_windows_argument(&argument.to_string_lossy())),
+    )
+    .collect::<Vec<_>>()
+    .join(" ");
     let operation = to_wide_str("runas");
     let file = to_wide_os_str(exe_path.as_os_str());
     let parameters = to_wide_str(&parameters);
-    let empty_directory = to_wide_str("");
-
+    let directory = to_wide_os_str(working_directory.as_os_str());
     let result = unsafe {
         ShellExecuteW(
             None,
             PCWSTR(operation.as_ptr()),
             PCWSTR(file.as_ptr()),
             PCWSTR(parameters.as_ptr()),
-            PCWSTR(
-                directory
-                    .as_ref()
-                    .map_or(empty_directory.as_ptr(), |value| value.as_ptr()),
-            ),
+            PCWSTR(directory.as_ptr()),
             SW_HIDE,
         )
     };
     let result_code = result.0 as isize;
 
     if result_code > 32 {
-        return Ok(true);
+        return Ok(());
     }
 
     if result_code == SE_ERR_ACCESSDENIED {
-        return Ok(false);
+        return Err("administrator relaunch was cancelled".to_string());
     }
 
     Err(format!("ShellExecuteW runas failed with code {result_code}"))
@@ -202,6 +205,8 @@ fn quote_windows_argument(argument: &str) -> String {
 
 #[cfg(target_os = "windows")]
 fn to_wide_str(value: &str) -> Vec<u16> {
+    use std::os::windows::ffi::OsStrExt;
+
     std::ffi::OsStr::new(value)
         .encode_wide()
         .chain(std::iter::once(0))
@@ -210,6 +215,8 @@ fn to_wide_str(value: &str) -> Vec<u16> {
 
 #[cfg(target_os = "windows")]
 fn to_wide_os_str(value: &std::ffi::OsStr) -> Vec<u16> {
+    use std::os::windows::ffi::OsStrExt;
+
     value.encode_wide().chain(std::iter::once(0)).collect()
 }
 

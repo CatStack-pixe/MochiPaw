@@ -5,5 +5,5 @@ Exec={{{exec}}}
 Icon={{{icon}}}
 Categories={{{categories}}}
 Comment={{{comment}}}
-StartupWMClass={{{Bongo-cat}}}
+StartupWMClass=MochiPaw
 Terminal=false

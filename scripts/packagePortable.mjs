@@ -14,8 +14,9 @@ const tauriCliPath = resolve(rootDir, 'node_modules', '.bin', 'tauri.CMD')
 const packageJson = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf-8'))
 const tauriConfig = JSON.parse(readFileSync(resolve(rootDir, 'src-tauri', 'tauri.conf.json'), 'utf-8'))
 const productName = tauriConfig.productName ?? packageJson.name
-const binaryName = `${packageJson.name}.exe`
+const binaryName = `${productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}.exe`
 const exePath = resolve(releaseDir, binaryName)
+const legacyExePath = resolve(releaseDir, `${packageJson.name}.exe`)
 const stageRootDir = resolve(tmpdir(), `${packageJson.name}-portable-${pid}`)
 const stageDir = resolve(stageRootDir, productName)
 const archiveName = `${productName}_${packageJson.version}_windows_${arch}_portable.zip`
@@ -94,19 +95,22 @@ writeFileSync(portableConfigPath, JSON.stringify({
 
 if (!skipBuild) {
   rmSync(exePath, { force: true })
+  rmSync(legacyExePath, { force: true })
   run(`${quoteCommand(tauriCliPath)} build --no-bundle --config ${quoteCommand(portableConfigPath)}`, {
     allowFailure: true,
   })
 }
 
-if (!existsSync(exePath)) {
+const builtExePath = existsSync(exePath) ? exePath : legacyExePath
+
+if (!existsSync(builtExePath)) {
   throw new Error(`Release executable was not found: ${exePath}`)
 }
 
 mkdirSync(bundleDir, { recursive: true })
 mkdirSync(stageDir, { recursive: true })
 
-runPowerShell(`Copy-Item -LiteralPath ${quotePowerShell(exePath)} -Destination ${quotePowerShell(resolve(stageDir, `${productName}.exe`))} -Force`)
+runPowerShell(`Copy-Item -LiteralPath ${quotePowerShell(builtExePath)} -Destination ${quotePowerShell(resolve(stageDir, `${productName}.exe`))} -Force`)
 copyIfExists(resolve(releaseDir, 'assets'), resolve(stageDir, 'assets'))
 copyIfExists(resolve(releaseDir, 'resources'), resolve(stageDir, 'resources'))
 

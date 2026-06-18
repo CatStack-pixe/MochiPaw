@@ -416,39 +416,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bongo-cat"
-version = "1.1.0"
-dependencies = [
- "fs_extra",
- "gilrs",
- "rdev",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-nspanel",
- "tauri-plugin-admin-status",
- "tauri-plugin-autostart",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-custom-window",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-locale",
- "tauri-plugin-log",
- "tauri-plugin-macos-permissions",
- "tauri-plugin-opener",
- "tauri-plugin-os",
- "tauri-plugin-pinia",
- "tauri-plugin-prevent-default",
- "tauri-plugin-process",
- "tauri-plugin-self-protect",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "zip",
-]
-
-[[package]]
 name = "borsh"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2937,6 +2904,40 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "mochi-paw"
+version = "1.1.0"
+dependencies = [
+ "fs_extra",
+ "gilrs",
+ "rdev",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-nspanel",
+ "tauri-plugin-admin-status",
+ "tauri-plugin-autostart",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-custom-window",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-locale",
+ "tauri-plugin-log",
+ "tauri-plugin-macos-permissions",
+ "tauri-plugin-opener",
+ "tauri-plugin-os",
+ "tauri-plugin-pinia",
+ "tauri-plugin-prevent-default",
+ "tauri-plugin-process",
+ "tauri-plugin-self-protect",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "windows",
+ "zip",
 ]
 
 [[package]]
