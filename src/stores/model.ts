@@ -68,11 +68,6 @@ const PRESET_MODELS: PresetModel[] = [
     mode: 'standard',
     path: 'standard',
   },
-  {
-    id: 'preset-luoxi-standard',
-    mode: 'standard',
-    path: 'luoxi-standard',
-  },
 ]
 
 export const useModelStore = defineStore('model', () => {
