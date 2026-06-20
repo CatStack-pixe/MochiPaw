@@ -6,31 +6,22 @@ import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { openPath } from '@tauri-apps/plugin-opener'
 import { arch, platform, version } from '@tauri-apps/plugin-os'
 import { Button, Descriptions, message } from 'antdv-next'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { ProcessMetrics } from '@/plugins/adminStatus'
-import type { ModelResourceMetric, ResourceMetricCategory } from '@/utils/modelResourceMetrics'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
 import { LISTEN_KEY } from '@/constants'
 import { compactProcessMemory, getProcessMetrics } from '@/plugins/adminStatus'
 import { useAppStore } from '@/stores/app'
-import { useModelStore } from '@/stores/model'
-import { getModelResourceMetric, getModelResourceMetrics } from '@/utils/modelResourceMetrics'
 
 const appStore = useAppStore()
-const modelStore = useModelStore()
 const logDir = ref('')
 const metrics = ref<ProcessMetrics>()
 const metricsError = ref('')
 const metricsLoading = ref(false)
-const resourceMetrics = ref<ModelResourceMetric[]>([])
-const resourceMetricsError = ref('')
-const resourceMetricsLoading = ref(false)
-const resourceMetricsProgress = ref({ scanned: 0, total: 0 })
-const resourceMetricsUpdatedAt = ref<Date>()
 const compactingMemory = ref(false)
 const { t } = useI18n()
 let metricsTimer: ReturnType<typeof window.setInterval> | undefined
@@ -48,7 +39,6 @@ const authors = [
 onMounted(async () => {
   logDir.value = await appLogDir()
   await refreshMetrics()
-  await refreshCurrentModelResourceMetrics()
   metricsTimer = window.setInterval(refreshMetrics, 1000)
 })
 
@@ -87,47 +77,6 @@ async function refreshMetrics() {
     metricsError.value = error instanceof Error ? error.message : String(error)
   } finally {
     metricsLoading.value = false
-  }
-}
-
-async function refreshResourceMetrics() {
-  resourceMetricsLoading.value = true
-  resourceMetricsProgress.value = { scanned: 0, total: modelStore.models.length }
-
-  try {
-    resourceMetrics.value = await getModelResourceMetrics(modelStore.models, {
-      force: true,
-      onProgress: (progress) => {
-        resourceMetricsProgress.value = progress
-      },
-    })
-    resourceMetricsError.value = ''
-    resourceMetricsUpdatedAt.value = new Date()
-  } catch (error) {
-    resourceMetricsError.value = error instanceof Error ? error.message : String(error)
-  } finally {
-    resourceMetricsLoading.value = false
-  }
-}
-
-async function refreshCurrentModelResourceMetrics() {
-  if (!modelStore.currentModel || resourceMetricsLoading.value) return
-
-  resourceMetricsLoading.value = true
-  resourceMetricsProgress.value = { scanned: 0, total: 1 }
-
-  try {
-    const metric = await getModelResourceMetric(modelStore.currentModel, { force: true })
-    const nextMetrics = resourceMetrics.value.filter(item => !isSameModelMetric(item, metric))
-
-    resourceMetrics.value = [metric, ...nextMetrics]
-    resourceMetricsProgress.value = { scanned: 1, total: 1 }
-    resourceMetricsError.value = ''
-    resourceMetricsUpdatedAt.value = new Date()
-  } catch (error) {
-    resourceMetricsError.value = error instanceof Error ? error.message : String(error)
-  } finally {
-    resourceMetricsLoading.value = false
   }
 }
 
@@ -202,90 +151,6 @@ const metricsItems = computed(() => [
     value: formatUptime(metrics.value?.uptimeSeconds),
   },
 ])
-
-const currentModelResourceMetric = computed(() => {
-  const currentModel = modelStore.currentModel
-
-  if (!currentModel) return undefined
-
-  return resourceMetrics.value.find((item) => {
-    return item.modelId === currentModel.id
-      && item.mode === currentModel.mode
-      && item.path === currentModel.path
-  })
-})
-
-function isSameModelMetric(left: ModelResourceMetric, right: ModelResourceMetric) {
-  return left.modelId === right.modelId
-    && left.mode === right.mode
-    && left.path === right.path
-}
-
-const resourceMetricsDescription = computed(() => {
-  if (resourceMetricsError.value) return resourceMetricsError.value
-
-  const parts = [t('pages.preference.about.hints.resourceMetrics')]
-
-  if (resourceMetricsLoading.value && resourceMetricsProgress.value.total) {
-    parts.push(`${resourceMetricsProgress.value.scanned}/${resourceMetricsProgress.value.total}`)
-  }
-
-  if (resourceMetricsUpdatedAt.value) {
-    parts.push(resourceMetricsUpdatedAt.value.toLocaleTimeString())
-  }
-
-  if (modelStore.models.length) {
-    parts.push(`${resourceMetrics.value.length}/${modelStore.models.length}`)
-  }
-
-  return parts.join(' · ')
-})
-
-function getCategoryLabel(category: ResourceMetricCategory) {
-  return t(`pages.preference.about.resourceCategories.${category}`)
-}
-
-const modelResourceItems = computed(() => {
-  const currentModelId = modelStore.currentModel?.id
-  const sortedMetrics = [...resourceMetrics.value].sort((left, right) => {
-    if (left.modelId === currentModelId) return -1
-    if (right.modelId === currentModelId) return 1
-
-    return left.modelId.localeCompare(right.modelId)
-  })
-
-  return sortedMetrics.map((item) => {
-    return {
-      label: `${item.modelId} (${item.mode})`,
-      value: t('pages.preference.about.metrics.resourceUsageValue', {
-        memory: formatBytes(item.estimatedMemoryBytes),
-        fileSize: formatBytes(item.fileBytes),
-        files: item.fileCount,
-      }),
-    }
-  })
-})
-
-const currentModelResourceItems = computed(() => {
-  return currentModelResourceMetric.value?.categories.map((item) => {
-    return {
-      label: getCategoryLabel(item.category),
-      value: t('pages.preference.about.metrics.resourceUsageValue', {
-        memory: formatBytes(item.estimatedMemoryBytes),
-        fileSize: formatBytes(item.fileBytes),
-        files: item.fileCount,
-      }),
-    }
-  }) ?? []
-})
-
-watch(() => [
-  modelStore.currentModel?.id,
-  modelStore.currentModel?.mode,
-  modelStore.currentModel?.path,
-], () => {
-  refreshCurrentModelResourceMetrics()
-})
 </script>
 
 <template>
@@ -375,54 +240,6 @@ watch(() => [
         @click="handleCompactMemory"
       >
         {{ $t('pages.preference.about.buttons.compactMemory') }}
-      </Button>
-    </ProListItem>
-
-    <ProListItem
-      :description="resourceMetricsDescription"
-      :title="$t('pages.preference.about.labels.resourceMetrics')"
-      vertical
-    >
-      <Descriptions
-        bordered
-        class="w-full"
-        :column="1"
-        size="small"
-      >
-        <Descriptions.Item
-          v-for="item in modelResourceItems"
-          :key="item.label"
-          :label="item.label"
-        >
-          {{ item.value }}
-        </Descriptions.Item>
-      </Descriptions>
-
-      <Descriptions
-        v-if="currentModelResourceItems.length"
-        bordered
-        class="w-full"
-        :column="2"
-        size="small"
-      >
-        <template #title>
-          {{ $t('pages.preference.about.labels.currentModelResources') }}
-        </template>
-
-        <Descriptions.Item
-          v-for="item in currentModelResourceItems"
-          :key="item.label"
-          :label="item.label"
-        >
-          {{ item.value }}
-        </Descriptions.Item>
-      </Descriptions>
-
-      <Button
-        :loading="resourceMetricsLoading"
-        @click="refreshResourceMetrics"
-      >
-        {{ $t('pages.preference.about.buttons.refreshResources') }}
       </Button>
     </ProListItem>
   </ProList>
