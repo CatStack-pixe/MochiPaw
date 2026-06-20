@@ -11,6 +11,7 @@ const releaseDir = resolve(rootDir, 'target', 'release')
 const bundleDir = resolve(releaseDir, 'bundle', 'portable')
 const portableConfigPath = resolve(rootDir, 'target', 'portable-tauri.conf.json')
 const tauriCliPath = resolve(rootDir, 'node_modules', '.bin', 'tauri.CMD')
+const sourceAssetsDir = resolve(rootDir, 'src-tauri', 'assets')
 const packageJson = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf-8'))
 const tauriConfig = JSON.parse(readFileSync(resolve(rootDir, 'src-tauri', 'tauri.conf.json'), 'utf-8'))
 const productName = tauriConfig.productName ?? packageJson.name
@@ -62,6 +63,7 @@ function runPowerShell(command) {
 function copyIfExists(from, to) {
   if (!existsSync(from)) return
 
+  mkdirSync(dirname(to), { recursive: true })
   runPowerShell(`Copy-Item -LiteralPath ${quotePowerShell(from)} -Destination ${quotePowerShell(to)} -Recurse -Force`)
 }
 
@@ -96,9 +98,7 @@ writeFileSync(portableConfigPath, JSON.stringify({
 if (!skipBuild) {
   rmSync(exePath, { force: true })
   rmSync(legacyExePath, { force: true })
-  run(`${quoteCommand(tauriCliPath)} build --no-bundle --config ${quoteCommand(portableConfigPath)}`, {
-    allowFailure: true,
-  })
+  run(`${quoteCommand(tauriCliPath)} build --no-bundle --config ${quoteCommand(portableConfigPath)}`)
 }
 
 const builtExePath = existsSync(exePath) ? exePath : legacyExePath
@@ -111,7 +111,8 @@ mkdirSync(bundleDir, { recursive: true })
 mkdirSync(stageDir, { recursive: true })
 
 runPowerShell(`Copy-Item -LiteralPath ${quotePowerShell(builtExePath)} -Destination ${quotePowerShell(resolve(stageDir, `${productName}.exe`))} -Force`)
-copyIfExists(resolve(releaseDir, 'assets'), resolve(stageDir, 'assets'))
+copyIfExists(resolve(sourceAssetsDir, 'tray.png'), resolve(stageDir, 'assets', 'tray.png'))
+copyIfExists(resolve(sourceAssetsDir, 'models'), resolve(stageDir, 'assets', 'models'))
 copyIfExists(resolve(releaseDir, 'resources'), resolve(stageDir, 'resources'))
 
 if (existsSync(archivePath)) {
