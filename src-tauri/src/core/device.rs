@@ -1,7 +1,14 @@
 use rdev::{Event, EventType, listen};
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
+    thread,
+    time::Duration,
+};
 use tauri::{AppHandle, Emitter, Runtime, command};
 
 #[derive(Debug, Clone, Serialize)]
@@ -23,11 +30,28 @@ static IS_LISTENING: AtomicBool = AtomicBool::new(false);
 
 #[command]
 pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Result<(), String> {
-    if IS_LISTENING.load(Ordering::SeqCst) {
+    if IS_LISTENING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
         return Ok(());
     }
 
-    IS_LISTENING.store(true, Ordering::SeqCst);
+    let (event_sender, event_receiver) = mpsc::sync_channel::<DeviceEvent>(1024);
+    let (startup_sender, startup_receiver) = mpsc::channel::<Result<(), String>>();
+
+    thread::Builder::new()
+        .name("device-event-emitter".into())
+        .spawn(move || {
+            while let Ok(device_event) = event_receiver.recv() {
+                let _ = app_handle.emit("device-changed", device_event);
+            }
+        })
+        .map_err(|err| {
+            IS_LISTENING.store(false, Ordering::SeqCst);
+
+            format!("Failed to spawn device event emitter: {err}")
+        })?;
 
     let callback = move |event: Event| {
         let device_event = match event.event_type {
@@ -54,10 +78,28 @@ pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Res
             _ => return,
         };
 
-        let _ = app_handle.emit("device-changed", device_event);
+        let _ = event_sender.try_send(device_event);
     };
 
-    listen(callback).map_err(|err| format!("Failed to listen device: {:?}", err))?;
+    thread::Builder::new()
+        .name("device-listener".into())
+        .spawn(move || {
+            let listen_result =
+                listen(callback).map_err(|err| format!("Failed to listen device: {:?}", err));
+
+            IS_LISTENING.store(false, Ordering::SeqCst);
+
+            let _ = startup_sender.send(listen_result);
+        })
+        .map_err(|err| {
+            IS_LISTENING.store(false, Ordering::SeqCst);
+
+            format!("Failed to spawn device listener: {err}")
+        })?;
+
+    if let Ok(result) = startup_receiver.recv_timeout(Duration::from_millis(300)) {
+        result?;
+    }
 
     Ok(())
 }
