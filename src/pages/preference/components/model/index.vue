@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { remove } from '@tauri-apps/plugin-fs'
+import { exists, remove } from '@tauri-apps/plugin-fs'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { useElementSize } from '@vueuse/core'
 import { Card, Masonry, message, Popconfirm } from 'antdv-next'
@@ -75,7 +75,9 @@ async function handleDelete(item: Model) {
   try {
     await waitForFrames()
 
-    await remove(path, { recursive: true })
+    if (await exists(path)) {
+      await remove(path, { recursive: true })
+    }
 
     message.success(t('pages.preference.model.hints.deleteSuccess'))
   } catch (error) {

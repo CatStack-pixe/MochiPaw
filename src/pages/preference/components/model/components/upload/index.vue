@@ -24,16 +24,22 @@ interface LegacyPetConfig {
 
 interface LegacyStandardConfig {
   hand?: number[][]
+  keyboard?: number[][]
+  face?: number[][]
 }
 
 interface LegacyKeyboardConfig {
   lefthand?: number[][]
   righthand?: number[][]
+  keyboard?: number[][]
+  face?: number[][]
 }
 
 interface LegacyGamepadConfig {
   lefthand?: number[][]
   righthand?: number[][]
+  keyboard?: number[][]
+  face?: number[][]
 }
 
 interface CubismModelJSON {
@@ -55,8 +61,8 @@ interface ImportVariant {
 interface KeyImageRef {
   sourceDir: string
   sourceIndex: number
-  keyName: string
-  hand: 'left' | 'right'
+  shortcut: string
+  targetDir: 'left-keys' | 'right-keys' | 'keyboards' | 'faces'
 }
 
 const dropRef = useTemplateRef('drop')
@@ -123,7 +129,24 @@ const KEY_CODE_NAMES: Record<number, string> = {
   91: 'Meta',
   92: 'Meta',
   93: 'Meta',
+  96: 'Num0',
+  97: 'Num1',
+  98: 'Num2',
+  99: 'Num3',
+  100: 'Num4',
+  101: 'Num5',
+  102: 'Num6',
+  103: 'Num7',
+  104: 'Num8',
+  105: 'Num9',
+  106: 'KpMultiply',
+  107: 'KpPlus',
+  109: 'KpMinus',
+  110: 'KpDecimal',
+  111: 'KpDivide',
+  189: 'Minus',
   192: 'BackQuote',
+  222: 'Quote',
 }
 
 const GAMEPAD_BUTTON_NAMES = [
@@ -498,12 +521,12 @@ async function normalizeResources(variant: ImportVariant, modelPath: string) {
 
   for (const item of keyImages) {
     const source = join(variant.rootPath, item.sourceDir, `${item.sourceIndex}.png`)
-    const targetDir = join(resourcesPath, item.hand === 'left' ? 'left-keys' : 'right-keys')
+    const targetDir = join(resourcesPath, item.targetDir)
 
     if (!await exists(source)) continue
 
     await mkdir(targetDir, { recursive: true })
-    await copyFile(source, join(targetDir, `${item.keyName}.png`))
+    await copyFile(source, join(targetDir, `${item.shortcut}.png`))
   }
 }
 
@@ -542,47 +565,59 @@ function getParentPath(path: string) {
 
 function getKeyImageRefs(variant: ImportVariant, config: LegacyPetConfig) {
   if (variant.mode === 'gamepad') {
-    return getPairedKeyImageRefs(config.gamepad?.lefthand, 'lefthand', 'left', 'gamepad')
-      .concat(getPairedKeyImageRefs(config.gamepad?.righthand, 'righthand', 'right', 'gamepad'))
+    return getPairedKeyImageRefs(config.gamepad?.keyboard, 'keyboard', 'keyboards', 'gamepad')
+      .concat(getPairedKeyImageRefs(config.gamepad?.face, 'face', 'faces', 'keyboard'))
+      .concat(getPairedKeyImageRefs(config.gamepad?.lefthand, 'lefthand', 'left-keys', 'gamepad'))
+      .concat(getPairedKeyImageRefs(config.gamepad?.righthand, 'righthand', 'right-keys', 'gamepad'))
   }
 
   if (variant.mode === 'keyboard') {
-    return getPairedKeyImageRefs(config.keyboard?.lefthand, 'lefthand', 'left', 'keyboard')
-      .concat(getPairedKeyImageRefs(config.keyboard?.righthand, 'righthand', 'right', 'keyboard'))
+    return getPairedKeyImageRefs(config.keyboard?.keyboard, 'keyboard', 'keyboards', 'keyboard')
+      .concat(getPairedKeyImageRefs(config.keyboard?.face, 'face', 'faces', 'keyboard'))
+      .concat(getPairedKeyImageRefs(config.keyboard?.lefthand, 'lefthand', 'left-keys', 'keyboard'))
+      .concat(getPairedKeyImageRefs(config.keyboard?.righthand, 'righthand', 'right-keys', 'keyboard'))
   }
 
-  return getPairedKeyImageRefs(config.standard?.hand, 'hand', 'left', 'keyboard')
+  return getPairedKeyImageRefs(config.standard?.keyboard, 'keyboard', 'keyboards', 'keyboard')
+    .concat(getPairedKeyImageRefs(config.standard?.face, 'face', 'faces', 'keyboard'))
+    .concat(getPairedKeyImageRefs(config.standard?.hand, 'hand', 'left-keys', 'keyboard'))
 }
 
 function getPairedKeyImageRefs(
   groups: number[][] | undefined,
   sourceDir: string,
-  hand: 'left' | 'right',
+  targetDir: KeyImageRef['targetDir'],
   source: 'keyboard' | 'gamepad',
 ) {
   const refs: KeyImageRef[] = []
 
   for (const [sourceIndex, keyCodes] of groups?.entries() ?? []) {
-    const keyName = getKeyName(keyCodes, source)
+    const shortcut = getShortcutName(keyCodes, source)
 
-    if (!keyName) continue
+    if (!shortcut) continue
 
     refs.push({
       sourceDir,
       sourceIndex,
-      keyName,
-      hand,
+      shortcut,
+      targetDir,
     })
   }
 
   return refs
 }
 
-function getKeyName(keyCodes: number[], source: 'keyboard' | 'gamepad') {
-  const code = keyCodes.at(-1)
+function getShortcutName(keyCodes: number[], source: 'keyboard' | 'gamepad') {
+  const keyNames = keyCodes
+    .map(code => getKeyName(code, source))
+    .filter(keyName => keyName !== undefined)
 
-  if (code === undefined) return
+  if (!keyNames.length) return
 
+  return keyNames.join('+')
+}
+
+function getKeyName(code: number, source: 'keyboard' | 'gamepad') {
   if (source === 'gamepad') {
     return GAMEPAD_BUTTON_NAMES[code]
   }

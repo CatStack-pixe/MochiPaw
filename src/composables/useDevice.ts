@@ -101,23 +101,43 @@ export function useDevice() {
     invoke(INVOKE_KEY.START_DEVICE_LISTENING)
   }
 
-  const getSupportedKey = (key: string) => {
-    let nextKey = key
+  const getSupportedKeys = (key: string) => {
+    const aliases: Record<string, string[]> = {
+      ArrowDown: ['DownArrow'],
+      ArrowLeft: ['LeftArrow'],
+      ArrowRight: ['RightArrow'],
+      ArrowUp: ['UpArrow'],
+      BackQuote: ['Backquote'],
+      DownArrow: ['ArrowDown'],
+      LeftArrow: ['ArrowLeft'],
+      Return: ['Enter'],
+      RightArrow: ['ArrowRight'],
+      UpArrow: ['ArrowUp'],
+    }
+    const candidates = [
+      key,
+      ...aliases[key] ?? [],
+    ]
 
-    const unsupportedKey = !modelStore.supportKeys[nextKey]
-
-    if (key.startsWith('F') && unsupportedKey) {
-      nextKey = key.replace(/F(\d+)/, 'Fn')
+    if (key.startsWith('F')) {
+      candidates.push(key.replace(/F(\d+)/, 'Fn'))
     }
 
     for (const item of ['Meta', 'Shift', 'Alt', 'Control']) {
-      if (key.startsWith(item) && unsupportedKey) {
-        const regex = new RegExp(`^(${item}).*`)
-        nextKey = key.replace(regex, '$1')
-      }
+      if (!key.startsWith(item)) continue
+
+      candidates.push(item)
     }
 
-    return nextKey
+    if (key.startsWith('Num')) {
+      candidates.push(key.replace(/^Num/, 'Kp'))
+    }
+
+    if (key.startsWith('Kp')) {
+      candidates.push(key.replace(/^Kp/, 'Num'))
+    }
+
+    return [...new Set(candidates)]
   }
 
   const onHideOnHover = (() => {
@@ -168,11 +188,11 @@ export function useDevice() {
   }
 
   const handleAutoRelease = (key: string, delay = 100) => {
-    handlePress(key, { triggerExpression: true })
-
     if (releaseTimers.has(key)) {
       clearTimeout(releaseTimers.get(key))
     }
+
+    handlePress(key, { triggerExpression: true })
 
     const timer = setTimeout(() => {
       handleRelease(key)
@@ -183,29 +203,55 @@ export function useDevice() {
     releaseTimers.set(key, timer)
   }
 
+  const handleManualRelease = (key: string) => {
+    if (releaseTimers.has(key)) {
+      clearTimeout(releaseTimers.get(key))
+      releaseTimers.delete(key)
+    }
+
+    handleRelease(key)
+  }
+
   useTauriListen<DeviceEvent>(LISTEN_KEY.DEVICE_CHANGED, ({ payload }) => {
     const { kind, value } = payload
 
     if (kind === 'KeyboardPress' || kind === 'KeyboardRelease') {
-      const nextValue = getSupportedKey(value)
+      const nextValues = getSupportedKeys(value)
+        .filter((key) => {
+          return modelStore.supportKeys[key]?.length
+            || Object.keys(modelStore.supportKeys).some(shortcut => shortcut.split('+').includes(key))
+            || modelStore.activeKeys[key]
+        })
 
-      if (!nextValue) return
+      if (!nextValues.length) return
 
-      if (nextValue === 'CapsLock') {
-        return handleAutoRelease(nextValue)
+      if (nextValues.includes('CapsLock')) {
+        return handleAutoRelease('CapsLock')
       }
 
       if (kind === 'KeyboardPress') {
         if (isWindows) {
           const delay = catStore.model.autoReleaseDelay * 1000
 
-          return handleAutoRelease(nextValue, delay)
+          for (const nextValue of nextValues) {
+            handleAutoRelease(nextValue, delay)
+          }
+
+          return
         }
 
-        return handlePress(nextValue, { triggerExpression: true })
+        for (const nextValue of nextValues) {
+          handlePress(nextValue, { triggerExpression: true })
+        }
+
+        return
       }
 
-      return handleRelease(nextValue)
+      for (const nextValue of nextValues) {
+        handleManualRelease(nextValue)
+      }
+
+      return
     }
 
     switch (kind) {

@@ -17,6 +17,11 @@ export interface Model {
   fingerprint?: string
 }
 
+export interface ModelSupportKeyLayer {
+  path: string
+  type: 'left' | 'right' | 'overlay'
+}
+
 export interface ModelExpressionInfo extends ExpressionInfo {
   displayName?: string
 }
@@ -74,8 +79,9 @@ export const useModelStore = defineStore('model', () => {
   const modelReady = ref(true)
   const models = ref<Model[]>([])
   const currentModel = ref<Model>()
-  const supportKeys = reactive<Record<string, string>>({})
-  const pressedKeys = reactive<Record<string, string>>({})
+  const supportKeys = reactive<Record<string, ModelSupportKeyLayer[]>>({})
+  const pressedKeys = reactive<Record<string, ModelSupportKeyLayer[]>>({})
+  const activeKeys = reactive<Record<string, boolean>>({})
   const currentMotions = ref<Array<[string, ModelMotionInfo[]]>>([])
   const currentExpressions = ref<ModelExpressionInfo[]>([])
   const shortcuts = reactive<Record<string, string>>({})
@@ -117,6 +123,7 @@ export const useModelStore = defineStore('model', () => {
     currentModel,
     supportKeys,
     pressedKeys,
+    activeKeys,
     currentMotions,
     currentExpressions,
     shortcuts,
@@ -126,6 +133,6 @@ export const useModelStore = defineStore('model', () => {
   }
 }, {
   tauri: {
-    filterKeys: ['supportKeys', 'pressedKeys'],
+    filterKeys: ['supportKeys', 'pressedKeys', 'activeKeys'],
   },
 })

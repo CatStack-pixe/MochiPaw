@@ -1,11 +1,10 @@
 import type { PhysicalPosition } from '@tauri-apps/api/dpi'
 
 import { LogicalSize } from '@tauri-apps/api/dpi'
-import { resolveResource, sep } from '@tauri-apps/api/path'
+import { resolveResource } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { message } from 'antdv-next'
 import { isNil, round } from 'es-toolkit'
-import { findKey, nth } from 'es-toolkit/compat'
 import { ref } from 'vue'
 
 import type { ModelBehaviorGroup, ModelBehaviorRef, ModelMotionInfo } from '@/stores/model'
@@ -244,29 +243,50 @@ export function useModel() {
     catStore.window.scale = round((size.width / width) * 100)
   }
 
+  function isShortcutMatched(shortcut: string) {
+    return shortcut.split('+').every(key => modelStore.activeKeys[key])
+  }
+
+  function refreshPressedKeys() {
+    for (const key of Object.keys(modelStore.pressedKeys)) {
+      delete modelStore.pressedKeys[key]
+    }
+
+    const matchedEntries = Object.entries(modelStore.supportKeys)
+      .filter(([shortcut]) => isShortcutMatched(shortcut))
+      .sort(([left], [right]) => left.split('+').length - right.split('+').length)
+
+    for (const [shortcut, layers] of matchedEntries) {
+      if (!layers.length) continue
+
+      const handTypes = new Set(layers
+        .filter(layer => layer.type === 'left' || layer.type === 'right')
+        .map(layer => layer.type))
+
+      if (handTypes.size) {
+        for (const [pressedKey, pressedLayers] of Object.entries(modelStore.pressedKeys)) {
+          if (!pressedLayers.some(layer => handTypes.has(layer.type))) continue
+
+          delete modelStore.pressedKeys[pressedKey]
+        }
+      }
+
+      modelStore.pressedKeys[shortcut] = layers
+    }
+  }
+
   const handlePress = (key: string, options: { triggerExpression?: boolean } = {}) => {
     if (options.triggerExpression) {
       handleTypingExpression()
     }
 
-    const path = modelStore.supportKeys[key]
-
-    if (!path) return
-
-    const dirName = nth(path.split(sep()), -2)!
-    const prevKey = findKey(modelStore.pressedKeys, (value) => {
-      return value.includes(dirName)
-    })
-
-    if (prevKey) {
-      handleRelease(prevKey)
-    }
-
-    modelStore.pressedKeys[key] = path
+    modelStore.activeKeys[key] = true
+    refreshPressedKeys()
   }
 
   const handleRelease = (key: string) => {
-    delete modelStore.pressedKeys[key]
+    delete modelStore.activeKeys[key]
+    refreshPressedKeys()
   }
 
   function handleKeyChange(isLeft = true, pressed = true) {

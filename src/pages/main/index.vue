@@ -2,13 +2,11 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { PhysicalSize } from '@tauri-apps/api/dpi'
 import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
-import { sep } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
-import { nth } from 'es-toolkit/compat'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import type { ModelMotionInfo } from '@/stores/model'
 
@@ -45,6 +43,14 @@ const modelStore = useModelStore()
 const generalStore = useGeneralStore()
 const backgroundImagePath = ref<string>()
 const { stickActive } = useGamepad()
+const pressedKeyLayers = computed(() => {
+  return Object.entries(modelStore.pressedKeys).flatMap(([key, layers]) => {
+    return layers.map((layer, index) => ({
+      key: `${key}:${index}:${layer.path}`,
+      path: layer.path,
+    }))
+  })
+})
 let pendingScaleDelta = 0
 let scaleFrame = 0
 let resizeFrame = 0
@@ -91,20 +97,29 @@ watch(() => modelStore.currentModel, async (model) => {
 
   backgroundImagePath.value = existed ? convertFileSrc(path) : void 0
 
-  clearObject([modelStore.supportKeys, modelStore.pressedKeys])
+  clearObject([modelStore.supportKeys, modelStore.pressedKeys, modelStore.activeKeys])
 
   const resourcePath = join(model.path, 'resources')
-  const groups = ['left-keys', 'right-keys']
+  const groups = [
+    { name: 'keyboards', type: 'overlay' as const },
+    { name: 'faces', type: 'overlay' as const },
+    { name: 'left-keys', type: 'left' as const },
+    { name: 'right-keys', type: 'right' as const },
+  ]
 
-  for await (const groupName of groups) {
-    const groupDir = join(resourcePath, groupName)
+  for await (const group of groups) {
+    const groupDir = join(resourcePath, group.name)
     const files = await readDir(groupDir).catch(() => [])
     const imageFiles = files.filter(file => isImage(file.name))
 
     for (const file of imageFiles) {
       const fileName = file.name.split('.')[0]
 
-      modelStore.supportKeys[fileName] = join(groupDir, file.name)
+      modelStore.supportKeys[fileName] ??= []
+      modelStore.supportKeys[fileName].push({
+        path: join(groupDir, file.name),
+        type: group.type,
+      })
     }
   }
 
@@ -130,12 +145,9 @@ watch([() => catStore.window.scale, modelSize], ([scale, modelSize]) => {
 }, { immediate: true })
 
 watch([modelStore.pressedKeys, stickActive], ([keys, stickActive]) => {
-  const dirs = Object.values(keys).map((path) => {
-    return nth(path.split(sep()), -2)!
-  })
-
-  const hasLeft = dirs.some(dir => dir.startsWith('left'))
-  const hasRight = dirs.some(dir => dir.startsWith('right'))
+  const layers = Object.values(keys).flat()
+  const hasLeft = layers.some(layer => layer.type === 'left')
+  const hasRight = layers.some(layer => layer.type === 'right')
 
   handleKeyChange(true, stickActive.left || hasLeft)
   handleKeyChange(false, stickActive.right || hasRight)
@@ -261,8 +273,8 @@ function handleMouseMove(event: MouseEvent) {
     <canvas id="live2dCanvas" />
 
     <img
-      v-for="path in modelStore.pressedKeys"
-      :key="path"
+      v-for="{ key, path } in pressedKeyLayers"
+      :key="key"
       class="object-cover"
       :src="convertFileSrc(path)"
     >
