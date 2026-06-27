@@ -5,23 +5,40 @@ const loadedFontFaces = new Map<string, FontFace>()
 
 /**
  * Read a font file from disk and register it with the document via the FontFace API.
- * The font is identified by `familyName` and will replace any previously loaded
- * font registered under the same name.
+ * Any previously loaded font (regardless of name) is unloaded first to prevent leaks.
  */
 export async function loadCustomFont(path: string, familyName: string) {
+  unloadAllFonts()
+
   const buffer = await readFile(path)
+  const fontFace = new FontFace(familyName, buffer)
+
+  await fontFace.load()
+  document.fonts.add(fontFace)
+  loadedFontFaces.set(familyName, fontFace)
+}
+
+/**
+ * Remove a single loaded font face by name from the document and the cache.
+ */
+export function unloadFont(familyName: string) {
   const existing = loadedFontFaces.get(familyName)
 
   if (existing) {
     document.fonts.delete(existing)
     loadedFontFaces.delete(familyName)
   }
+}
 
-  const fontFace = new FontFace(familyName, buffer)
+/**
+ * Remove every loaded custom font face from the document and clear the cache.
+ */
+export function unloadAllFonts() {
+  for (const fontFace of loadedFontFaces.values()) {
+    document.fonts.delete(fontFace)
+  }
 
-  await fontFace.load()
-  document.fonts.add(fontFace)
-  loadedFontFaces.set(familyName, fontFace)
+  loadedFontFaces.clear()
 }
 
 /**

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { emit } from '@tauri-apps/api/event'
 import { appDataDir } from '@tauri-apps/api/path'
 import { open } from '@tauri-apps/plugin-dialog'
 import { copyFile, exists, mkdir } from '@tauri-apps/plugin-fs'
@@ -7,8 +8,9 @@ import { nanoid } from 'nanoid'
 import { useI18n } from 'vue-i18n'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
+import { LISTEN_KEY } from '@/constants'
 import { useGeneralStore } from '@/stores/general'
-import { applyFontFamily, getFontFamilyFromPath, loadCustomFont } from '@/utils/font'
+import { applyFontFamily, getFontFamilyFromPath, loadCustomFont, unloadAllFonts } from '@/utils/font'
 import { join } from '@/utils/path'
 
 const generalStore = useGeneralStore()
@@ -47,6 +49,8 @@ async function handleUpload() {
     generalStore.appearance.fontFamily = familyName
     generalStore.appearance.fontPath = destPath
 
+    emit(LISTEN_KEY.FONT_CHANGED, { fontPath: destPath, fontFamily: familyName })
+
     message.success(t('pages.preference.general.hints.fontImportSuccess'))
   } catch (error) {
     message.error(String(error))
@@ -54,10 +58,13 @@ async function handleUpload() {
 }
 
 function handleReset() {
+  unloadAllFonts()
   applyFontFamily(undefined)
 
   generalStore.appearance.fontFamily = undefined
   generalStore.appearance.fontPath = undefined
+
+  emit(LISTEN_KEY.FONT_CHANGED, { fontPath: undefined, fontFamily: undefined })
 }
 </script>
 

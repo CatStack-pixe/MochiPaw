@@ -67,6 +67,12 @@ watch(
   ([path, family]) => initCustomFont(path, family),
 )
 
+useTauriListen<{ fontPath?: string, fontFamily?: string }>(LISTEN_KEY.FONT_CHANGED, async ({ payload }) => {
+  generalStore.appearance.fontFamily = payload.fontFamily
+  generalStore.appearance.fontPath = payload.fontPath
+  await initCustomFont(payload.fontPath, payload.fontFamily)
+})
+
 useTauriListen(LISTEN_KEY.SHOW_WINDOW, ({ payload }) => {
   if (appWindow.label !== payload) return
 

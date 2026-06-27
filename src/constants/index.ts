@@ -10,6 +10,7 @@ export const LISTEN_KEY = {
   GAMEPAD_CHANGED: 'gamepad-changed',
   START_MOTION: 'start-motion',
   SET_EXPRESSION: 'set-expression',
+  FONT_CHANGED: 'font-changed',
 }
 
 export const INVOKE_KEY = {

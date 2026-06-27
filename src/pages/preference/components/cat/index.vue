@@ -152,6 +152,8 @@ const typingBehaviorGroupOptions = computed(() => {
             class="w-24"
             :max="120"
             :min="0"
+            :precision="0"
+            :step="1"
           />
 
           <SpaceAddon>FPS</SpaceAddon>
