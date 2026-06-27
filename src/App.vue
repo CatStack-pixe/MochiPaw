@@ -55,7 +55,11 @@ onMounted(async () => {
   await generalStore.init()
   await shortcutStore.$tauri.start()
   await restoreState()
-  await initCustomFont(generalStore.appearance.fontPath, generalStore.appearance.fontFamily)
+  const fontLoaded = await initCustomFont(generalStore.appearance.fontPath, generalStore.appearance.fontFamily)
+
+  if (!fontLoaded && generalStore.appearance.fontPath) {
+    error(`Failed to load custom font from: ${generalStore.appearance.fontPath}`)
+  }
 })
 
 watch(() => generalStore.appearance.language, (value) => {
@@ -68,6 +72,11 @@ watch(
 )
 
 useTauriListen<{ fontPath?: string, fontFamily?: string }>(LISTEN_KEY.FONT_CHANGED, ({ payload }) => {
+  if (generalStore.appearance.fontFamily === payload.fontFamily
+    && generalStore.appearance.fontPath === payload.fontPath) {
+    return
+  }
+
   generalStore.appearance.fontFamily = payload.fontFamily
   generalStore.appearance.fontPath = payload.fontPath
 })

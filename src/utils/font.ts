@@ -1,4 +1,4 @@
-import { readFile } from '@tauri-apps/plugin-fs'
+import { readFile, remove } from '@tauri-apps/plugin-fs'
 
 const DEFAULT_FONT_FAMILY = ''
 const loadedFontFaces = new Map<string, FontFace>()
@@ -61,14 +61,16 @@ export function applyFontFamily(family: string | undefined) {
 export async function initCustomFont(fontPath?: string, fontFamily?: string) {
   if (!fontPath || !fontFamily) {
     applyFontFamily(undefined)
-    return
+    return false
   }
 
   try {
     await loadCustomFont(fontPath, fontFamily)
     applyFontFamily(fontFamily)
+    return true
   } catch {
     applyFontFamily(DEFAULT_FONT_FAMILY)
+    return false
   }
 }
 
@@ -80,4 +82,18 @@ export function getFontFamilyFromPath(path: string) {
   const fileName = path.split(/[\\/]/).at(-1) ?? path
 
   return fileName.replace(/\.[^.]+$/, '')
+}
+
+/**
+ * Delete a font file from disk. Errors (e.g. file not found) are silently
+ * ignored so callers do not need extra error handling.
+ */
+export async function removeFontFile(path?: string) {
+  if (!path) return
+
+  try {
+    await remove(path)
+  } catch {
+    // File may already have been deleted — ignore
+  }
 }
