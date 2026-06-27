@@ -17,6 +17,8 @@ export interface GeneralStore {
     theme: Theme
     isDark: boolean
     language?: Language
+    fontFamily?: string
+    fontPath?: string
   }
   update: {
     autoCheck: boolean

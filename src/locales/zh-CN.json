@@ -30,6 +30,9 @@
           "maxFPS": "最大帧率",
           "typingBehaviorGroup": "随机组"
         },
+        "options": {
+          "fpsUnlimited": "无限制"
+        },
         "hints": {
           "mirrorMode": "启用后，模型将水平镜像翻转。",
           "mouseMirror": "启用后，鼠标将镜像跟随手部移动。",
@@ -43,7 +46,7 @@
           "windowSize": "使用滑动条快速调整窗口大小，也可以输入百分比精确设置。",
           "autoReleaseDelay": "由于 Windows 下部分系统级按键无法捕获释放事件，超时后将自动视为已释放。",
           "hideOnHover": "启用后，鼠标悬停窗口时自动隐藏。可设置延迟时间，0 表示立即隐藏。",
-          "maxFPS": "限制模型渲染的最大帧率，降低帧率可以减少 CPU/GPU 占用。"
+          "maxFPS": "限制模型渲染的最大帧率（0-120），设为 0 表示无限制。降低帧率可以减少 CPU/GPU 占用。"
         }
       },
       "general": {
@@ -56,6 +59,7 @@
           "appearanceSettings": "外观设置",
           "themeMode": "主题模式",
           "language": "语言",
+          "customFont": "自定义字体",
           "updateSettings": "更新设置",
           "autoCheckUpdate": "自动检查更新",
           "permissionsSettings": "权限设置",
@@ -65,11 +69,14 @@
         "options": {
           "auto": "跟随系统",
           "lightMode": "亮色模式",
-          "darkMode": "暗色模式"
+          "darkMode": "暗色模式",
+          "defaultFont": "默认"
         },
         "hints": {
           "showTaskbarIcon": "启用后，即可通过 OBS Studio 捕获窗口。",
           "showTrayIcon": "启用后，在系统托盘中显示应用图标。",
+          "customFont": "导入自定义字体文件（.ttf、.otf、.woff、.woff2），将应用于整个应用界面。",
+          "fontImportSuccess": "字体导入成功",
           "inputMonitoringPermission": "开启输入监控权限，以便接收系统的键盘和鼠标事件来响应你的操作。",
           "inputMonitoringPermissionGuide": "开启输入监控权限后，应用才能接收系统的键盘和鼠标事件，从而响应你的操作。\n\n操作方式：\n1. 打开「系统设置」→「隐私与安全性」→「输入监控」。\n2. 若列表中已存在 MochiPaw，请先选中它，点击「-」按钮将其删除。\n3. 点击「+」按钮，找到并添加 MochiPaw 应用。\n4. 重启应用，以确保权限正式生效。",
           "administratorPermission": "以管理员身份运行应用，可以更稳定地捕获部分系统级按键与输入事件。",
@@ -87,7 +94,9 @@
           "openLater": "稍后开启",
           "setLater": "稍后设置",
           "restartAsAdministrator": "以管理员身份重启",
-          "exitApp": "退出应用"
+          "exitApp": "退出应用",
+          "importFont": "导入",
+          "resetFont": "重置"
         }
       },
       "model": {
