@@ -25,7 +25,7 @@
       "identifier": "opener:allow-open-path",
       "allow": [
         {
-          "path": "**/*"
+          "path": "$APPDATA/**"
         }
       ]
     },
@@ -37,12 +37,13 @@
     "macos-permissions:default",
     "dialog:default",
     "fs:default",
-    "fs:read-all",
-    "fs:write-all",
     {
       "identifier": "fs:scope",
       "allow": [
-        "**/*"
+        "$APPDATA/**",
+        "$RESOURCE/**",
+        "$APPCONFIG/**",
+        "$APPLOG/**"
       ]
     },
     "clipboard-manager:allow-write-text",
