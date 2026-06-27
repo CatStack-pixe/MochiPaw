@@ -29,10 +29,12 @@ async function handleUpload() {
     ],
   })
 
-  if (!selected) return
+  if (!selected || typeof selected !== 'string') return
 
   try {
     const familyName = getFontFamilyFromPath(selected)
+
+    if (!familyName) return
     const fontsDir = join(await appDataDir(), 'fonts')
 
     if (!await exists(fontsDir)) {
