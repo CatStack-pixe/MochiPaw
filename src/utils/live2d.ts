@@ -360,7 +360,7 @@ class Live2d {
   }
 
   public setMaxFPS(fps: number) {
-    Ticker.shared.maxFPS = fps
+    Ticker.shared.maxFPS = Math.max(0, Math.min(120, fps))
   }
 }
 

@@ -60,6 +60,7 @@ export function applyFontFamily(family: string | undefined) {
  */
 export async function initCustomFont(fontPath?: string, fontFamily?: string) {
   if (!fontPath || !fontFamily) {
+    unloadAllFonts()
     applyFontFamily(undefined)
     return false
   }

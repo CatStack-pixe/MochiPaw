@@ -10,7 +10,7 @@ import { useI18n } from 'vue-i18n'
 import ProListItem from '@/components/pro-list-item/index.vue'
 import { LISTEN_KEY } from '@/constants'
 import { useGeneralStore } from '@/stores/general'
-import { applyFontFamily, getFontFamilyFromPath, loadCustomFont, removeFontFile, unloadAllFonts } from '@/utils/font'
+import { getFontFamilyFromPath, removeFontFile } from '@/utils/font'
 import { join } from '@/utils/path'
 
 const generalStore = useGeneralStore()
@@ -48,8 +48,6 @@ async function handleUpload() {
     const destPath = join(fontsDir, `${nanoid()}.${ext}`)
 
     await copyFile(selected, destPath)
-    await loadCustomFont(destPath, familyName)
-    applyFontFamily(familyName)
 
     generalStore.appearance.fontFamily = familyName
     generalStore.appearance.fontPath = destPath
@@ -64,9 +62,6 @@ async function handleUpload() {
 
 async function handleReset() {
   const oldPath = generalStore.appearance.fontPath
-
-  unloadAllFonts()
-  applyFontFamily(undefined)
 
   generalStore.appearance.fontFamily = undefined
   generalStore.appearance.fontPath = undefined
