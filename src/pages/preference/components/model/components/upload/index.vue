@@ -363,12 +363,12 @@ async function discoverImportVariants(sourcePath: string) {
 async function discoverLegacyVariants(sourcePath: string) {
   const imgDirs = await findDirectoriesNamed(sourcePath, 'img')
   const variants: ImportVariant[] = []
-  const proofManifest = await readProofManifest(sourcePath)
 
   for (const imgDir of imgDirs) {
     for (const mode of LEGACY_MODELS) {
       const rootPath = join(imgDir, mode)
       const modelPath = join(rootPath, 'cat_model')
+      const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
 
       if (!await exists(join(modelPath, 'cat.model3.json'))) continue
 
@@ -390,10 +390,10 @@ async function discoverLegacyVariants(sourcePath: string) {
 
 async function discoverCubismVariants(sourcePath: string) {
   const modelPaths = await findModelDirectories(sourcePath)
-  const proofManifest = await readProofManifest(sourcePath)
 
   return await Promise.all(modelPaths.map(async (modelPath): Promise<ImportVariant> => {
     const mode = await inferMode(modelPath)
+    const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
 
     return {
       mode,
@@ -418,6 +418,33 @@ async function readProofManifest(sourcePath: string): Promise<ProofManifest | nu
   } catch {
     return null
   }
+}
+
+async function readNearestProofManifest(startPath: string, stopPath?: string): Promise<ProofManifest | null> {
+  let currentPath = startPath
+  const normalizedStopPath = stopPath ? normalizePath(stopPath) : undefined
+
+  while (currentPath) {
+    const manifest = await readProofManifest(currentPath)
+
+    if (manifest) return manifest
+
+    const normalizedCurrentPath = normalizePath(currentPath)
+
+    if (normalizedStopPath && normalizedCurrentPath === normalizedStopPath) {
+      return null
+    }
+
+    const parentPath = getParentPath(currentPath)
+
+    if (!parentPath || normalizePath(parentPath) === normalizedCurrentPath) {
+      return null
+    }
+
+    currentPath = parentPath
+  }
+
+  return null
 }
 
 async function readControlledRelease(sourcePath: string) {
@@ -628,6 +655,10 @@ function getParentPath(path: string) {
   parts.pop()
 
   return parts.join(separator)
+}
+
+function normalizePath(path: string) {
+  return path.replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase()
 }
 
 function getKeyImageRefs(variant: ImportVariant, config: LegacyPetConfig) {

@@ -33,6 +33,20 @@ function authorSummary(model: Model) {
   return model.author?.displayName?.trim() ?? ''
 }
 
+function authorMetaLines(model: Model) {
+  const author = model.author
+
+  if (!author) return []
+
+  return [
+    { label: '主页', value: author.homepage?.trim() ?? '' },
+    { label: '联系', value: author.contact?.trim() ?? '' },
+    { label: '社区', value: author.community?.trim() ?? '' },
+    { label: '来源', value: author.source?.trim() ?? '' },
+    { label: '协作', value: author.collaborators?.filter(Boolean).join(', ') ?? '' },
+  ].filter(item => item.value)
+}
+
 function packageSummary(model: Model) {
   return model.packageId?.trim() ?? model.controlledRelease?.packageId?.trim() ?? ''
 }
@@ -176,6 +190,14 @@ async function handleDelete(item: Model) {
           >
             {{ data.author.statement }}
           </div>
+          <div
+            v-for="item in authorMetaLines(data)"
+            :key="item.label"
+            class="meta-line"
+          >
+            <strong>{{ item.label }}</strong>
+            <span>{{ item.value }}</span>
+          </div>
         </div>
 
         <template #actions>
@@ -257,12 +279,12 @@ async function handleDelete(item: Model) {
 
   strong {
     flex-shrink: 0;
-    color: rgba(0, 0, 0, 0.88);
+    color: var(--ant-color-text);
   }
 
   span {
     min-width: 0;
-    color: rgba(0, 0, 0, 0.58);
+    color: var(--ant-color-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -272,7 +294,7 @@ async function handleDelete(item: Model) {
 .meta-statement {
   font-size: 12px;
   line-height: 1.45;
-  color: rgba(0, 0, 0, 0.58);
+  color: var(--ant-color-text-secondary);
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
