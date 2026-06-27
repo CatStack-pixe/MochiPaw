@@ -30,6 +30,9 @@
           "maxFPS": "Max Frame Rate",
           "typingBehaviorGroup": "Random Group"
         },
+        "options": {
+          "fpsUnlimited": "Unlimited"
+        },
         "hints": {
           "mirrorMode": "When enabled, the model will be mirrored horizontally.",
           "mouseMirror": "When enabled, the mouse will mirror the hand movement.",
@@ -43,7 +46,7 @@
           "windowSize": "Use the slider for quick resizing, or enter a percentage for precise control.",
           "autoReleaseDelay": "On Windows, some system keys cannot capture release events and will auto-release after timeout.",
           "hideOnHover": "When enabled, the window hides automatically on mouse hover. You can set a delay; 0 means hide immediately.",
-          "maxFPS": "Limit the maximum frame rate for model rendering. Lowering the frame rate can reduce CPU/GPU usage."
+          "maxFPS": "Limit the maximum frame rate for model rendering (0-120). Set to 0 for unlimited. Lowering the frame rate can reduce CPU/GPU usage."
         }
       },
       "general": {
@@ -56,6 +59,7 @@
           "appearanceSettings": "Appearance Settings",
           "themeMode": "Theme Mode",
           "language": "Language",
+          "customFont": "Custom Font",
           "updateSettings": "Update Settings",
           "autoCheckUpdate": "Auto Check for Updates",
           "permissionsSettings": "Permissions Settings",
@@ -65,11 +69,14 @@
         "options": {
           "auto": "System",
           "lightMode": "Light",
-          "darkMode": "Dark"
+          "darkMode": "Dark",
+          "defaultFont": "Default"
         },
         "hints": {
           "showTaskbarIcon": "When enabled, the window can be captured via OBS Studio.",
           "showTrayIcon": "When enabled, the app icon is displayed in the system tray.",
+          "customFont": "Import a custom font file (.ttf, .otf, .woff, .woff2) to use throughout the app.",
+          "fontImportSuccess": "Font imported successfully",
           "inputMonitoringPermission": "Enable input monitoring to receive keyboard and mouse events from the system.",
           "inputMonitoringPermissionGuide": "Input Monitoring permission is required for the app to receive keyboard and mouse events from the system.\n\nSteps:\n1. Open System Settings → Privacy & Security → Input Monitoring.\n2. If MochiPaw already appears in the list, select it and click the \"-\" button to remove it.\n3. Click the \"+\" button to find and add MochiPaw.\n4. Restart the app for the permission to take effect.",
           "administratorPermission": "Running the app as administrator helps capture some system-level keys and input events more reliably.",
@@ -87,7 +94,9 @@
           "openLater": "Open Later",
           "setLater": "Set Up Later",
           "restartAsAdministrator": "Restart as Administrator",
-          "exitApp": "Exit App"
+          "exitApp": "Exit App",
+          "importFont": "Import",
+          "resetFont": "Reset"
         }
       },
       "model": {
