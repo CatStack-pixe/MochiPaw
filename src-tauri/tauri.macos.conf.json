@@ -1,5 +1,5 @@
 {
-  "identifier": "com.ZTROS.MochiPaw",
+  "identifier": "com.CatStack.MochiPaw",
   "bundle": {
     "resources": ["assets/tray-mac.png", "assets/models"]
   }

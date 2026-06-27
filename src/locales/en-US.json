@@ -153,7 +153,7 @@
         },
         "hints": {
           "appInfo": "Copy app information and provide it to bug issue.",
-          "authorInfo": "Project authors and contributors.",
+          "authorInfo": "Project authors, contributors, community group, and original project source.",
           "copySuccess": "Copied Successfully",
           "debugMonitor": "Refreshes the current app process CPU, memory, and related usage every second. CPU shows -- on the first sample.",
           "resourceMetrics": "Shows each model resource's file size and estimated decoded memory. Textures are estimated as RGBA by actual image size; other resources use file size.",

@@ -153,7 +153,7 @@
         },
         "hints": {
           "appInfo": "复制软件信息并提供给 Bug Issue。",
-          "authorInfo": "项目作者与协作者信息。",
+          "authorInfo": "项目作者、协作者、交流群与原项目来源信息。",
           "copySuccess": "复制成功",
           "debugMonitor": "每秒自动刷新当前应用进程的 CPU、内存等占用。CPU 首次采样会显示 --。",
           "resourceMetrics": "统计各模型资源的磁盘大小和估算解码内存。贴图按实际宽高以 RGBA 估算，其它资源按文件大小估算。",

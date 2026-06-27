@@ -3,7 +3,7 @@ import { getTauriVersion } from '@tauri-apps/api/app'
 import { emit } from '@tauri-apps/api/event'
 import { appLogDir } from '@tauri-apps/api/path'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-import { openPath } from '@tauri-apps/plugin-opener'
+import { openPath, openUrl } from '@tauri-apps/plugin-opener'
 import { arch, platform, version } from '@tauri-apps/plugin-os'
 import { Button, Descriptions, message } from 'antdv-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -29,11 +29,20 @@ const authors = [
   {
     name: 'InfinityXCat',
     avatar: '/authors/infinityxcat.jpg',
+    role: '项目作者',
   },
   {
     name: 'Dev.Cloud.ZTR_OS',
     avatar: '/authors/dev-cloud-ztros.jpg',
+    role: '协作者',
   },
+]
+const qqGroup = '966043945'
+const originalProjectUrl = 'https://github.com/ayangweb/BongoCat'
+const modStatement = [
+  '当前版本为基于 BongoCat 的二次魔改增强版，增加了额外功能、适配和维护内容。',
+  '原项目地址已保留并在此展示，方便查看原始来源与历史实现。',
+  '原仓库目前已不活跃，本版本将继续作为衍生版本维护。',
 ]
 
 onMounted(async () => {
@@ -65,6 +74,11 @@ async function copyInfo() {
   await writeText(JSON.stringify(info, null, 2))
 
   message.success(t('pages.preference.about.hints.copySuccess'))
+}
+
+async function copyText(value: string, successText: string) {
+  await writeText(value)
+  message.success(successText)
 }
 
 async function refreshMetrics() {
@@ -179,6 +193,7 @@ const metricsItems = computed(() => [
     <ProListItem
       :description="$t('pages.preference.about.hints.authorInfo')"
       :title="$t('pages.preference.about.labels.authorInfo')"
+      vertical
     >
       <div class="author-list">
         <div
@@ -191,8 +206,44 @@ const metricsItems = computed(() => [
             class="author-avatar"
             :src="author.avatar"
           >
-          <span>{{ author.name }}</span>
+          <div class="author-meta">
+            <span>{{ author.name }}</span>
+            <small v-if="author.role">{{ author.role }}</small>
+          </div>
         </div>
+      </div>
+    </ProListItem>
+
+    <ProListItem
+      description="QQ群：966043945"
+      title="项目交流群"
+    >
+      <Button @click="copyText(qqGroup, 'QQ群号已复制')">
+        复制群号
+      </Button>
+    </ProListItem>
+
+    <ProListItem
+      :description="originalProjectUrl"
+      title="原项目地址"
+    >
+      <Button @click="openUrl(originalProjectUrl)">
+        打开链接
+      </Button>
+    </ProListItem>
+
+    <ProListItem
+      title="版本声明"
+      vertical
+    >
+      <div class="about-notes">
+        <p
+          v-for="line in modStatement"
+          :key="line"
+          class="about-note"
+        >
+          {{ line }}
+        </p>
       </div>
     </ProListItem>
 
@@ -259,10 +310,33 @@ const metricsItems = computed(() => [
   font-weight: 500;
 }
 
+.author-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.author-meta small {
+  color: var(--ant-color-text-description);
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .author-avatar {
   width: 32px;
   height: 32px;
   border-radius: 999px;
   object-fit: cover;
+}
+
+.about-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-note {
+  margin: 0;
+  line-height: 1.6;
 }
 </style>
