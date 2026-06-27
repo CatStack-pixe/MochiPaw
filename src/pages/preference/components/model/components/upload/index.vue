@@ -10,7 +10,12 @@ import { nanoid } from 'nanoid'
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { ModelMode } from '@/stores/model'
+import type {
+  ModelAuthorProfile,
+  ModelControlledRelease,
+  ModelMode,
+  ModelProofStatus,
+} from '@/stores/model'
 
 import { INVOKE_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
@@ -57,6 +62,15 @@ interface ImportVariant {
   modelPath: string
   fingerprint: string
   importKind: 'standard' | 'controlled'
+  proofStatus: ModelProofStatus
+  packageId?: string
+  author?: ModelAuthorProfile
+  controlledRelease?: ModelControlledRelease
+}
+
+interface ProofManifest {
+  packageId?: string
+  author?: ModelAuthorProfile
 }
 
 interface KeyImageRef {
@@ -299,6 +313,10 @@ async function importFromPath(fromPath: string) {
       isPreset: false,
       fingerprint: variant.fingerprint,
       importKind: variant.importKind,
+      proofStatus: variant.proofStatus,
+      packageId: variant.packageId,
+      author: variant.author,
+      controlledRelease: variant.controlledRelease,
     })
 
     importedFingerprints.add(variant.fingerprint)
@@ -345,6 +363,7 @@ async function discoverImportVariants(sourcePath: string) {
 async function discoverLegacyVariants(sourcePath: string) {
   const imgDirs = await findDirectoriesNamed(sourcePath, 'img')
   const variants: ImportVariant[] = []
+  const proofManifest = await readProofManifest(sourcePath)
 
   for (const imgDir of imgDirs) {
     for (const mode of LEGACY_MODELS) {
@@ -359,6 +378,9 @@ async function discoverLegacyVariants(sourcePath: string) {
         modelPath,
         fingerprint: await getModelFingerprint(modelPath, mode),
         importKind: 'standard',
+        proofStatus: proofManifest ? 'manifest-detected' : 'unsigned',
+        packageId: proofManifest?.packageId,
+        author: proofManifest?.author,
       })
     }
   }
@@ -368,6 +390,7 @@ async function discoverLegacyVariants(sourcePath: string) {
 
 async function discoverCubismVariants(sourcePath: string) {
   const modelPaths = await findModelDirectories(sourcePath)
+  const proofManifest = await readProofManifest(sourcePath)
 
   return await Promise.all(modelPaths.map(async (modelPath): Promise<ImportVariant> => {
     const mode = await inferMode(modelPath)
@@ -378,8 +401,23 @@ async function discoverCubismVariants(sourcePath: string) {
       modelPath,
       fingerprint: await getModelFingerprint(modelPath, mode),
       importKind: 'standard',
+      proofStatus: proofManifest ? 'manifest-detected' : 'unsigned',
+      packageId: proofManifest?.packageId,
+      author: proofManifest?.author,
     }
   }))
+}
+
+async function readProofManifest(sourcePath: string): Promise<ProofManifest | null> {
+  const manifestPath = join(sourcePath, 'mochi-proof', 'manifest.json')
+
+  if (!await exists(manifestPath)) return null
+
+  try {
+    return JSON5.parse(await readTextFile(manifestPath)) as ProofManifest
+  } catch {
+    return null
+  }
 }
 
 async function readControlledRelease(sourcePath: string) {
@@ -388,10 +426,7 @@ async function readControlledRelease(sourcePath: string) {
   if (!await exists(releasePath)) return null
 
   try {
-    return JSON5.parse(await readTextFile(releasePath)) as {
-      packageId?: string
-      releaseCode?: string
-    }
+    return JSON5.parse(await readTextFile(releasePath)) as ModelControlledRelease
   } catch {
     return {
       packageId: undefined,

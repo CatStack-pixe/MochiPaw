@@ -9,6 +9,26 @@ import { join } from '@/utils/path'
 
 export type ModelMode = 'standard' | 'keyboard' | 'gamepad'
 export type ModelImportKind = 'standard' | 'controlled'
+export type ModelProofStatus = 'unsigned' | 'manifest-detected' | 'controlled-release'
+
+export interface ModelAuthorProfile {
+  displayName?: string
+  statement?: string
+  homepage?: string
+  contact?: string
+  community?: string
+  source?: string
+  collaborators?: string[]
+}
+
+export interface ModelControlledRelease {
+  packageId?: string
+  releaseCode?: string
+  activationMode?: string
+  runtimeTelemetryRequired?: boolean
+  offlineLeaseAllowed?: boolean
+  reimportRestricted?: boolean
+}
 
 export interface Model {
   id: string
@@ -17,6 +37,10 @@ export interface Model {
   isPreset: boolean
   fingerprint?: string
   importKind?: ModelImportKind
+  proofStatus?: ModelProofStatus
+  packageId?: string
+  author?: ModelAuthorProfile
+  controlledRelease?: ModelControlledRelease
 }
 
 export interface ModelSupportKeyLayer {

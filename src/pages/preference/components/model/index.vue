@@ -23,6 +23,30 @@ const { height } = useElementSize(firstCardRef)
 const { t } = useI18n()
 const openBehaviorModal = ref(false)
 
+function proofLabel(model: Model) {
+  if (model.importKind === 'controlled') return '受控包'
+  if (model.proofStatus === 'manifest-detected') return '签名包'
+  return '普通包'
+}
+
+function authorSummary(model: Model) {
+  return model.author?.displayName?.trim() ?? ''
+}
+
+function packageSummary(model: Model) {
+  return model.packageId?.trim() ?? model.controlledRelease?.packageId?.trim() ?? ''
+}
+
+function policySummary(model: Model) {
+  if (!model.controlledRelease) return ''
+
+  const parts = []
+  if (model.controlledRelease.reimportRestricted) parts.push('限制二次导入')
+  if (model.controlledRelease.runtimeTelemetryRequired) parts.push('持续上报')
+  if (model.controlledRelease.offlineLeaseAllowed) parts.push('离线租约')
+  return parts.join(' / ')
+}
+
 function waitForFrames(count = 2) {
   return new Promise<void>((resolve) => {
     const wait = () => {
@@ -117,6 +141,43 @@ async function handleDelete(item: Model) {
           <ModelPreview :model="data" />
         </template>
 
+        <template #title>
+          <div class="model-card-title">
+            <span>{{ data.id }}</span>
+            <span class="model-proof-pill">{{ proofLabel(data) }}</span>
+          </div>
+        </template>
+
+        <div class="model-card-meta">
+          <div
+            v-if="authorSummary(data)"
+            class="meta-line"
+          >
+            <strong>作者</strong>
+            <span>{{ authorSummary(data) }}</span>
+          </div>
+          <div
+            v-if="packageSummary(data)"
+            class="meta-line"
+          >
+            <strong>包号</strong>
+            <span>{{ packageSummary(data) }}</span>
+          </div>
+          <div
+            v-if="policySummary(data)"
+            class="meta-line"
+          >
+            <strong>策略</strong>
+            <span>{{ policySummary(data) }}</span>
+          </div>
+          <div
+            v-if="data.author?.statement"
+            class="meta-statement"
+          >
+            {{ data.author.statement }}
+          </div>
+        </div>
+
         <template #actions>
           <i
             class="i-lucide:circle-check"
@@ -159,3 +220,62 @@ async function handleDelete(item: Model) {
     v-model="openBehaviorModal"
   />
 </template>
+
+<style scoped lang="scss">
+.model-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.model-proof-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(24, 144, 255, 0.12);
+  color: #1677ff;
+  font-size: 11px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.model-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.meta-line {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+
+  strong {
+    flex-shrink: 0;
+    color: rgba(0, 0, 0, 0.88);
+  }
+
+  span {
+    min-width: 0;
+    color: rgba(0, 0, 0, 0.58);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.meta-statement {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.58);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+</style>
