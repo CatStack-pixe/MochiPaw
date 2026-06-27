@@ -8,6 +8,7 @@ import { reactive, ref } from 'vue'
 import { join } from '@/utils/path'
 
 export type ModelMode = 'standard' | 'keyboard' | 'gamepad'
+export type ModelImportKind = 'standard' | 'controlled'
 
 export interface Model {
   id: string
@@ -15,6 +16,7 @@ export interface Model {
   mode: ModelMode
   isPreset: boolean
   fingerprint?: string
+  importKind?: ModelImportKind
 }
 
 export interface ModelSupportKeyLayer {

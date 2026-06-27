@@ -4,7 +4,7 @@ import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { open } from '@tauri-apps/plugin-dialog'
 import { copyFile, exists, mkdir, readDir, readFile, readTextFile, stat } from '@tauri-apps/plugin-fs'
-import { message } from 'antdv-next'
+import { message, Modal } from 'antdv-next'
 import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
@@ -56,6 +56,7 @@ interface ImportVariant {
   rootPath: string
   modelPath: string
   fingerprint: string
+  importKind: 'standard' | 'controlled'
 }
 
 interface KeyImageRef {
@@ -259,6 +260,16 @@ watch(selectPaths, async (paths) => {
 
 async function importFromPath(fromPath: string) {
   const sourcePath = await prepareImportSource(fromPath)
+  const controlledRelease = await readControlledRelease(sourcePath)
+
+  if (controlledRelease) {
+    Modal.warning({
+      title: '受控包暂不支持普通导入',
+      content: `检测到受控发行包 ${controlledRelease.packageId ?? ''}。请后续改用专用受控导入链路。`,
+    })
+    return []
+  }
+
   const variants = await discoverImportVariants(sourcePath)
 
   if (!variants.length) {
@@ -287,6 +298,7 @@ async function importFromPath(fromPath: string) {
       mode: variant.mode,
       isPreset: false,
       fingerprint: variant.fingerprint,
+      importKind: variant.importKind,
     })
 
     importedFingerprints.add(variant.fingerprint)
@@ -346,6 +358,7 @@ async function discoverLegacyVariants(sourcePath: string) {
         rootPath,
         modelPath,
         fingerprint: await getModelFingerprint(modelPath, mode),
+        importKind: 'standard',
       })
     }
   }
@@ -364,8 +377,27 @@ async function discoverCubismVariants(sourcePath: string) {
       rootPath: modelPath,
       modelPath,
       fingerprint: await getModelFingerprint(modelPath, mode),
+      importKind: 'standard',
     }
   }))
+}
+
+async function readControlledRelease(sourcePath: string) {
+  const releasePath = join(sourcePath, 'mochi-control', 'release.json')
+
+  if (!await exists(releasePath)) return null
+
+  try {
+    return JSON5.parse(await readTextFile(releasePath)) as {
+      packageId?: string
+      releaseCode?: string
+    }
+  } catch {
+    return {
+      packageId: undefined,
+      releaseCode: undefined,
+    }
+  }
 }
 
 async function findDirectoriesNamed(rootPath: string, name: string) {
