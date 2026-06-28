@@ -125,6 +125,26 @@
           "title": "Pacotes controlados n?o podem ser importados aqui",
           "content": "Pacote controlado {packageId} detectado. Use o fluxo dedicado de importa??o controlada.",
           "unknownPackage": "desconhecido"
+        },
+        "proof": {
+          "controlled": "Controlado",
+          "signed": "Assinado",
+          "standard": "Padr?o"
+        },
+        "meta": {
+          "author": "Autor",
+          "packageId": "Pacote",
+          "policy": "Pol?tica",
+          "homepage": "P?gina inicial",
+          "contact": "Contato",
+          "community": "Comunidade",
+          "source": "Fonte",
+          "collaborators": "Colaboradores"
+        },
+        "policy": {
+          "reimportRestricted": "Reimporta??o restrita",
+          "runtimeTelemetryRequired": "Telemetria obrigat?ria",
+          "offlineLeaseAllowed": "Licen?a offline"
         }
       },
       "shortcut": {

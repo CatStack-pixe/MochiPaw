@@ -125,6 +125,26 @@
           "title": "Kh?ng th? nh?p g?i c? ki?m so?t t?i ??y",
           "content": "Ph?t hi?n g?i c? ki?m so?t {packageId}. Vui l?ng d?ng lu?ng nh?p chuy?n d?ng.",
           "unknownPackage": "kh?ng r?"
+        },
+        "proof": {
+          "controlled": "C? ki?m so?t",
+          "signed": "?? k?",
+          "standard": "Ti?u chu?n"
+        },
+        "meta": {
+          "author": "T?c gi?",
+          "packageId": "G?i",
+          "policy": "Ch?nh s?ch",
+          "homepage": "Trang ch?",
+          "contact": "Li?n h?",
+          "community": "C?ng ??ng",
+          "source": "Ngu?n",
+          "collaborators": "C?ng t?c vi?n"
+        },
+        "policy": {
+          "reimportRestricted": "H?n ch? nh?p l?i",
+          "runtimeTelemetryRequired": "Y?u c?u telemetry",
+          "offlineLeaseAllowed": "Cho ph?p lease ngo?i tuy?n"
         }
       },
       "shortcut": {

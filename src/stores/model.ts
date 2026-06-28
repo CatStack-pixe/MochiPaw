@@ -5,10 +5,31 @@ import { filter, find } from 'es-toolkit/compat'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
+import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import { join } from '@/utils/path'
 
 export type ModelMode = 'standard' | 'keyboard' | 'gamepad'
 export type ModelImportKind = 'standard' | 'controlled'
+export type ModelProofStatus = 'unsigned' | 'manifest-detected' | 'controlled-release'
+
+export interface ModelAuthorProfile {
+  displayName?: string
+  statement?: string
+  homepage?: string
+  contact?: string
+  community?: string
+  source?: string
+  collaborators?: string[]
+}
+
+export interface ModelControlledRelease {
+  packageId?: string
+  releaseCode?: string
+  activationMode?: string
+  runtimeTelemetryRequired?: boolean
+  offlineLeaseAllowed?: boolean
+  reimportRestricted?: boolean
+}
 
 export interface Model {
   id: string
@@ -17,6 +38,10 @@ export interface Model {
   isPreset: boolean
   fingerprint?: string
   importKind?: ModelImportKind
+  proofStatus?: ModelProofStatus
+  packageId?: string
+  author?: ModelAuthorProfile
+  controlledRelease?: ModelControlledRelease
 }
 
 export interface ModelSupportKeyLayer {
@@ -96,6 +121,8 @@ export const useModelStore = defineStore('model', () => {
     const nextModels = filter(models.value, { isPreset: false })
     const presetModels = filter(models.value, { isPreset: true })
 
+    await Promise.all(nextModels.map(fillModelProofMetadata))
+
     for (const preset of [...PRESET_MODELS].reverse()) {
       const matched = find(presetModels, {
         id: preset.id,
@@ -138,3 +165,14 @@ export const useModelStore = defineStore('model', () => {
     filterKeys: ['supportKeys', 'pressedKeys', 'activeKeys'],
   },
 })
+
+async function fillModelProofMetadata(model: Model) {
+  const proofManifest = await readNearestProofManifest(model.path)
+  const controlledRelease = await readNearestControlledRelease(model.path)
+
+  model.importKind = controlledRelease ? 'controlled' : model.importKind ?? 'standard'
+  model.proofStatus = controlledRelease ? 'controlled-release' : proofManifest ? 'manifest-detected' : 'unsigned'
+  model.packageId = proofManifest?.packageId ?? controlledRelease?.packageId ?? model.packageId
+  model.author = proofManifest?.author ?? model.author
+  model.controlledRelease = controlledRelease ?? model.controlledRelease
+}

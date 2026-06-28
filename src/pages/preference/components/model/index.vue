@@ -23,6 +23,44 @@ const { height } = useElementSize(firstCardRef)
 const { t } = useI18n()
 const openBehaviorModal = ref(false)
 
+function proofLabel(model: Model) {
+  if (model.importKind === 'controlled') return t('pages.preference.model.proof.controlled')
+  if (model.proofStatus === 'manifest-detected') return t('pages.preference.model.proof.signed')
+  return t('pages.preference.model.proof.standard')
+}
+
+function authorSummary(model: Model) {
+  return model.author?.displayName?.trim() ?? ''
+}
+
+function authorMetaLines(model: Model) {
+  const author = model.author
+
+  if (!author) return []
+
+  return [
+    { label: t('pages.preference.model.meta.homepage'), value: author.homepage?.trim() ?? '' },
+    { label: t('pages.preference.model.meta.contact'), value: author.contact?.trim() ?? '' },
+    { label: t('pages.preference.model.meta.community'), value: author.community?.trim() ?? '' },
+    { label: t('pages.preference.model.meta.source'), value: author.source?.trim() ?? '' },
+    { label: t('pages.preference.model.meta.collaborators'), value: author.collaborators?.filter(Boolean).join(', ') ?? '' },
+  ].filter(item => item.value)
+}
+
+function packageSummary(model: Model) {
+  return model.packageId?.trim() ?? model.controlledRelease?.packageId?.trim() ?? ''
+}
+
+function policySummary(model: Model) {
+  if (!model.controlledRelease) return ''
+
+  const parts = []
+  if (model.controlledRelease.reimportRestricted) parts.push(t('pages.preference.model.policy.reimportRestricted'))
+  if (model.controlledRelease.runtimeTelemetryRequired) parts.push(t('pages.preference.model.policy.runtimeTelemetryRequired'))
+  if (model.controlledRelease.offlineLeaseAllowed) parts.push(t('pages.preference.model.policy.offlineLeaseAllowed'))
+  return parts.join(' / ')
+}
+
 function waitForFrames(count = 2) {
   return new Promise<void>((resolve) => {
     const wait = () => {
@@ -117,6 +155,51 @@ async function handleDelete(item: Model) {
           <ModelPreview :model="data" />
         </template>
 
+        <template #title>
+          <div class="model-card-title">
+            <span>{{ data.id }}</span>
+            <span class="model-proof-pill">{{ proofLabel(data) }}</span>
+          </div>
+        </template>
+
+        <div class="model-card-meta">
+          <div
+            v-if="authorSummary(data)"
+            class="meta-line"
+          >
+            <strong>{{ $t('pages.preference.model.meta.author') }}</strong>
+            <span>{{ authorSummary(data) }}</span>
+          </div>
+          <div
+            v-if="packageSummary(data)"
+            class="meta-line"
+          >
+            <strong>{{ $t('pages.preference.model.meta.packageId') }}</strong>
+            <span>{{ packageSummary(data) }}</span>
+          </div>
+          <div
+            v-if="policySummary(data)"
+            class="meta-line"
+          >
+            <strong>{{ $t('pages.preference.model.meta.policy') }}</strong>
+            <span>{{ policySummary(data) }}</span>
+          </div>
+          <div
+            v-if="data.author?.statement"
+            class="meta-statement"
+          >
+            {{ data.author.statement }}
+          </div>
+          <div
+            v-for="item in authorMetaLines(data)"
+            :key="item.label"
+            class="meta-line"
+          >
+            <strong>{{ item.label }}</strong>
+            <span>{{ item.value }}</span>
+          </div>
+        </div>
+
         <template #actions>
           <i
             class="i-lucide:circle-check"
@@ -159,3 +242,62 @@ async function handleDelete(item: Model) {
     v-model="openBehaviorModal"
   />
 </template>
+
+<style scoped lang="scss">
+.model-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.model-proof-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(24, 144, 255, 0.12);
+  color: #1677ff;
+  font-size: 11px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.model-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.meta-line {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+
+  strong {
+    flex-shrink: 0;
+    color: var(--ant-color-text);
+  }
+
+  span {
+    min-width: 0;
+    color: var(--ant-color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.meta-statement {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ant-color-text-secondary);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+</style>
