@@ -4,7 +4,7 @@ import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { open } from '@tauri-apps/plugin-dialog'
 import { copyFile, exists, mkdir, readDir, readFile, readTextFile, stat } from '@tauri-apps/plugin-fs'
-import { message } from 'antdv-next'
+import { message, Modal } from 'antdv-next'
 import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
@@ -14,6 +14,7 @@ import type { ModelMode } from '@/stores/model'
 
 import { INVOKE_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
+import { readNearestControlledRelease } from '@/utils/controlledRelease'
 import { join } from '@/utils/path'
 
 interface LegacyPetConfig {
@@ -56,6 +57,7 @@ interface ImportVariant {
   rootPath: string
   modelPath: string
   fingerprint: string
+  importKind: 'standard' | 'controlled'
 }
 
 interface KeyImageRef {
@@ -166,6 +168,19 @@ const GAMEPAD_BUTTON_NAMES = [
   'DPadRight',
 ]
 
+interface ImportResult {
+  status: 'imported' | 'duplicate' | 'blocked-controlled'
+  models?: Array<{
+    id: string
+    path: string
+    mode: ModelMode
+    isPreset: boolean
+    fingerprint?: string
+    importKind?: 'standard' | 'controlled'
+  }>
+  packageId?: string
+}
+
 onMounted(() => {
   const appWindow = getCurrentWebviewWindow()
 
@@ -234,15 +249,26 @@ watch(selectPaths, async (paths) => {
     importProgress.value = { current: index + 1, total: paths.length }
 
     try {
-      const importedModels = await importFromPath(fromPath)
+      const result = await importFromPath(fromPath)
 
-      if (!importedModels.length) {
-        message.info('Model already imported')
+      if (result.status === 'blocked-controlled') {
+        Modal.warning({
+          title: t('pages.preference.model.controlledImport.title'),
+          content: t('pages.preference.model.controlledImport.content', {
+            packageId: result.packageId ?? t('pages.preference.model.controlledImport.unknownPackage'),
+          }),
+        })
 
         continue
       }
 
-      for (const model of importedModels) {
+      if (result.status === 'duplicate') {
+        message.info(t('pages.preference.model.hints.alreadyImported'))
+
+        continue
+      }
+
+      for (const model of result.models ?? []) {
         modelStore.models.push(model)
       }
 
@@ -263,6 +289,17 @@ async function importFromPath(fromPath: string) {
 
   if (!variants.length) {
     throw new Error('No model3.json found')
+  }
+
+  const controlledVariant = variants.find(variant => variant.importKind === 'controlled')
+
+  if (controlledVariant) {
+    const release = await readNearestControlledRelease(controlledVariant.modelPath, sourcePath)
+
+    return {
+      status: 'blocked-controlled',
+      packageId: release?.packageId,
+    } satisfies ImportResult
   }
 
   const models = []
@@ -287,12 +324,17 @@ async function importFromPath(fromPath: string) {
       mode: variant.mode,
       isPreset: false,
       fingerprint: variant.fingerprint,
+      importKind: variant.importKind,
     })
 
     importedFingerprints.add(variant.fingerprint)
   }
 
-  return models
+  if (!models.length) {
+    return { status: 'duplicate' } satisfies ImportResult
+  }
+
+  return { status: 'imported', models } satisfies ImportResult
 }
 
 async function prepareImportSource(fromPath: string) {
@@ -340,12 +382,14 @@ async function discoverLegacyVariants(sourcePath: string) {
       const modelPath = join(rootPath, 'cat_model')
 
       if (!await exists(join(modelPath, 'cat.model3.json'))) continue
+      const controlledRelease = await readNearestControlledRelease(modelPath, sourcePath)
 
       variants.push({
         mode,
         rootPath,
         modelPath,
         fingerprint: await getModelFingerprint(modelPath, mode),
+        importKind: controlledRelease ? 'controlled' : 'standard',
       })
     }
   }
@@ -358,12 +402,14 @@ async function discoverCubismVariants(sourcePath: string) {
 
   return await Promise.all(modelPaths.map(async (modelPath): Promise<ImportVariant> => {
     const mode = await inferMode(modelPath)
+    const controlledRelease = await readNearestControlledRelease(modelPath, sourcePath)
 
     return {
       mode,
       rootPath: modelPath,
       modelPath,
       fingerprint: await getModelFingerprint(modelPath, mode),
+      importKind: controlledRelease ? 'controlled' : 'standard',
     }
   }))
 }

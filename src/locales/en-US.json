@@ -100,7 +100,8 @@
           "deleteModel": "Are you sure you want to delete this model?",
           "importSuccess": "Imported Successfully",
           "clickOrDragToImport": "Click or drag here to import",
-          "importing": "Importing {current}/{total}"
+          "importing": "Importing {current}/{total}",
+          "alreadyImported": "Model already imported"
         },
         "tooltips": {
           "createModel": "Create Model",
@@ -119,6 +120,11 @@
             "mutualExclusionRules": "Mutual exclusion rules",
             "ruleIndex": "Rule {index}"
           }
+        },
+        "controlledImport": {
+          "title": "Controlled packages cannot be imported here",
+          "content": "Detected controlled package {packageId}. Please use the dedicated controlled import flow.",
+          "unknownPackage": "unknown"
         }
       },
       "shortcut": {
