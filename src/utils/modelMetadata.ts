@@ -6,6 +6,7 @@ import type { ModelAuthorProfile, ModelControlledRelease } from '@/stores/model'
 import { join } from '@/utils/path'
 
 export interface ModelProofManifest {
+  modelName?: string
   packageId?: string
   author?: ModelAuthorProfile
 }

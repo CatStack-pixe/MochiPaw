@@ -1,7 +1,9 @@
 import type { ExpressionInfo, MotionInfo } from 'easy-live2d'
 
 import { resolveResource } from '@tauri-apps/api/path'
+import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
 import { filter, find } from 'es-toolkit/compat'
+import JSON5 from 'json5'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
@@ -33,6 +35,7 @@ export interface ModelControlledRelease {
 
 export interface Model {
   id: string
+  displayName?: string
   path: string
   mode: ModelMode
   isPreset: boolean
@@ -84,6 +87,11 @@ interface PresetModel {
   path: string
 }
 
+interface StoredCubismModelJSON {
+  Name?: string
+  DisplayName?: string
+}
+
 const PRESET_MODELS: PresetModel[] = [
   {
     id: 'preset-gamepad',
@@ -121,7 +129,7 @@ export const useModelStore = defineStore('model', () => {
     const nextModels = filter(models.value, { isPreset: false })
     const presetModels = filter(models.value, { isPreset: true })
 
-    await Promise.all(nextModels.map(fillModelProofMetadata))
+    await Promise.all(nextModels.map(fillModelMetadata))
 
     for (const preset of [...PRESET_MODELS].reverse()) {
       const matched = find(presetModels, {
@@ -166,7 +174,7 @@ export const useModelStore = defineStore('model', () => {
   },
 })
 
-async function fillModelProofMetadata(model: Model) {
+async function fillModelMetadata(model: Model) {
   const proofManifest = await readNearestProofManifest(model.path)
   const controlledRelease = await readNearestControlledRelease(model.path)
 
@@ -175,4 +183,54 @@ async function fillModelProofMetadata(model: Model) {
   model.packageId = proofManifest?.packageId ?? controlledRelease?.packageId ?? model.packageId
   model.author = proofManifest?.author ?? model.author
   model.controlledRelease = controlledRelease ?? model.controlledRelease
+
+  if (!model.isPreset && !model.displayName?.trim()) {
+    model.displayName = await inferStoredModelDisplayName(model, proofManifest?.modelName)
+  }
+}
+
+async function inferStoredModelDisplayName(model: Model, proofModelName?: string) {
+  const proofName = normalizeDisplayName(proofModelName)
+  if (proofName) return proofName
+
+  const modelFile = await findStoredModelFile(model.path)
+  if (!modelFile) return undefined
+
+  const modelName = await readStoredCubismModelName(modelFile)
+  if (modelName) return modelName
+
+  return stripModelFileExtension(getPathBaseName(modelFile))
+}
+
+async function readStoredCubismModelName(modelFile: string) {
+  try {
+    const modelJSON = JSON5.parse(await readTextFile(modelFile)) as StoredCubismModelJSON
+
+    return normalizeDisplayName(modelJSON.DisplayName ?? modelJSON.Name)
+  } catch {
+    return undefined
+  }
+}
+
+async function findStoredModelFile(modelPath: string) {
+  const files = await readDir(modelPath).catch(() => [])
+  const modelFile = files.find(file => file.isFile && file.name.endsWith('.model3.json'))
+
+  return modelFile ? join(modelPath, modelFile.name) : undefined
+}
+
+function normalizeDisplayName(value: unknown) {
+  if (typeof value !== 'string') return undefined
+
+  const displayName = value.trim()
+
+  return displayName || undefined
+}
+
+function getPathBaseName(path: string) {
+  return path.split(/[\\/]/).at(-1) ?? ''
+}
+
+function stripModelFileExtension(fileName: string) {
+  return fileName.replace(/\.model3\.json$/i, '').trim() || undefined
 }

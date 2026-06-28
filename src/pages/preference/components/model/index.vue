@@ -61,6 +61,10 @@ function policySummary(model: Model) {
   return parts.join(' / ')
 }
 
+function modelTitle(model: Model) {
+  return model.displayName?.trim() || model.id
+}
+
 function waitForFrames(count = 2) {
   return new Promise<void>((resolve) => {
     const wait = () => {
@@ -157,7 +161,7 @@ async function handleDelete(item: Model) {
 
         <template #title>
           <div class="model-card-title">
-            <span>{{ data.id }}</span>
+            <span class="model-title-text">{{ modelTitle(data) }}</span>
             <span class="model-proof-pill">{{ proofLabel(data) }}</span>
           </div>
         </template>
@@ -249,6 +253,13 @@ async function handleDelete(item: Model) {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.model-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .model-proof-pill {

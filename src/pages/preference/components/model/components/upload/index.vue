@@ -49,6 +49,8 @@ interface LegacyGamepadConfig {
 }
 
 interface CubismModelJSON {
+  Name?: string
+  DisplayName?: string
   FileReferences?: {
     Moc?: string
     Textures?: string[]
@@ -61,6 +63,7 @@ interface ImportVariant {
   mode: ModelMode
   rootPath: string
   modelPath: string
+  displayName?: string
   fingerprint: string
   importKind: 'standard' | 'controlled'
   proofStatus: ModelProofStatus
@@ -319,6 +322,7 @@ async function importFromPath(fromPath: string) {
 
     models.push(createImportedModel({
       id,
+      displayName: variant.displayName,
       path: toPath,
       mode: variant.mode,
       isPreset: false,
@@ -342,6 +346,7 @@ async function importFromPath(fromPath: string) {
 
 function createImportedModel(model: {
   id: string
+  displayName?: string
   path: string
   mode: ModelMode
   isPreset: boolean
@@ -408,6 +413,11 @@ async function discoverLegacyVariants(sourcePath: string) {
         mode,
         rootPath,
         modelPath,
+        displayName: await inferImportDisplayName({
+          modelPath,
+          sourcePath,
+          proofManifest,
+        }),
         fingerprint: await getModelFingerprint(modelPath, mode),
         importKind: controlledRelease ? 'controlled' : 'standard',
         proofStatus: controlledRelease ? 'controlled-release' : proofManifest ? 'manifest-detected' : 'unsigned',
@@ -433,6 +443,11 @@ async function discoverCubismVariants(sourcePath: string) {
       mode,
       rootPath: modelPath,
       modelPath,
+      displayName: await inferImportDisplayName({
+        modelPath,
+        sourcePath,
+        proofManifest,
+      }),
       fingerprint: await getModelFingerprint(modelPath, mode),
       importKind: controlledRelease ? 'controlled' : 'standard',
       proofStatus: controlledRelease ? 'controlled-release' : proofManifest ? 'manifest-detected' : 'unsigned',
@@ -441,6 +456,33 @@ async function discoverCubismVariants(sourcePath: string) {
       controlledRelease,
     }
   }))
+}
+
+async function inferImportDisplayName({
+  modelPath,
+  sourcePath,
+  proofManifest,
+}: {
+  modelPath: string
+  sourcePath: string
+  proofManifest: { modelName?: string } | null
+}) {
+  const manifestName = normalizeDisplayName(proofManifest?.modelName)
+  if (manifestName) return manifestName
+
+  const modelFile = await findModelFile(modelPath).catch(() => undefined)
+  if (modelFile) {
+    const modelJSON = await readCubismModelJSON(modelFile).catch(() => undefined)
+    const modelName = normalizeDisplayName(modelJSON?.DisplayName ?? modelJSON?.Name)
+
+    if (modelName) return modelName
+
+    const modelFileBaseName = stripModelFileExtension(getPathBaseName(modelFile))
+
+    if (modelFileBaseName) return modelFileBaseName
+  }
+
+  return normalizeDisplayName(getPathBaseName(sourcePath))
 }
 
 async function findDirectoriesNamed(rootPath: string, name: string) {
@@ -518,8 +560,7 @@ async function getImportedFingerprints() {
 
 async function getModelFingerprint(modelPath: string, mode: ModelMode) {
   const modelFile = await findModelFile(modelPath)
-  const modelJSONText = await readTextFile(modelFile)
-  const modelJSON = JSON5.parse(modelJSONText) as CubismModelJSON
+  const modelJSON = await readCubismModelJSON(modelFile)
   const references = modelJSON.FileReferences
   const files = [
     { key: modelFile.split(/[\\/]/).at(-1) ?? 'model3.json', path: modelFile },
@@ -552,6 +593,10 @@ async function getModelFingerprint(modelPath: string, mode: ModelMode) {
     .join('')
 
   return `${mode}:${hash}`
+}
+
+async function readCubismModelJSON(modelFile: string) {
+  return JSON5.parse(await readTextFile(modelFile)) as CubismModelJSON
 }
 
 function concatBytes(chunks: Uint8Array[], totalLength: number) {
@@ -636,6 +681,22 @@ function getParentPath(path: string) {
   parts.pop()
 
   return parts.join(separator)
+}
+
+function normalizeDisplayName(value: unknown) {
+  if (typeof value !== 'string') return undefined
+
+  const displayName = value.trim()
+
+  return displayName || undefined
+}
+
+function getPathBaseName(path: string) {
+  return path.split(/[\\/]/).at(-1) ?? ''
+}
+
+function stripModelFileExtension(fileName: string) {
+  return fileName.replace(/\.model3\.json$/i, '').trim() || undefined
 }
 
 function getKeyImageRefs(variant: ImportVariant, config: LegacyPetConfig) {
