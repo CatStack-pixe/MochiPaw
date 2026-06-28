@@ -224,7 +224,9 @@ function normalizeDisplayName(value: unknown) {
 
   const displayName = value.trim()
 
-  return displayName || undefined
+  if (!displayName || /^(none|null|undefined|n\/a)$/i.test(displayName)) return undefined
+
+  return displayName
 }
 
 function getPathBaseName(path: string) {

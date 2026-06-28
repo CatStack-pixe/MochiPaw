@@ -30,7 +30,7 @@ function proofLabel(model: Model) {
 }
 
 function authorSummary(model: Model) {
-  return model.author?.displayName?.trim() ?? ''
+  return displayMetaValue(model.author?.displayName)
 }
 
 function authorMetaLines(model: Model) {
@@ -39,16 +39,16 @@ function authorMetaLines(model: Model) {
   if (!author) return []
 
   return [
-    { label: t('pages.preference.model.meta.homepage'), value: author.homepage?.trim() ?? '' },
-    { label: t('pages.preference.model.meta.contact'), value: author.contact?.trim() ?? '' },
-    { label: t('pages.preference.model.meta.community'), value: author.community?.trim() ?? '' },
-    { label: t('pages.preference.model.meta.source'), value: author.source?.trim() ?? '' },
-    { label: t('pages.preference.model.meta.collaborators'), value: author.collaborators?.filter(Boolean).join(', ') ?? '' },
+    { label: t('pages.preference.model.meta.homepage'), value: displayMetaValue(author.homepage) },
+    { label: t('pages.preference.model.meta.contact'), value: displayMetaValue(author.contact) },
+    { label: t('pages.preference.model.meta.community'), value: displayMetaValue(author.community) },
+    { label: t('pages.preference.model.meta.source'), value: displayMetaValue(author.source) },
+    { label: t('pages.preference.model.meta.collaborators'), value: displayMetaList(author.collaborators) },
   ].filter(item => item.value)
 }
 
 function packageSummary(model: Model) {
-  return model.packageId?.trim() ?? model.controlledRelease?.packageId?.trim() ?? ''
+  return displayMetaValue(model.packageId) || displayMetaValue(model.controlledRelease?.packageId)
 }
 
 function policySummary(model: Model) {
@@ -62,7 +62,25 @@ function policySummary(model: Model) {
 }
 
 function modelTitle(model: Model) {
-  return model.displayName?.trim() || model.id
+  return displayMetaValue(model.displayName) || model.id
+}
+
+function displayMetaValue(value: unknown) {
+  if (typeof value !== 'string') return ''
+
+  const text = value.trim()
+  if (!text || /^(none|null|undefined|n\/a)$/i.test(text)) return ''
+
+  return text
+}
+
+function displayMetaList(values: unknown) {
+  if (!Array.isArray(values)) return ''
+
+  return values
+    .map(displayMetaValue)
+    .filter(Boolean)
+    .join(', ')
 }
 
 function waitForFrames(count = 2) {
@@ -189,10 +207,10 @@ async function handleDelete(item: Model) {
             <span>{{ policySummary(data) }}</span>
           </div>
           <div
-            v-if="data.author?.statement"
+            v-if="displayMetaValue(data.author?.statement)"
             class="meta-statement"
           >
-            {{ data.author.statement }}
+            {{ displayMetaValue(data.author?.statement) }}
           </div>
           <div
             v-for="item in authorMetaLines(data)"

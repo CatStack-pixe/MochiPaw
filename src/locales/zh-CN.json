@@ -101,7 +101,7 @@
           "importSuccess": "导入成功",
           "clickOrDragToImport": "点击或拖动至此区域导入",
           "importing": "正在导入 {current}/{total}",
-          "alreadyImported": "?????"
+          "alreadyImported": "模型已导入"
         },
         "tooltips": {
           "createModel": "制作模型",
@@ -122,29 +122,29 @@
           }
         },
         "controlledImport": {
-          "title": "???????????",
-          "content": "???????? {packageId}???????????????",
-          "unknownPackage": "???"
+          "title": "受控包不能在此导入",
+          "content": "检测到受控包 {packageId}，请使用专用的受控导入流程。",
+          "unknownPackage": "未知"
         },
         "proof": {
-          "controlled": "???",
-          "signed": "???",
-          "standard": "???"
+          "controlled": "受控",
+          "signed": "已签名",
+          "standard": "标准"
         },
         "meta": {
-          "author": "??",
-          "packageId": "??",
-          "policy": "??",
-          "homepage": "??",
-          "contact": "??",
-          "community": "??",
-          "source": "??",
-          "collaborators": "??"
+          "author": "作者",
+          "packageId": "包名",
+          "policy": "策略",
+          "homepage": "主页",
+          "contact": "联系方式",
+          "community": "社区",
+          "source": "来源",
+          "collaborators": "协作者"
         },
         "policy": {
-          "reimportRestricted": "??????",
-          "runtimeTelemetryRequired": "????",
-          "offlineLeaseAllowed": "????"
+          "reimportRestricted": "限制二次导入",
+          "runtimeTelemetryRequired": "需要运行时遥测",
+          "offlineLeaseAllowed": "允许离线授权"
         }
       },
       "shortcut": {
