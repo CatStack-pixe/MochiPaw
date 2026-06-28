@@ -24,9 +24,9 @@ const { t } = useI18n()
 const openBehaviorModal = ref(false)
 
 function proofLabel(model: Model) {
-  if (model.importKind === 'controlled') return '受控包'
-  if (model.proofStatus === 'manifest-detected') return '签名包'
-  return '普通包'
+  if (model.importKind === 'controlled') return t('pages.preference.model.proof.controlled')
+  if (model.proofStatus === 'manifest-detected') return t('pages.preference.model.proof.signed')
+  return t('pages.preference.model.proof.standard')
 }
 
 function authorSummary(model: Model) {
@@ -39,11 +39,11 @@ function authorMetaLines(model: Model) {
   if (!author) return []
 
   return [
-    { label: '主页', value: author.homepage?.trim() ?? '' },
-    { label: '联系', value: author.contact?.trim() ?? '' },
-    { label: '社区', value: author.community?.trim() ?? '' },
-    { label: '来源', value: author.source?.trim() ?? '' },
-    { label: '协作', value: author.collaborators?.filter(Boolean).join(', ') ?? '' },
+    { label: t('pages.preference.model.meta.homepage'), value: author.homepage?.trim() ?? '' },
+    { label: t('pages.preference.model.meta.contact'), value: author.contact?.trim() ?? '' },
+    { label: t('pages.preference.model.meta.community'), value: author.community?.trim() ?? '' },
+    { label: t('pages.preference.model.meta.source'), value: author.source?.trim() ?? '' },
+    { label: t('pages.preference.model.meta.collaborators'), value: author.collaborators?.filter(Boolean).join(', ') ?? '' },
   ].filter(item => item.value)
 }
 
@@ -55,9 +55,9 @@ function policySummary(model: Model) {
   if (!model.controlledRelease) return ''
 
   const parts = []
-  if (model.controlledRelease.reimportRestricted) parts.push('限制二次导入')
-  if (model.controlledRelease.runtimeTelemetryRequired) parts.push('持续上报')
-  if (model.controlledRelease.offlineLeaseAllowed) parts.push('离线租约')
+  if (model.controlledRelease.reimportRestricted) parts.push(t('pages.preference.model.policy.reimportRestricted'))
+  if (model.controlledRelease.runtimeTelemetryRequired) parts.push(t('pages.preference.model.policy.runtimeTelemetryRequired'))
+  if (model.controlledRelease.offlineLeaseAllowed) parts.push(t('pages.preference.model.policy.offlineLeaseAllowed'))
   return parts.join(' / ')
 }
 
@@ -167,21 +167,21 @@ async function handleDelete(item: Model) {
             v-if="authorSummary(data)"
             class="meta-line"
           >
-            <strong>作者</strong>
+            <strong>{{ $t('pages.preference.model.meta.author') }}</strong>
             <span>{{ authorSummary(data) }}</span>
           </div>
           <div
             v-if="packageSummary(data)"
             class="meta-line"
           >
-            <strong>包号</strong>
+            <strong>{{ $t('pages.preference.model.meta.packageId') }}</strong>
             <span>{{ packageSummary(data) }}</span>
           </div>
           <div
             v-if="policySummary(data)"
             class="meta-line"
           >
-            <strong>策略</strong>
+            <strong>{{ $t('pages.preference.model.meta.policy') }}</strong>
             <span>{{ policySummary(data) }}</span>
           </div>
           <div

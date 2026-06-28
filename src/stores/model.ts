@@ -5,6 +5,7 @@ import { filter, find } from 'es-toolkit/compat'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
+import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import { join } from '@/utils/path'
 
 export type ModelMode = 'standard' | 'keyboard' | 'gamepad'
@@ -120,6 +121,8 @@ export const useModelStore = defineStore('model', () => {
     const nextModels = filter(models.value, { isPreset: false })
     const presetModels = filter(models.value, { isPreset: true })
 
+    await Promise.all(nextModels.map(fillModelProofMetadata))
+
     for (const preset of [...PRESET_MODELS].reverse()) {
       const matched = find(presetModels, {
         id: preset.id,
@@ -162,3 +165,14 @@ export const useModelStore = defineStore('model', () => {
     filterKeys: ['supportKeys', 'pressedKeys', 'activeKeys'],
   },
 })
+
+async function fillModelProofMetadata(model: Model) {
+  const proofManifest = await readNearestProofManifest(model.path)
+  const controlledRelease = await readNearestControlledRelease(model.path)
+
+  model.importKind = controlledRelease ? 'controlled' : model.importKind ?? 'standard'
+  model.proofStatus = controlledRelease ? 'controlled-release' : proofManifest ? 'manifest-detected' : 'unsigned'
+  model.packageId = proofManifest?.packageId ?? controlledRelease?.packageId ?? model.packageId
+  model.author = proofManifest?.author ?? model.author
+  model.controlledRelease = controlledRelease ?? model.controlledRelease
+}

@@ -100,7 +100,8 @@
           "deleteModel": "Tem certeza de que deseja excluir este modelo?",
           "importSuccess": "Importação bem-sucedida",
           "clickOrDragToImport": "Clique ou arraste para importar",
-          "importing": "Importando {current}/{total}"
+          "importing": "Importando {current}/{total}",
+          "alreadyImported": "Modelo j? importado"
         },
         "tooltips": {
           "createModel": "Criar modelo",
@@ -119,6 +120,31 @@
             "mutualExclusionRules": "Mutual exclusion rules",
             "ruleIndex": "Rule {index}"
           }
+        },
+        "controlledImport": {
+          "title": "Pacotes controlados n?o podem ser importados aqui",
+          "content": "Pacote controlado {packageId} detectado. Use o fluxo dedicado de importa??o controlada.",
+          "unknownPackage": "desconhecido"
+        },
+        "proof": {
+          "controlled": "Controlado",
+          "signed": "Assinado",
+          "standard": "Padr?o"
+        },
+        "meta": {
+          "author": "Autor",
+          "packageId": "Pacote",
+          "policy": "Pol?tica",
+          "homepage": "P?gina inicial",
+          "contact": "Contato",
+          "community": "Comunidade",
+          "source": "Fonte",
+          "collaborators": "Colaboradores"
+        },
+        "policy": {
+          "reimportRestricted": "Reimporta??o restrita",
+          "runtimeTelemetryRequired": "Telemetria obrigat?ria",
+          "offlineLeaseAllowed": "Licen?a offline"
         }
       },
       "shortcut": {

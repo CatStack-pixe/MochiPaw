@@ -19,6 +19,7 @@ import type {
 
 import { INVOKE_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
+import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import { join } from '@/utils/path'
 
 interface LegacyPetConfig {
@@ -66,11 +67,6 @@ interface ImportVariant {
   packageId?: string
   author?: ModelAuthorProfile
   controlledRelease?: ModelControlledRelease
-}
-
-interface ProofManifest {
-  packageId?: string
-  author?: ModelAuthorProfile
 }
 
 interface KeyImageRef {
@@ -181,6 +177,11 @@ const GAMEPAD_BUTTON_NAMES = [
   'DPadRight',
 ]
 
+type ImportFromPathResult =
+  | { status: 'imported', models: Array<ReturnType<typeof createImportedModel>> }
+  | { status: 'duplicate' }
+  | { status: 'blocked-controlled', release: ModelControlledRelease }
+
 onMounted(() => {
   const appWindow = getCurrentWebviewWindow()
 
@@ -249,15 +250,26 @@ watch(selectPaths, async (paths) => {
     importProgress.value = { current: index + 1, total: paths.length }
 
     try {
-      const importedModels = await importFromPath(fromPath)
+      const result = await importFromPath(fromPath)
 
-      if (!importedModels.length) {
-        message.info('Model already imported')
+      if (result.status === 'blocked-controlled') {
+        Modal.warning({
+          title: t('pages.preference.model.controlledImport.title'),
+          content: t('pages.preference.model.controlledImport.content', {
+            packageId: result.release.packageId ?? t('pages.preference.model.controlledImport.unknownPackage'),
+          }),
+        })
 
         continue
       }
 
-      for (const model of importedModels) {
+      if (result.status === 'duplicate') {
+        message.info(t('pages.preference.model.hints.alreadyImported'))
+
+        continue
+      }
+
+      for (const model of result.models) {
         modelStore.models.push(model)
       }
 
@@ -274,20 +286,19 @@ watch(selectPaths, async (paths) => {
 
 async function importFromPath(fromPath: string) {
   const sourcePath = await prepareImportSource(fromPath)
-  const controlledRelease = await readControlledRelease(sourcePath)
-
-  if (controlledRelease) {
-    Modal.warning({
-      title: '受控包暂不支持普通导入',
-      content: `检测到受控发行包 ${controlledRelease.packageId ?? ''}。请后续改用专用受控导入链路。`,
-    })
-    return []
-  }
-
   const variants = await discoverImportVariants(sourcePath)
 
   if (!variants.length) {
     throw new Error('No model3.json found')
+  }
+
+  const controlledVariant = variants.find(variant => variant.controlledRelease)
+
+  if (controlledVariant?.controlledRelease) {
+    return {
+      status: 'blocked-controlled',
+      release: controlledVariant.controlledRelease,
+    } satisfies ImportFromPathResult
   }
 
   const models = []
@@ -306,7 +317,7 @@ async function importFromPath(fromPath: string) {
 
     await normalizeResources(variant, toPath)
 
-    models.push({
+    models.push(createImportedModel({
       id,
       path: toPath,
       mode: variant.mode,
@@ -317,12 +328,31 @@ async function importFromPath(fromPath: string) {
       packageId: variant.packageId,
       author: variant.author,
       controlledRelease: variant.controlledRelease,
-    })
+    }))
 
     importedFingerprints.add(variant.fingerprint)
   }
 
-  return models
+  if (!models.length) {
+    return { status: 'duplicate' } satisfies ImportFromPathResult
+  }
+
+  return { status: 'imported', models } satisfies ImportFromPathResult
+}
+
+function createImportedModel(model: {
+  id: string
+  path: string
+  mode: ModelMode
+  isPreset: boolean
+  fingerprint?: string
+  importKind?: 'standard' | 'controlled'
+  proofStatus?: ModelProofStatus
+  packageId?: string
+  author?: ModelAuthorProfile
+  controlledRelease?: ModelControlledRelease
+}) {
+  return model
 }
 
 async function prepareImportSource(fromPath: string) {
@@ -368,19 +398,22 @@ async function discoverLegacyVariants(sourcePath: string) {
     for (const mode of LEGACY_MODELS) {
       const rootPath = join(imgDir, mode)
       const modelPath = join(rootPath, 'cat_model')
-      const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
 
       if (!await exists(join(modelPath, 'cat.model3.json'))) continue
+
+      const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
+      const controlledRelease = await readNearestControlledRelease(modelPath, sourcePath)
 
       variants.push({
         mode,
         rootPath,
         modelPath,
         fingerprint: await getModelFingerprint(modelPath, mode),
-        importKind: 'standard',
-        proofStatus: proofManifest ? 'manifest-detected' : 'unsigned',
-        packageId: proofManifest?.packageId,
+        importKind: controlledRelease ? 'controlled' : 'standard',
+        proofStatus: controlledRelease ? 'controlled-release' : proofManifest ? 'manifest-detected' : 'unsigned',
+        packageId: proofManifest?.packageId ?? controlledRelease?.packageId,
         author: proofManifest?.author,
+        controlledRelease,
       })
     }
   }
@@ -394,72 +427,20 @@ async function discoverCubismVariants(sourcePath: string) {
   return await Promise.all(modelPaths.map(async (modelPath): Promise<ImportVariant> => {
     const mode = await inferMode(modelPath)
     const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
+    const controlledRelease = await readNearestControlledRelease(modelPath, sourcePath)
 
     return {
       mode,
       rootPath: modelPath,
       modelPath,
       fingerprint: await getModelFingerprint(modelPath, mode),
-      importKind: 'standard',
-      proofStatus: proofManifest ? 'manifest-detected' : 'unsigned',
-      packageId: proofManifest?.packageId,
+      importKind: controlledRelease ? 'controlled' : 'standard',
+      proofStatus: controlledRelease ? 'controlled-release' : proofManifest ? 'manifest-detected' : 'unsigned',
+      packageId: proofManifest?.packageId ?? controlledRelease?.packageId,
       author: proofManifest?.author,
+      controlledRelease,
     }
   }))
-}
-
-async function readProofManifest(sourcePath: string): Promise<ProofManifest | null> {
-  const manifestPath = join(sourcePath, 'mochi-proof', 'manifest.json')
-
-  if (!await exists(manifestPath)) return null
-
-  try {
-    return JSON5.parse(await readTextFile(manifestPath)) as ProofManifest
-  } catch {
-    return null
-  }
-}
-
-async function readNearestProofManifest(startPath: string, stopPath?: string): Promise<ProofManifest | null> {
-  let currentPath = startPath
-  const normalizedStopPath = stopPath ? normalizePath(stopPath) : undefined
-
-  while (currentPath) {
-    const manifest = await readProofManifest(currentPath)
-
-    if (manifest) return manifest
-
-    const normalizedCurrentPath = normalizePath(currentPath)
-
-    if (normalizedStopPath && normalizedCurrentPath === normalizedStopPath) {
-      return null
-    }
-
-    const parentPath = getParentPath(currentPath)
-
-    if (!parentPath || normalizePath(parentPath) === normalizedCurrentPath) {
-      return null
-    }
-
-    currentPath = parentPath
-  }
-
-  return null
-}
-
-async function readControlledRelease(sourcePath: string) {
-  const releasePath = join(sourcePath, 'mochi-control', 'release.json')
-
-  if (!await exists(releasePath)) return null
-
-  try {
-    return JSON5.parse(await readTextFile(releasePath)) as ModelControlledRelease
-  } catch {
-    return {
-      packageId: undefined,
-      releaseCode: undefined,
-    }
-  }
 }
 
 async function findDirectoriesNamed(rootPath: string, name: string) {
@@ -655,10 +636,6 @@ function getParentPath(path: string) {
   parts.pop()
 
   return parts.join(separator)
-}
-
-function normalizePath(path: string) {
-  return path.replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase()
 }
 
 function getKeyImageRefs(variant: ImportVariant, config: LegacyPetConfig) {

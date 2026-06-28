@@ -99,8 +99,34 @@
           "deleteSuccess": "Deleted Successfully",
           "deleteModel": "Are you sure you want to delete this model?",
           "importSuccess": "Imported Successfully",
+          "alreadyImported": "Model already imported",
           "clickOrDragToImport": "Click or drag here to import",
           "importing": "Importing {current}/{total}"
+        },
+        "controlledImport": {
+          "title": "Controlled packages cannot be imported here",
+          "content": "Detected controlled package {packageId}. Please use the dedicated controlled import flow.",
+          "unknownPackage": "unknown"
+        },
+        "proof": {
+          "controlled": "Controlled",
+          "signed": "Signed",
+          "standard": "Standard"
+        },
+        "meta": {
+          "author": "Author",
+          "packageId": "Package",
+          "policy": "Policy",
+          "homepage": "Homepage",
+          "contact": "Contact",
+          "community": "Community",
+          "source": "Source",
+          "collaborators": "Collaborators"
+        },
+        "policy": {
+          "reimportRestricted": "Restricted re-import",
+          "runtimeTelemetryRequired": "Telemetry required",
+          "offlineLeaseAllowed": "Offline lease"
         },
         "tooltips": {
           "createModel": "Create Model",
