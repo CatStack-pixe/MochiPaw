@@ -100,7 +100,8 @@
           "deleteModel": "Bạn chắc muốn xóa mô hình này?",
           "importSuccess": "Nhập thành công",
           "clickOrDragToImport": "Nhấp hoặc kéo tệp vào đây",
-          "importing": "Đang nhập {current}/{total}"
+          "importing": "Đang nhập {current}/{total}",
+          "alreadyImported": "M? h?nh ?? ???c nh?p"
         },
         "tooltips": {
           "createModel": "Tạo mô hình",
@@ -119,6 +120,11 @@
             "mutualExclusionRules": "Mutual exclusion rules",
             "ruleIndex": "Rule {index}"
           }
+        },
+        "controlledImport": {
+          "title": "Kh?ng th? nh?p g?i c? ki?m so?t t?i ??y",
+          "content": "Ph?t hi?n g?i c? ki?m so?t {packageId}. Vui l?ng d?ng lu?ng nh?p chuy?n d?ng.",
+          "unknownPackage": "kh?ng r?"
         }
       },
       "shortcut": {

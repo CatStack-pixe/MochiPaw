@@ -100,7 +100,8 @@
           "deleteModel": "你确定要删除此模型吗？",
           "importSuccess": "导入成功",
           "clickOrDragToImport": "点击或拖动至此区域导入",
-          "importing": "正在导入 {current}/{total}"
+          "importing": "正在导入 {current}/{total}",
+          "alreadyImported": "?????"
         },
         "tooltips": {
           "createModel": "制作模型",
@@ -119,6 +120,11 @@
             "mutualExclusionRules": "互斥规则",
             "ruleIndex": "规则 {index}"
           }
+        },
+        "controlledImport": {
+          "title": "???????????",
+          "content": "???????? {packageId}???????????????",
+          "unknownPackage": "???"
         }
       },
       "shortcut": {
