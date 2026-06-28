@@ -177,10 +177,10 @@ const GAMEPAD_BUTTON_NAMES = [
   'DPadRight',
 ]
 
-type ImportFromPathResult =
-  | { status: 'imported', models: Array<ReturnType<typeof createImportedModel>> }
-  | { status: 'duplicate' }
-  | { status: 'blocked-controlled', release: ModelControlledRelease }
+type ImportFromPathResult
+  = | { status: 'imported', models: Array<ReturnType<typeof createImportedModel>> }
+    | { status: 'duplicate' }
+    | { status: 'blocked-controlled', release: ModelControlledRelease }
 
 onMounted(() => {
   const appWindow = getCurrentWebviewWindow()
