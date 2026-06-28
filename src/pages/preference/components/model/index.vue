@@ -23,6 +23,10 @@ const { height } = useElementSize(firstCardRef)
 const { t } = useI18n()
 const openBehaviorModal = ref(false)
 
+function modelTitle(model: Model) {
+  return model.displayName?.trim() || model.id
+}
+
 function waitForFrames(count = 2) {
   return new Promise<void>((resolve) => {
     const wait = () => {
@@ -117,6 +121,10 @@ async function handleDelete(item: Model) {
           <ModelPreview :model="data" />
         </template>
 
+        <template #title>
+          <span class="model-card-title">{{ modelTitle(data) }}</span>
+        </template>
+
         <template #actions>
           <i
             class="i-lucide:circle-check"
@@ -156,6 +164,16 @@ async function handleDelete(item: Model) {
 
   <BehaviorModal
     v-if="catStore.model.behavior"
-    v-model="openBehaviorModal"
+  v-model="openBehaviorModal"
   />
 </template>
+
+<style scoped lang="scss">
+.model-card-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

@@ -43,6 +43,8 @@ interface LegacyGamepadConfig {
 }
 
 interface CubismModelJSON {
+  Name?: string
+  DisplayName?: string
   FileReferences?: {
     Moc?: string
     Textures?: string[]
@@ -55,7 +57,12 @@ interface ImportVariant {
   mode: ModelMode
   rootPath: string
   modelPath: string
+  displayName?: string
   fingerprint: string
+}
+
+interface ProofManifest {
+  modelName?: string
 }
 
 interface KeyImageRef {
@@ -283,6 +290,7 @@ async function importFromPath(fromPath: string) {
 
     models.push({
       id,
+      displayName: variant.displayName,
       path: toPath,
       mode: variant.mode,
       isPreset: false,
@@ -338,6 +346,7 @@ async function discoverLegacyVariants(sourcePath: string) {
     for (const mode of LEGACY_MODELS) {
       const rootPath = join(imgDir, mode)
       const modelPath = join(rootPath, 'cat_model')
+      const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
 
       if (!await exists(join(modelPath, 'cat.model3.json'))) continue
 
@@ -345,6 +354,11 @@ async function discoverLegacyVariants(sourcePath: string) {
         mode,
         rootPath,
         modelPath,
+        displayName: await inferImportDisplayName({
+          modelPath,
+          sourcePath,
+          proofManifest,
+        }),
         fingerprint: await getModelFingerprint(modelPath, mode),
       })
     }
@@ -358,14 +372,86 @@ async function discoverCubismVariants(sourcePath: string) {
 
   return await Promise.all(modelPaths.map(async (modelPath): Promise<ImportVariant> => {
     const mode = await inferMode(modelPath)
+    const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
 
     return {
       mode,
       rootPath: modelPath,
       modelPath,
+      displayName: await inferImportDisplayName({
+        modelPath,
+        sourcePath,
+        proofManifest,
+      }),
       fingerprint: await getModelFingerprint(modelPath, mode),
     }
   }))
+}
+
+async function inferImportDisplayName({
+  modelPath,
+  sourcePath,
+  proofManifest,
+}: {
+  modelPath: string
+  sourcePath: string
+  proofManifest: ProofManifest | null
+}) {
+  const manifestName = normalizeDisplayName(proofManifest?.modelName)
+  if (manifestName) return manifestName
+
+  const modelFile = await findModelFile(modelPath).catch(() => undefined)
+  if (modelFile) {
+    const modelJSON = await readCubismModelJSON(modelFile).catch(() => undefined)
+    const modelName = normalizeDisplayName(modelJSON?.DisplayName ?? modelJSON?.Name)
+
+    if (modelName) return modelName
+
+    const modelFileBaseName = stripModelFileExtension(getPathBaseName(modelFile))
+
+    if (modelFileBaseName) return modelFileBaseName
+  }
+
+  return normalizeDisplayName(getPathBaseName(sourcePath))
+}
+
+async function readProofManifest(sourcePath: string): Promise<ProofManifest | null> {
+  const manifestPath = join(sourcePath, 'mochi-proof', 'manifest.json')
+
+  if (!await exists(manifestPath)) return null
+
+  try {
+    return JSON5.parse(await readTextFile(manifestPath)) as ProofManifest
+  } catch {
+    return null
+  }
+}
+
+async function readNearestProofManifest(startPath: string, stopPath?: string): Promise<ProofManifest | null> {
+  let currentPath = startPath
+  const normalizedStopPath = stopPath ? normalizePath(stopPath) : undefined
+
+  while (currentPath) {
+    const manifest = await readProofManifest(currentPath)
+
+    if (manifest) return manifest
+
+    const normalizedCurrentPath = normalizePath(currentPath)
+
+    if (normalizedStopPath && normalizedCurrentPath === normalizedStopPath) {
+      return null
+    }
+
+    const parentPath = getParentPath(currentPath)
+
+    if (!parentPath || normalizePath(parentPath) === normalizedCurrentPath) {
+      return null
+    }
+
+    currentPath = parentPath
+  }
+
+  return null
 }
 
 async function findDirectoriesNamed(rootPath: string, name: string) {
@@ -443,8 +529,7 @@ async function getImportedFingerprints() {
 
 async function getModelFingerprint(modelPath: string, mode: ModelMode) {
   const modelFile = await findModelFile(modelPath)
-  const modelJSONText = await readTextFile(modelFile)
-  const modelJSON = JSON5.parse(modelJSONText) as CubismModelJSON
+  const modelJSON = await readCubismModelJSON(modelFile)
   const references = modelJSON.FileReferences
   const files = [
     { key: modelFile.split(/[\\/]/).at(-1) ?? 'model3.json', path: modelFile },
@@ -477,6 +562,10 @@ async function getModelFingerprint(modelPath: string, mode: ModelMode) {
     .join('')
 
   return `${mode}:${hash}`
+}
+
+async function readCubismModelJSON(modelFile: string) {
+  return JSON5.parse(await readTextFile(modelFile)) as CubismModelJSON
 }
 
 function concatBytes(chunks: Uint8Array[], totalLength: number) {
@@ -561,6 +650,26 @@ function getParentPath(path: string) {
   parts.pop()
 
   return parts.join(separator)
+}
+
+function normalizePath(path: string) {
+  return path.replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase()
+}
+
+function normalizeDisplayName(value: unknown) {
+  if (typeof value !== 'string') return undefined
+
+  const displayName = value.trim()
+
+  return displayName || undefined
+}
+
+function getPathBaseName(path: string) {
+  return path.split(/[\\/]/).at(-1) ?? ''
+}
+
+function stripModelFileExtension(fileName: string) {
+  return fileName.replace(/\.model3\.json$/i, '').trim() || undefined
 }
 
 function getKeyImageRefs(variant: ImportVariant, config: LegacyPetConfig) {
