@@ -21,6 +21,7 @@ import { useCatStore } from './stores/cat'
 import { useGeneralStore } from './stores/general'
 import { useModelStore } from './stores/model'
 import { useShortcutStore } from './stores/shortcut.ts'
+import { initCustomFont } from './utils/font'
 
 const appStore = useAppStore()
 const modelStore = useModelStore()
@@ -58,6 +59,27 @@ onMounted(async () => {
 
 watch(() => generalStore.appearance.language, (value) => {
   locale.value = value ?? LANGUAGE.EN_US
+})
+
+watch(
+  () => [generalStore.appearance.fontPath, generalStore.appearance.fontFamily] as const,
+  async ([path, family]) => {
+    const loaded = await initCustomFont(path, family)
+
+    if (!loaded && path) {
+      error(`Failed to load custom font from: ${path}`)
+    }
+  },
+)
+
+useTauriListen<{ fontPath?: string, fontFamily?: string }>(LISTEN_KEY.FONT_CHANGED, ({ payload }) => {
+  if (generalStore.appearance.fontFamily === payload.fontFamily
+    && generalStore.appearance.fontPath === payload.fontPath) {
+    return
+  }
+
+  generalStore.appearance.fontFamily = payload.fontFamily
+  generalStore.appearance.fontPath = payload.fontPath
 })
 
 useTauriListen(LISTEN_KEY.SHOW_WINDOW, ({ payload }) => {

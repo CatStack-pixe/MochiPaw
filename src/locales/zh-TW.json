@@ -30,6 +30,9 @@
           "maxFPS": "最大幀率",
           "typingBehaviorGroup": "隨機組"
         },
+        "options": {
+          "fpsUnlimited": "無限制"
+        },
         "hints": {
           "mirrorMode": "啟用後，模型將水平鏡像翻轉。",
           "mouseMirror": "啟用後，滑鼠游標將鏡像跟隨手部移動。",
@@ -43,7 +46,7 @@
           "windowSize": "使用滑動條快速調整視窗大小，也可以輸入百分比精確設定。",
           "autoReleaseDelay": "由於 Windows 下部份系統級按鍵無法擷取釋放事件，超時後將自動視為已釋放。",
           "hideOnHover": "啟用後，滑鼠游標懸停視窗時自動隱藏。可設定延遲時間，0 表示立即隱藏。",
-          "maxFPS": "限制模型渲染的最大幀率，降低幀率可以減少 CPU/GPU 佔用。"
+          "maxFPS": "限制模型渲染的最大幀率（0-120），設為 0 表示無限制。降低幀率可以減少 CPU/GPU 佔用。"
         }
       },
       "general": {
@@ -56,6 +59,7 @@
           "appearanceSettings": "外觀設定",
           "themeMode": "主題模式",
           "language": "語言",
+          "customFont": "自訂字體",
           "updateSettings": "更新設定",
           "autoCheckUpdate": "自動檢查更新",
           "permissionsSettings": "權限設定",
@@ -65,11 +69,14 @@
         "options": {
           "auto": "跟隨系統",
           "lightMode": "淺色模式",
-          "darkMode": "深色模式"
+          "darkMode": "深色模式",
+          "defaultFont": "預設"
         },
         "hints": {
           "showTaskbarIcon": "啟用後，即可透過 OBS Studio 擷取視窗。",
           "showTrayIcon": "啟用後，在系統托盤中顯示應用程式圖示。",
+          "customFont": "匯入自訂字體檔案（.ttf、.otf、.woff、.woff2），將套用於整個應用程式介面。",
+          "fontImportSuccess": "字體匯入成功",
           "inputMonitoringPermission": "開啟輸入監控權限，以便接收系統的鍵盤和滑鼠游標事件來回應您的操作。",
           "inputMonitoringPermissionGuide": "開啟輸入監控權限後，應用程式才能接收系統的鍵盤和滑鼠事件，進而回應你的操作。\n\n操作方式：\n1. 開啟「系統設定」→「隱私權與安全性」→「輸入監控」。\n2. 若清單中已存在 MochiPaw，請先選取它，點擊「-」按鈕將其刪除。\n3. 點擊「+」按鈕，找到並新增 MochiPaw 應用程式。\n4. 重新啟動應用程式，以確保權限正式生效。",
           "administratorPermission": "以系統管理員身分執行應用程式，可以更穩定地擷取部分系統層級按鍵與輸入事件。",
@@ -87,7 +94,9 @@
           "openLater": "稍後開啟",
           "setLater": "稍後設置",
           "restartAsAdministrator": "以管理員身分重啟",
-          "exitApp": "退出應用"
+          "exitApp": "退出應用程式",
+          "importFont": "匯入",
+          "resetFont": "重設"
         }
       },
       "model": {

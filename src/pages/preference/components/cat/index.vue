@@ -128,12 +128,37 @@ const typingBehaviorGroupOptions = computed(() => {
     <ProListItem
       :description="$t('pages.preference.cat.hints.maxFPS')"
       :title="$t('pages.preference.cat.labels.maxFPS')"
+      vertical
     >
-      <InputNumber
-        v-model:value="catStore.model.maxFPS"
-        class="w-20"
-        :min="0"
-      />
+      <Flex
+        align="center"
+        class="gap-4"
+      >
+        <Slider
+          v-model:value="catStore.model.maxFPS"
+          class="flex-1 m-0!"
+          :max="120"
+          :min="0"
+          :tooltip="{
+            formatter(value) {
+              return value === 0 ? $t('pages.preference.cat.options.fpsUnlimited') : `${value} FPS`
+            },
+          }"
+        />
+
+        <SpaceCompact>
+          <InputNumber
+            v-model:value="catStore.model.maxFPS"
+            class="w-24"
+            :max="120"
+            :min="0"
+            :precision="0"
+            :step="1"
+          />
+
+          <SpaceAddon>FPS</SpaceAddon>
+        </SpaceCompact>
+      </Flex>
     </ProListItem>
   </ProList>
 

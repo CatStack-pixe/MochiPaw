@@ -8,6 +8,7 @@ import ProList from '@/components/pro-list/index.vue'
 import { useGeneralStore } from '@/stores/general'
 import { isMac, isWindows } from '@/utils/platform'
 
+import FontFamily from './components/font-family/index.vue'
 import Language from './components/language/index.vue'
 import MacosPermissions from './components/macos-permissions/index.vue'
 import ThemeMode from './components/theme-mode/index.vue'
@@ -57,6 +58,8 @@ watch(() => generalStore.app.autostart, async (value) => {
     <ThemeMode />
 
     <Language />
+
+    <FontFamily />
   </ProList>
 
   <ProList :title="$t('pages.preference.general.labels.updateSettings')">

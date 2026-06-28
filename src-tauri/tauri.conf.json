@@ -36,15 +36,7 @@
       }
     ],
     "security": {
-      "csp": null,
-      "dangerousDisableAssetCspModification": true,
-      "assetProtocol": {
-        "enable": true,
-        "scope": {
-          "allow": ["**/*"],
-          "requireLiteralLeadingDot": false
-        }
-      }
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https: data: blob:; font-src 'self' asset: data:; connect-src 'self' ipc: http://localhost:* https://api.upgrade.toolsetlink.com https://gh-proxy.com https://github.com; media-src 'self' asset: blob:;"
     }
   },
   "bundle": {
@@ -64,10 +56,9 @@
   },
   "plugins": {
     "updater": {
-      "dangerousInsecureTransportProtocol": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBRjJFMzE3MjEwMUZEMTAKUldRUS9RRWhGK1B5NmdkemhKcUFrVjZBQXlzdExpakdWVEJDeU9XckVsbzV2cFIycVJOempWa2UK",
       "endpoints": [
-        "http://api.upgrade.toolsetlink.com/v1/tauri/upgrade?tauriKey=KtGlsZUVXmWfjkRKCuqpfw&versionName={{current_version}}&target={{target}}&arch={{arch}}&appointVersionName=&devModelKey=&devKey=",
+        "https://api.upgrade.toolsetlink.com/v1/tauri/upgrade?tauriKey=KtGlsZUVXmWfjkRKCuqpfw&versionName={{current_version}}&target={{target}}&arch={{arch}}&appointVersionName=&devModelKey=&devKey=",
         "https://gh-proxy.com/github.com/CatStack-pixe/MochiPaw/releases/latest/download/latest.json"
       ]
     },
