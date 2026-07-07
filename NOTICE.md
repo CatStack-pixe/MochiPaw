@@ -36,7 +36,7 @@ SOFTWARE.
 CatStack-maintained modifications and new MochiPaw code are licensed under
 the PolyForm Noncommercial License 1.0.0 unless a file states otherwise.
 
-License terms: https://polyformproject.org/licenses/noncommercial/1.0.0/
+License terms: https://polyformproject.org/licenses/noncommercial/1.0.0
 
 Commercial use of MochiPaw builds, source, derivatives, services, or bundled
 distributions requires prior written permission from CatStack / InfinityXCat.
