@@ -1,65 +1,27 @@
-# 下载指南
-
-## 系统要求
-
-- macOS 12 或更高版本。
-- Windows 10 或更高版本。
-- Linux 带有 X11 环境。
-
-## macOS
-
-### 手动下载
-
-- Apple Silicon：下载 `BongoCat_aarch64.dmg`
-- Intel Chip：下载 `BongoCat_x64.dmg`
-
-### Homebrew 下载
-
-1. 添加 BongoCat 的 tap 源：
-
-```bash
-brew tap ayangweb/BongoCat
-```
-
-2. 安装：
-
-```bash
-brew install --no-quarantine bongo-cat
-```
-
-3. 更新：
-
-```bash
-brew upgrade bongo-cat
-```
-
-4. 卸载：
-
-```bash
-brew uninstall --cask bongo-cat
-
-brew untap ayangweb/BongoCat
-```
+# Download Guide
 
 ## Windows
 
-- 64 位系统：下载 `BongoCat_x64.exe`
-- 32 位系统：下载 `BongoCat_x86.exe`
-- ARM64 架构：下载 `BongoCat_arm64.exe`
+The maintained release target is Windows.
 
-## Linux(X11)
+1. Open the Releases page:
+   https://github.com/CatStack-pixe/MochiPaw/releases
+2. Download the latest `.msi` installer.
+3. If a portable zip is attached to the release, you can use it without running
+   the installer.
 
-### 手动下载
+## macOS and Linux
 
-- 64 位系统：
-  - Debian / Ubuntu：下载 `BongoCat_amd64.deb`
-  - Fedora / RHEL：下载 `BongoCat_x86_64.rpm`
-  - 通用版本：下载 `BongoCat_amd64.AppImage`
-- ARM64 架构：
-  - Debian / Ubuntu：下载 `BongoCat_arm64.deb`
-  - Fedora / RHEL：下载 `BongoCat_aarch64.rpm`
-  - 通用版本：下载 `BongoCat_aarch64.AppImage`
+Official macOS and Linux release packages are not maintained right now. Build
+from source if you want to run MochiPaw on those platforms:
 
-### AUR 下载
+```bash
+pnpm install
+pnpm tauri build
+```
 
-- Manjaro / ArchLinux: `yay -S bongo-cat`
+## License
+
+MochiPaw is available for personal, learning, research, and other
+noncommercial use. Commercial use requires written permission from
+CatStack / InfinityXCat.

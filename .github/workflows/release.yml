@@ -1,4 +1,4 @@
-name: BongoCat Release
+name: MochiPaw Release
 
 on:
   push:
@@ -17,10 +17,10 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: pnpm/action-setup@v3
         with:
-          version: 9
+          version: 10
 
       - name: Install rust target
         run: rustup target add x86_64-pc-windows-msvc
@@ -36,7 +36,7 @@ jobs:
       - name: Setup node with pnpm cache
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install front-end dependencies
@@ -52,7 +52,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: BongoCat ${{ github.ref_name }}
+          releaseName: MochiPaw ${{ github.ref_name }}
           releaseBody: ''
           releaseDraft: true
           prerelease: false
@@ -61,6 +61,6 @@ jobs:
       - name: Upload MSI installer
         uses: actions/upload-artifact@v4
         with:
-          name: BongoCat-msi-x86_64
+          name: MochiPaw-msi-x86_64
           path: target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
           if-no-files-found: error

@@ -2,10 +2,19 @@
   "name": "mochi-paw",
   "type": "module",
   "version": "1.1.0",
-  "private": true,
+  "private": false,
   "author": {
-    "name": "ayangweb",
-    "email": "ayangweb@foxmail.com"
+    "name": "CatStack / InfinityXCat",
+    "url": "https://github.com/CatStack-pixe"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/CatStack-pixe/MochiPaw#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CatStack-pixe/MochiPaw.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CatStack-pixe/MochiPaw/issues"
   },
   "scripts": {
     "dev": "run-s build:icon dev:vite",

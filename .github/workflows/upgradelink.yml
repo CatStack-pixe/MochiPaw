@@ -1,4 +1,4 @@
-name: Upload Release to UpgradeLink
+name: Upload Release Metadata
 
 on:
   release:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  upgradeLink-upload:
+  upgradelink-upload:
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -21,6 +21,6 @@ jobs:
               "app_type": "tauri",
               "request": {
                 "app_key": "${{ secrets.UPGRADE_LINK_APP_KEY }}",
-                "latest_json_url": "https://github.com/ABI-ZTROS/BongoCat/releases/latest/download/latest.json"
+                "latest_json_url": "https://github.com/CatStack-pixe/MochiPaw/releases/latest/download/latest.json"
               }
             }

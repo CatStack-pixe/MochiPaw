@@ -64,11 +64,9 @@
   },
   "plugins": {
     "updater": {
-      "dangerousInsecureTransportProtocol": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBRjJFMzE3MjEwMUZEMTAKUldRUS9RRWhGK1B5NmdkemhKcUFrVjZBQXlzdExpakdWVEJDeU9XckVsbzV2cFIycVJOempWa2UK",
       "endpoints": [
-        "http://api.upgrade.toolsetlink.com/v1/tauri/upgrade?tauriKey=KtGlsZUVXmWfjkRKCuqpfw&versionName={{current_version}}&target={{target}}&arch={{arch}}&appointVersionName=&devModelKey=&devKey=",
-        "https://gh-proxy.com/github.com/CatStack-pixe/MochiPaw/releases/latest/download/latest.json"
+        "https://github.com/CatStack-pixe/MochiPaw/releases/latest/download/latest.json"
       ]
     },
     "fs": {

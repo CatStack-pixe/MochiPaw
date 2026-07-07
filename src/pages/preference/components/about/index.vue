@@ -29,20 +29,20 @@ const authors = [
   {
     name: 'InfinityXCat',
     avatar: '/authors/infinityxcat.jpg',
-    role: '项目作者',
+    role: 'Project maintainer',
   },
   {
     name: 'Dev.Cloud.ZTR_OS',
     avatar: '/authors/dev-cloud-ztros.jpg',
-    role: '协作者',
+    role: 'Contributor',
   },
 ]
 const qqGroup = '966043945'
 const originalProjectUrl = 'https://github.com/ayangweb/BongoCat'
 const modStatement = [
-  '当前版本为基于 BongoCat 的二次魔改增强版，增加了额外功能、适配和维护内容。',
-  '原项目地址已保留并在此展示，方便查看原始来源与历史实现。',
-  '原仓库目前已不活跃，本版本将继续作为衍生版本维护。',
+  'MochiPaw is a maintained derivative of BongoCat with additional features, compatibility work, and packaging updates.',
+  'The original project link is kept here for attribution and history.',
+  'MochiPaw is maintained as a separate downstream version.',
 ]
 
 onMounted(async () => {
@@ -215,25 +215,25 @@ const metricsItems = computed(() => [
     </ProListItem>
 
     <ProListItem
-      description="QQ群：966043945"
-      title="项目交流群"
+      description="QQ group: 966043945"
+      title="Community"
     >
-      <Button @click="copyText(qqGroup, 'QQ群号已复制')">
-        复制群号
+      <Button @click="copyText(qqGroup, 'QQ group ID copied')">
+        Copy group ID
       </Button>
     </ProListItem>
 
     <ProListItem
       :description="originalProjectUrl"
-      title="原项目地址"
+      title="Original project"
     >
       <Button @click="openUrl(originalProjectUrl)">
-        打开链接
+        Open link
       </Button>
     </ProListItem>
 
     <ProListItem
-      title="版本声明"
+      title="Version note"
       vertical
     >
       <div class="about-notes">

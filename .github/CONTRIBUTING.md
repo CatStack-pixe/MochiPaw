@@ -1,63 +1,67 @@
-# 贡献指南
+# Contributing
 
-非常感谢您对 BongoCat 的关注和贡献！在您提交贡献之前，请先花一些时间阅读以下指南，以确保您的贡献能够顺利进行。
+Thanks for taking the time to work on MochiPaw.
 
-## 透明的开发
+## Issues
 
-所有工作都在 GitHub 上公开进行。无论是核心团队成员还是外部贡献者的 Pull Request，都需要经过相同的 review 流程。
+Use GitHub Issues for bug reports and feature requests:
 
-## 提交 Issue
+https://github.com/CatStack-pixe/MochiPaw/issues
 
-我们使用 [Github Issues](https://github.com/ayangweb/BongoCat/issues) 进行 Bug 报告和新 Feature 建议。在提交 Issue 之前，请确保已经搜索过类似的问题，因为它们可能已经得到解答或正在被修复。对于 Bug 报告，请包含可用于重现问题的完整步骤。对于新 Feature 建议，请指出你想要的更改以及期望的行为。
+Before opening a new issue, search existing issues first. For bugs, include
+clear reproduction steps, the app version, the operating system, and screenshots
+or logs when they help explain the problem.
 
-## 提交 Pull Request
+## Pull Requests
 
-### 共建流程
+1. Open or claim an issue before doing larger work.
+2. Keep changes focused. Avoid mixing unrelated refactors with a feature or fix.
+3. Run the relevant checks before opening a PR.
+4. Describe what changed and how it was tested.
 
-- 认领 issue：在 Github 建立 Issue 并认领（或直接认领已有 Issue），告知大家自己正在修复，避免重复工作。
-- 项目开发：在完成准备工作后，进行 Bug 修复或功能开发。
-- 提交 PR。
+## Local Setup
 
-### 准备工作
+Install the required toolchains:
 
-- [Rust](https://v2.tauri.app/start/prerequisites/): 请自行根据官网步骤安装 rust 环境。
-- [Node.js](https://nodejs.org/en/): 用于运行项目。
-- [Pnpm](https://pnpm.io/)：本项目使用 Pnpm 进行包管理。
+- Node.js 22 or newer
+- pnpm
+- Rust stable
+- Tauri prerequisites for your operating system
 
-### 下载依赖
+Install dependencies:
 
-```shell
+```bash
 pnpm install
 ```
 
-### 启动应用
+Run the desktop app in development:
 
-```shell
+```bash
 pnpm tauri dev
 ```
 
-### 打包应用
+Build the app:
 
-> 如果需要打包后进行调试，请在以下命令后面加上 `--debug`
-
-```shell
+```bash
 pnpm tauri build
 ```
 
-## Commit 指南
+## Commits
 
-Commit messages 请遵循[conventional-changelog 标准](https://www.conventionalcommits.org/en/v1.0.0/)。
+Use conventional commit types where possible:
 
-### Commit 类型
+- feat: feature work
+- fix: bug fix
+- docs: documentation
+- style: formatting or style-only changes
+- refactor: code restructuring without behavior changes
+- perf: performance work
+- chore: maintenance
 
-以下是 commit 类型列表:
+## License
 
-- feat: 新特性或功能
-- fix: 缺陷修复
-- docs: 文档更新
-- style: 代码风格更新
-- refactor: 代码重构，不引入新功能和缺陷修复
-- perf: 性能优化
-- chore: 其他提交
+MochiPaw is source-available for noncommercial use. By contributing, you agree
+that your contribution may be distributed under the repository's current
+license terms.
 
-期待您的参与，让我们一起使 BongoCat 变得更好！
+Commercial use requires written permission from CatStack / InfinityXCat.
