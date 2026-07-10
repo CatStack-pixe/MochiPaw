@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 use tauri::{AppHandle, Manager, async_runtime::spawn};
 
 pub static MAIN_WINDOW_LABEL: &str = "main";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 ayangweb
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+
 import type { Event } from '@tauri-apps/api/event'
 
 import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi'

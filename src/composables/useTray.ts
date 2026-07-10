@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 ayangweb
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+
 import type { TrayIconOptions } from '@tauri-apps/api/tray'
 
 import { getName, getVersion } from '@tauri-apps/api/app'

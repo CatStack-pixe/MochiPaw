@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 ayangweb
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'

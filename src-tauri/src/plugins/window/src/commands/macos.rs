@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 #![allow(deprecated)]
 use crate::MAIN_WINDOW_LABEL;
 use tauri::{AppHandle, Runtime, WebviewWindow, command};

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 /// 检查当前进程是否存在调试器附加迹象。
 pub fn check_all() -> bool {
     #[cfg(target_os = "windows")]

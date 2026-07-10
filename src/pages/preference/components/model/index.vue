@@ -1,3 +1,8 @@
+<!-- SPDX-FileCopyrightText: 2025 ayangweb
+  SPDX-FileCopyrightText: 2026 InfinityXCat
+  SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+ -->
+
 <script setup lang="ts">
 import { exists, remove } from '@tauri-apps/plugin-fs'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'

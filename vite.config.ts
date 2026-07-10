@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 ayangweb
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'node:path'
 import { env } from 'node:process'

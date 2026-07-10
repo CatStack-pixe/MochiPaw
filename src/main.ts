@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 ayangweb
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+
 import { createPlugin } from '@tauri-store/pinia'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 ayangweb
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+
 import type { Locale as AntdLocale } from 'antdv-next/dist/locale/index'
 
 import antdEnUS from 'antdv-next/locale/en_US'

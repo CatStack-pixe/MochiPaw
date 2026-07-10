@@ -1,3 +1,7 @@
+<!-- SPDX-FileCopyrightText: 2026 InfinityXCat
+  SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ -->
+
 <script setup lang="ts">
 import { emit } from '@tauri-apps/api/event'
 import { Button, Empty, Input, Modal, Select } from 'antdv-next'
