@@ -1,3 +1,7 @@
+<!-- SPDX-FileCopyrightText: 2026 InfinityXCat
+  SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ -->
+
 <script setup lang="ts">
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { exists } from '@tauri-apps/plugin-fs'

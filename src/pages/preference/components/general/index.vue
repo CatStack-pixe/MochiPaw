@@ -1,3 +1,8 @@
+<!-- SPDX-FileCopyrightText: 2025 ayangweb
+  SPDX-FileCopyrightText: 2026 InfinityXCat
+  SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+ -->
+
 <script setup lang="ts">
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { Switch } from 'antdv-next'

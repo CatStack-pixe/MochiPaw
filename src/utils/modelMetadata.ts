@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 import { exists, readTextFile } from '@tauri-apps/plugin-fs'
 import JSON5 from 'json5'
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 use tauri::{
     Runtime, generate_handler,
     plugin::{Builder, TauriPlugin},

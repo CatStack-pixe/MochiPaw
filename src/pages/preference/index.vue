@@ -1,3 +1,8 @@
+<!-- SPDX-FileCopyrightText: 2025 ayangweb
+  SPDX-FileCopyrightText: 2026 InfinityXCat
+  SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+ -->
+
 <script setup lang="ts">
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { Flex, Spin } from 'antdv-next'

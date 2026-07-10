@@ -1,3 +1,8 @@
+<!-- SPDX-FileCopyrightText: 2025 ayangweb
+  SPDX-FileCopyrightText: 2026 InfinityXCat
+  SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
+ -->
+
 <script setup lang="ts">
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { PhysicalSize } from '@tauri-apps/api/dpi'

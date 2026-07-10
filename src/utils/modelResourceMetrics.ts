@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 import type { DirEntry } from '@tauri-apps/plugin-fs'
 
 import { readDir, readFile, stat } from '@tauri-apps/plugin-fs'

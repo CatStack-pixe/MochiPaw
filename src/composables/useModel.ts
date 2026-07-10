@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 InfinityXCat
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 import type { PhysicalPosition } from '@tauri-apps/api/dpi'
 
 import { LogicalSize } from '@tauri-apps/api/dpi'

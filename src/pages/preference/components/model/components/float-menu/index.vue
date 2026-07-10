@@ -1,3 +1,7 @@
+<!-- SPDX-FileCopyrightText: 2026 InfinityXCat
+  SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ -->
+
 <script setup lang="ts">
 import { EditOutlined, MenuOutlined, SyncOutlined, UnorderedListOutlined } from '@antdv-next/icons'
 import { openUrl } from '@tauri-apps/plugin-opener'
