@@ -1,11 +1,14 @@
 # MochiPaw
 
+[![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue)](./LICENSE)
+
 MochiPaw is a Tauri + Vue desktop pet app based on
 [BongoCat](https://github.com/ayangweb/BongoCat).
 
-This repository is source-available for personal, research, learning, and
-other noncommercial use. Commercial use is not permitted without prior written
-permission from CatStack / InfinityXCat.
+This project is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0).
+See [NOTICE.md](./NOTICE.md) for additional terms, core usage rules, and commercial licensing information.
+
+> **Noncommercial only.** Commercial use requires prior written permission from CatStack / InfinityXCat.
 
 ## Features
 
