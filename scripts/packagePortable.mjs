@@ -11,7 +11,10 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const rootDir = resolve(__dirname, '..')
-const releaseDir = resolve(rootDir, 'target', 'release')
+const targetIndex = argv.indexOf('--target')
+const target = targetIndex === -1 ? undefined : argv[targetIndex + 1]
+const targetDir = target ? resolve(rootDir, 'target', target) : resolve(rootDir, 'target')
+const releaseDir = resolve(targetDir, 'release')
 const bundleDir = resolve(releaseDir, 'bundle', 'portable')
 const portableConfigPath = resolve(rootDir, 'target', 'portable-tauri.conf.json')
 const tauriCliPath = resolve(rootDir, 'node_modules', '.bin', 'tauri.CMD')
@@ -27,6 +30,10 @@ const stageDir = resolve(stageRootDir, productName)
 const archiveName = `${productName}_${packageJson.version}_windows_${arch}_portable.zip`
 const archivePath = resolve(bundleDir, archiveName)
 const skipBuild = argv.includes('--skip-build')
+
+if (targetIndex !== -1 && !target) {
+  throw new Error('The --target option requires a Rust target triple.')
+}
 
 function quotePowerShell(value) {
   return `'${value.replace(/'/g, '\'\'')}'`
@@ -102,7 +109,8 @@ writeFileSync(portableConfigPath, JSON.stringify({
 if (!skipBuild) {
   rmSync(exePath, { force: true })
   rmSync(legacyExePath, { force: true })
-  run(`${quoteCommand(tauriCliPath)} build --no-bundle --config ${quoteCommand(portableConfigPath)}`)
+  const targetArg = target ? ` --target ${quoteCommand(target)}` : ''
+  run(`${quoteCommand(tauriCliPath)} build --no-bundle${targetArg} --config ${quoteCommand(portableConfigPath)}`)
 }
 
 const builtExePath = existsSync(exePath) ? exePath : legacyExePath
