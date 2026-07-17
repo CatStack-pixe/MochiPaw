@@ -46,12 +46,14 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 fs_extra = "1"
 zip = "4"
-windows.workspace = true
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-locale = "2"
 rdev = { git = "https://github.com/kunkunsh/rdev" }
 gilrs = { git = "https://github.com/ayangweb/gilrs", default-features = false, features = ["xinput"] }
+
+[target."cfg(target_os = \"windows\")".dependencies]
+windows.workspace = true
 
 [target."cfg(target_os = \"macos\")".dependencies]
 tauri-nspanel.workspace = true
