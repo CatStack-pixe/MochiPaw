@@ -18,7 +18,7 @@
   },
   "scripts": {
     "dev": "run-s build:icon dev:vite",
-    "build": "run-s build:*",
+    "build": "run-s build:vite build:icon",
     "dev:vite": "vite",
     "build:vite": "vite build",
     "build:icon": "tsx scripts/buildIcon.ts",
