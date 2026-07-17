@@ -2,18 +2,22 @@
 
 ## Windows
 
-The maintained release target is Windows.
+Windows releases provide MSI and NSIS installers. Tagged releases also include
+a portable ZIP that can run without installation.
 
 1. Open the Releases page:
    https://github.com/CatStack-pixe/MochiPaw/releases
-2. Download the latest `.msi` installer.
-3. If a portable zip is attached to the release, you can use it without running
-   the installer.
+2. Download the latest `.msi` or `.exe` installer, or the portable ZIP.
+3. Extract the portable ZIP and run `MochiPaw.exe` without installing it.
 
 ## macOS and Linux
 
-Official macOS and Linux release packages are not maintained right now. Build
-from source if you want to run MochiPaw on those platforms:
+Tagged releases build macOS and Linux packages alongside Windows:
+
+- macOS: `.dmg` and `.app`
+- Linux: `.AppImage`, `.deb`, and `.rpm`
+
+If a package is not available for your architecture, build from source:
 
 ```bash
 pnpm install

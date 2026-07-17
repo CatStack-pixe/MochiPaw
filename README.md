@@ -65,16 +65,18 @@ Build frontend and regenerate icons:
 pnpm build
 ```
 
-Build the Tauri app:
+Build the Tauri app for the current platform:
 
 ```bash
 pnpm tauri build
 ```
 
-Current Windows installer output is configured as MSI:
+Release builds cover Windows, macOS, and Linux:
 
 ```text
-target/release/bundle/msi/
+Windows: target/release/bundle/msi/ and target/release/bundle/nsis/
+macOS:   target/release/bundle/dmg/ and target/release/bundle/macos/
+Linux:   target/release/bundle/appimage/, target/release/bundle/deb/, and target/release/bundle/rpm/
 ```
 
 ## Portable Zip
@@ -82,7 +84,7 @@ target/release/bundle/msi/
 Build a portable Windows zip:
 
 ```bash
-pnpm package:portable
+pnpm build:portable
 ```
 
 The archive is written to:
