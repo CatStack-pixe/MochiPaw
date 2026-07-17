@@ -28,7 +28,6 @@ export interface CatStore {
     radius: number
     hideOnHover: boolean
     hideOnHoverDelay: number
-    keepInScreen: boolean
   }
 }
 
@@ -79,7 +78,6 @@ export const useCatStore = defineStore('cat', () => {
     radius: 0,
     hideOnHover: false,
     hideOnHoverDelay: 0,
-    keepInScreen: true,
   })
 
   const init = () => {
