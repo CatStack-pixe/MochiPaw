@@ -47,7 +47,7 @@ fn check_macos() -> bool {
 
     const PT_DENY_ATTACH: c_int = 31;
     unsafe {
-        ptrace(PT_DENY_ATTACH, getpid(), 0, 0);
+        ptrace(PT_DENY_ATTACH, getpid(), std::ptr::null_mut(), 0);
     }
 
     false
