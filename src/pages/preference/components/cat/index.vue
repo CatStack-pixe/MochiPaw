@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import { Divider, Flex, InputNumber, Select, Slider, SpaceAddon, SpaceCompact, Switch } from 'antdv-next'
+import { Button, Divider, Flex, InputNumber, Select, Slider, SpaceAddon, SpaceCompact, Switch } from 'antdv-next'
 import { computed } from 'vue'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
+import { returnMainWindowToScreen } from '@/composables/useWindowState'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { isWindows } from '@/utils/platform'
 
 const catStore = useCatStore()
 const modelStore = useModelStore()
+
+async function handleReturnToScreen() {
+  await returnMainWindowToScreen()
+}
 
 const typingBehaviorGroupOptions = computed(() => {
   if (!modelStore.currentModel) {
@@ -180,10 +185,12 @@ const typingBehaviorGroupOptions = computed(() => {
     </ProListItem>
 
     <ProListItem
-      :description="$t('pages.preference.cat.hints.keepInScreen')"
-      :title="$t('pages.preference.cat.labels.keepInScreen')"
+      :description="$t('pages.preference.cat.hints.returnToScreen')"
+      :title="$t('pages.preference.cat.labels.returnToScreen')"
     >
-      <Switch v-model:checked="catStore.window.keepInScreen" />
+      <Button @click="handleReturnToScreen">
+        {{ $t('pages.preference.cat.labels.returnToScreen') }}
+      </Button>
     </ProListItem>
 
     <ProListItem
