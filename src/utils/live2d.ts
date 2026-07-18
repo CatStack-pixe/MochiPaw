@@ -275,6 +275,9 @@ class Live2d {
 
     this.model = model
     app.stage.addChild(model)
+    // Live2DSprite resolves `ready` from its render callback. The app ticker is
+    // intentionally stopped while idle, so it must run before awaiting ready.
+    app.start()
 
     await model.ready
 
