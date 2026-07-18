@@ -7,8 +7,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { open } from '@tauri-apps/plugin-dialog'
-import { copyFile, exists, mkdir, readDir, readFile, readTextFile, stat } from '@tauri-apps/plugin-fs'
-import { message, Modal } from 'antdv-next'
+import { copyFile, exists, mkdir, readDir, readFile, readTextFile, remove, stat } from '@tauri-apps/plugin-fs'
+import { message } from 'antdv-next'
 import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
@@ -25,6 +25,7 @@ import { INVOKE_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import { join } from '@/utils/path'
+import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 
 interface LegacyPetConfig {
   standard?: LegacyStandardConfig
@@ -72,8 +73,11 @@ interface ImportVariant {
   importKind: 'standard' | 'controlled'
   proofStatus: ModelProofStatus
   packageId?: string
+  dispatchToken?: string
   author?: ModelAuthorProfile
   controlledRelease?: ModelControlledRelease
+  proofDirectory?: string
+  controlDirectory?: string
 }
 
 interface KeyImageRef {
@@ -187,7 +191,6 @@ const GAMEPAD_BUTTON_NAMES = [
 type ImportFromPathResult
   = | { status: 'imported', models: Array<ReturnType<typeof createImportedModel>> }
     | { status: 'duplicate' }
-    | { status: 'blocked-controlled', release: ModelControlledRelease }
 
 onMounted(() => {
   const appWindow = getCurrentWebviewWindow()
@@ -259,17 +262,6 @@ watch(selectPaths, async (paths) => {
     try {
       const result = await importFromPath(fromPath)
 
-      if (result.status === 'blocked-controlled') {
-        Modal.warning({
-          title: t('pages.preference.model.controlledImport.title'),
-          content: t('pages.preference.model.controlledImport.content', {
-            packageId: result.release.packageId ?? t('pages.preference.model.controlledImport.unknownPackage'),
-          }),
-        })
-
-        continue
-      }
-
       if (result.status === 'duplicate') {
         message.info(t('pages.preference.model.hints.alreadyImported'))
 
@@ -278,6 +270,7 @@ watch(selectPaths, async (paths) => {
 
       for (const model of result.models) {
         modelStore.models.push(model)
+        reportRuntimeEventQuietly(model, 'imported')
       }
 
       message.success(t('pages.preference.model.hints.importSuccess'))
@@ -299,15 +292,6 @@ async function importFromPath(fromPath: string) {
     throw new Error('No model3.json found')
   }
 
-  const controlledVariant = variants.find(variant => variant.controlledRelease)
-
-  if (controlledVariant?.controlledRelease) {
-    return {
-      status: 'blocked-controlled',
-      release: controlledVariant.controlledRelease,
-    } satisfies ImportFromPathResult
-  }
-
   const models = []
   const importedFingerprints = await getImportedFingerprints()
 
@@ -323,8 +307,9 @@ async function importFromPath(fromPath: string) {
     })
 
     await normalizeResources(variant, toPath)
+    await copyMetadataDirectories(variant, toPath)
 
-    models.push(createImportedModel({
+    const model = createImportedModel({
       id,
       displayName: variant.displayName,
       path: toPath,
@@ -334,9 +319,19 @@ async function importFromPath(fromPath: string) {
       importKind: variant.importKind,
       proofStatus: variant.proofStatus,
       packageId: variant.packageId,
+      dispatchToken: variant.dispatchToken,
       author: variant.author,
       controlledRelease: variant.controlledRelease,
-    }))
+    })
+
+    try {
+      await ensureRuntimeLease(model)
+    } catch (error) {
+      await remove(toPath, { recursive: true }).catch(() => undefined)
+      throw error
+    }
+
+    models.push(model)
 
     importedFingerprints.add(variant.fingerprint)
   }
@@ -358,6 +353,7 @@ function createImportedModel(model: {
   importKind?: 'standard' | 'controlled'
   proofStatus?: ModelProofStatus
   packageId?: string
+  dispatchToken?: string
   author?: ModelAuthorProfile
   controlledRelease?: ModelControlledRelease
 }) {
@@ -412,6 +408,8 @@ async function discoverLegacyVariants(sourcePath: string) {
 
       const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
       const controlledRelease = await readNearestControlledRelease(modelPath, sourcePath)
+      const proofDirectory = await findNearestManifestDirectory(modelPath, 'mochi-proof', 'manifest.json', sourcePath)
+      const controlDirectory = await findNearestManifestDirectory(modelPath, 'mochi-control', 'release.json', sourcePath)
 
       variants.push({
         mode,
@@ -426,8 +424,11 @@ async function discoverLegacyVariants(sourcePath: string) {
         importKind: controlledRelease ? 'controlled' : 'standard',
         proofStatus: controlledRelease ? 'controlled-release' : proofManifest ? 'manifest-detected' : 'unsigned',
         packageId: proofManifest?.packageId ?? controlledRelease?.packageId,
+        dispatchToken: proofManifest?.dispatch?.dispatchToken,
         author: proofManifest?.author,
         controlledRelease,
+        proofDirectory,
+        controlDirectory,
       })
     }
   }
@@ -442,6 +443,8 @@ async function discoverCubismVariants(sourcePath: string) {
     const mode = await inferMode(modelPath)
     const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
     const controlledRelease = await readNearestControlledRelease(modelPath, sourcePath)
+    const proofDirectory = await findNearestManifestDirectory(modelPath, 'mochi-proof', 'manifest.json', sourcePath)
+    const controlDirectory = await findNearestManifestDirectory(modelPath, 'mochi-control', 'release.json', sourcePath)
 
     return {
       mode,
@@ -456,10 +459,48 @@ async function discoverCubismVariants(sourcePath: string) {
       importKind: controlledRelease ? 'controlled' : 'standard',
       proofStatus: controlledRelease ? 'controlled-release' : proofManifest ? 'manifest-detected' : 'unsigned',
       packageId: proofManifest?.packageId ?? controlledRelease?.packageId,
+      dispatchToken: proofManifest?.dispatch?.dispatchToken,
       author: proofManifest?.author,
       controlledRelease,
+      proofDirectory,
+      controlDirectory,
     }
   }))
+}
+
+async function copyMetadataDirectories(variant: ImportVariant, toPath: string) {
+  if (variant.proofDirectory) {
+    await invoke(INVOKE_KEY.COPY_DIR, {
+      fromPath: variant.proofDirectory,
+      toPath: join(toPath, 'mochi-proof'),
+    })
+  }
+  if (variant.controlDirectory) {
+    await invoke(INVOKE_KEY.COPY_DIR, {
+      fromPath: variant.controlDirectory,
+      toPath: join(toPath, 'mochi-control'),
+    })
+  }
+}
+
+async function findNearestManifestDirectory(startPath: string, manifestDirectory: string, manifestFile: string, stopPath?: string) {
+  let currentPath = startPath
+  const normalizedStopPath = stopPath ? normalizePath(stopPath) : undefined
+
+  while (currentPath) {
+    const candidate = join(currentPath, manifestDirectory)
+    if (await exists(join(candidate, manifestFile))) return candidate
+
+    const normalizedCurrentPath = normalizePath(currentPath)
+    if (normalizedStopPath && normalizedCurrentPath === normalizedStopPath) return undefined
+
+    const parentPath = getParentPath(currentPath)
+    if (!parentPath || normalizePath(parentPath) === normalizedCurrentPath) return undefined
+
+    currentPath = parentPath
+  }
+
+  return undefined
 }
 
 async function inferImportDisplayName({
@@ -687,12 +728,16 @@ function getParentPath(path: string) {
   return parts.join(separator)
 }
 
+function normalizePath(path: string) {
+  return path.replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase()
+}
+
 function normalizeDisplayName(value: unknown) {
   if (typeof value !== 'string') return undefined
 
   const displayName = value.trim()
 
-  if (!displayName || /^(none|null|undefined|n\/a)$/i.test(displayName)) return undefined
+  if (!displayName || /^(?:none|null|undefined|n\/a)$/i.test(displayName)) return undefined
 
   return displayName
 }

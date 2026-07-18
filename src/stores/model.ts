@@ -37,6 +37,12 @@ export interface ModelControlledRelease {
   reimportRestricted?: boolean
 }
 
+export interface ModelRuntimeLease {
+  leaseToken: string
+  leaseId: string
+  expiresAt: number
+}
+
 export interface Model {
   id: string
   displayName?: string
@@ -49,6 +55,8 @@ export interface Model {
   packageId?: string
   author?: ModelAuthorProfile
   controlledRelease?: ModelControlledRelease
+  dispatchToken?: string
+  runtimeLease?: ModelRuntimeLease
 }
 
 export interface ModelSupportKeyLayer {
@@ -187,6 +195,7 @@ async function fillModelMetadata(model: Model) {
   model.packageId = proofManifest?.packageId ?? controlledRelease?.packageId ?? model.packageId
   model.author = proofManifest?.author ?? model.author
   model.controlledRelease = controlledRelease ?? model.controlledRelease
+  model.dispatchToken = proofManifest?.dispatch?.dispatchToken ?? model.dispatchToken
 
   if (!model.isPreset && !model.displayName?.trim()) {
     model.displayName = await inferStoredModelDisplayName(model, proofManifest?.modelName)
@@ -228,7 +237,7 @@ function normalizeDisplayName(value: unknown) {
 
   const displayName = value.trim()
 
-  if (!displayName || /^(none|null|undefined|n\/a)$/i.test(displayName)) return undefined
+  if (!displayName || /^(?:none|null|undefined|n\/a)$/i.test(displayName)) return undefined
 
   return displayName
 }

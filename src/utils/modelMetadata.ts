@@ -11,6 +11,14 @@ import { join } from '@/utils/path'
 export interface ModelProofManifest {
   modelName?: string
   packageId?: string
+  distributionMode?: string
+  runtimeDistributionMode?: string
+  dispatch?: {
+    dispatchToken?: string
+    dispatchCode?: string
+    distributionCode?: string
+    productId?: string
+  } | null
   author?: ModelAuthorProfile
 }
 
