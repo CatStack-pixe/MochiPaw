@@ -1,12 +1,12 @@
 # MochiPaw
 
-[![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue)](./LICENSE)
-
 MochiPaw is a Tauri + Vue desktop pet app based on
 [BongoCat](https://github.com/ayangweb/BongoCat).
 
-This project is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0).
-See [NOTICE.md](./NOTICE.md) for additional terms, core usage rules, and commercial licensing information.
+This repository contains BongoCat-derived material under the MIT License and
+CatStack-authored additions under the PolyForm Noncommercial License 1.0.0.
+See [NOTICE.md](./NOTICE.md) for license scope, attribution, core usage rules,
+and commercial licensing information.
 
 > **Noncommercial only.** Commercial use requires prior written permission from CatStack / InfinityXCat.
 
@@ -118,14 +118,23 @@ pnpm release
 The release script syncs package metadata through `scripts/release.ts` and uses
 `release-it`.
 
+## Upstream Triage
+
+MochiPaw tracks selected work from upstream BongoCat. See
+[docs/upstream-triage.md](./docs/upstream-triage.md) for the review and porting
+process.
+
 ## License
 
-MochiPaw original code and CatStack-maintained modifications are licensed under
-the PolyForm Noncommercial License 1.0.0. Commercial use, paid distribution,
-resale, monetized hosting, or integration into paid products or services
-requires prior written permission from CatStack / InfinityXCat.
+MochiPaw is a multi-license repository:
 
-See [LICENSE](./LICENSE).
+- BongoCat-derived material remains available under the MIT License.
+- CatStack-authored additions are licensed under the PolyForm Noncommercial
+  License 1.0.0 unless a file states otherwise.
+- Third-party dependencies and bundled assets keep their own terms.
+
+See [LICENSE](./LICENSE), [NOTICE.md](./NOTICE.md), and the full texts in
+[`LICENSES/`](./LICENSES).
 
 ## Attribution
 
@@ -133,10 +142,11 @@ MochiPaw is a derivative work of
 [ayangweb/BongoCat](https://github.com/ayangweb/BongoCat), which was released
 under the MIT License.
 
-The original MIT notice is retained in [NOTICE.md](./NOTICE.md). CatStack
-changes are licensed under the noncommercial MochiPaw license unless a file
-states otherwise.
+The original MIT notice is retained in [NOTICE.md](./NOTICE.md) and
+[`LICENSES/MIT.txt`](./LICENSES/MIT.txt). CatStack-authored additions are
+listed in [NOTICE.md](./NOTICE.md).
 
-Bundled Live2D/Cubism runtime and model assets keep their original upstream
-terms. If you redistribute modified builds, review the asset and runtime
-licenses for your distribution channel.
+Bundled Live2D/Cubism runtime files, model assets, images, icons, and other
+third-party material keep their original upstream terms. Review those terms
+before redistributing modified builds or using the assets outside this
+repository.
