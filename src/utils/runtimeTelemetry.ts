@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { getVersion } from '@tauri-apps/api/app'
-import { exists, readTextFile } from '@tauri-apps/plugin-fs'
+import { exists, readFile, readTextFile, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import JSON5 from 'json5'
 
 import type { Model } from '@/stores/model'
@@ -11,6 +11,7 @@ import { join } from '@/utils/path'
 
 const RUNTIME_API_BASE = (import.meta.env.VITE_MOCHI_RUNTIME_API_BASE || 'https://www.catpithos.top').replace(/\/$/, '')
 const LEASE_REFRESH_SKEW_SECONDS = 10 * 60
+const DECRYPTION_MARKER = 'decryption.json'
 
 type RuntimeEventType = 'imported' | 'opened' | 'used' | 'heartbeat' | 'failed'
 
@@ -35,6 +36,59 @@ async function readAuthorProof(modelPath: string) {
   const raw = await readTextFile(proofPath)
   const parsed = JSON5.parse(raw) as AuthorProofEnvelope
   return { parsed }
+}
+
+function base64UrlBytes(value: string) {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+
+  return bytes
+}
+
+async function decryptControlledPackage(model: Model, contentKey?: string) {
+  const encryptedFiles = model.controlledRelease?.contentEncryption?.encryptedFiles ?? []
+
+  if (!encryptedFiles.length) return
+  const markerPath = join(model.path, 'mochi-control', DECRYPTION_MARKER)
+  if (await exists(markerPath)) return
+  if (!contentKey) throw new Error('Controlled package runtime lease is missing a content key.')
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    base64UrlBytes(contentKey),
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt'],
+  )
+
+  for (const file of encryptedFiles) {
+    if (!file.path || !file.nonce) continue
+    if (file.algorithm && file.algorithm !== 'AES-256-GCM') {
+      throw new Error(`Unsupported controlled package encryption: ${file.algorithm}`)
+    }
+
+    const filePath = join(model.path, file.path)
+    const ciphertext = await readFile(filePath)
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: base64UrlBytes(file.nonce) },
+      key,
+      ciphertext,
+    )
+
+    await writeFile(filePath, new Uint8Array(plaintext))
+  }
+
+  await writeTextFile(markerPath, JSON.stringify({
+    schemaVersion: 1,
+    packageId: model.packageId,
+    decryptedAt: new Date().toISOString(),
+  }, null, 2))
 }
 
 async function postRuntimeJson<T>(path: string, body: Record<string, unknown>, token?: string): Promise<T> {
@@ -73,17 +127,25 @@ async function runtimeBody(model: Model, eventType?: RuntimeEventType) {
 
 export async function ensureRuntimeLease(model: Model) {
   if (model.importKind !== 'controlled' && model.proofStatus !== 'controlled-release') return
-  if (isLeaseFresh(model)) return
+  if (isLeaseFresh(model)) {
+    await decryptControlledPackage(model)
+    return
+  }
   const dispatchToken = model.dispatchToken
   if (!dispatchToken) throw new Error('Controlled package is missing dispatch token.')
   const body = await runtimeBody(model)
   if (!body) throw new Error('Controlled package is missing author proof.')
-  const lease = await postRuntimeJson<{ leaseToken: string, leaseId: string, expiresAt: number }>('/runtime/leases', {
+  const lease = await postRuntimeJson<{ leaseToken: string, leaseId: string, expiresAt: number, contentKey?: string }>('/runtime/leases', {
     dispatchToken,
     packageId: body.packageId,
     authorProof: body.authorProof,
   })
-  model.runtimeLease = lease
+  await decryptControlledPackage(model, lease.contentKey)
+  model.runtimeLease = {
+    leaseToken: lease.leaseToken,
+    leaseId: lease.leaseId,
+    expiresAt: lease.expiresAt,
+  }
 }
 
 export async function reportRuntimeEvent(model: Model, eventType: RuntimeEventType) {

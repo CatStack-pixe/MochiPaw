@@ -306,7 +306,6 @@ async function importFromPath(fromPath: string) {
       toPath,
     })
 
-    await normalizeResources(variant, toPath)
     await copyMetadataDirectories(variant, toPath)
 
     const model = createImportedModel({
@@ -326,6 +325,7 @@ async function importFromPath(fromPath: string) {
 
     try {
       await ensureRuntimeLease(model)
+      await normalizeResources(variant, toPath)
     } catch (error) {
       await remove(toPath, { recursive: true }).catch(() => undefined)
       throw error

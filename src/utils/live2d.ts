@@ -9,7 +9,7 @@ import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
 import { Config, CubismSetting, Live2DSprite, Priority } from 'easy-live2d'
 import { flatMap, groupBy } from 'es-toolkit/compat'
 import JSON5 from 'json5'
-import { Application, Ticker } from 'pixi.js'
+import { Application } from 'pixi.js'
 
 import type { ModelSize } from '@/composables/useModel'
 import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
@@ -202,6 +202,7 @@ class Live2d {
   private app: Application | null = null
   private appInitPromise: Promise<void> | null = null
   private loadVersion = 0
+  private maxFPS = 60
   public model: Live2DSprite | null = null
 
   constructor() { }
@@ -212,7 +213,11 @@ class Live2d {
       return
     }
 
-    const view = document.getElementById('live2dCanvas') as HTMLCanvasElement
+    const view = document.getElementById('live2dCanvas')
+
+    if (!(view instanceof HTMLCanvasElement)) {
+      throw new TypeError('Live2D canvas is not mounted')
+    }
 
     this.app = new Application()
 
@@ -222,10 +227,13 @@ class Live2d {
       backgroundAlpha: 0,
       autoDensity: true,
       resolution: devicePixelRatio,
+      autoStart: false,
     })
 
     try {
       await this.appInitPromise
+      this.app.ticker.maxFPS = this.maxFPS
+      this.app.stop()
     } finally {
       this.appInitPromise = null
     }
@@ -260,13 +268,19 @@ class Live2d {
       return convertFileSrc(join(path, file))
     })
 
+    const app = this.app
+
+    if (!app) {
+      throw new Error('Live2D renderer is not available')
+    }
+
     const model = new Live2DSprite({
       modelSetting,
-      ticker: Ticker.shared,
+      ticker: app.ticker,
     })
 
     this.model = model
-    this.app?.stage.addChild(model)
+    app.stage.addChild(model)
 
     await model.ready
 
@@ -311,6 +325,9 @@ class Live2d {
   public destroy() {
     this.loadVersion += 1
     this.destroyCurrentModel()
+    this.app?.destroy(false)
+    this.app = null
+    this.appInitPromise = null
   }
 
   private destroyCurrentModel() {
@@ -319,6 +336,7 @@ class Live2d {
     this.model = null
 
     this.destroySprite(model)
+    this.app?.stop()
   }
 
   private destroySprite(model: Live2DSprite | null) {
@@ -338,6 +356,7 @@ class Live2d {
     this.model.x = innerWidth / 2
     this.model.y = innerHeight / 2
     this.model.anchor.set(0.5)
+    this.app?.start()
   }
 
   public startMotion(motion: MotionInfo) {
@@ -364,7 +383,11 @@ class Live2d {
   }
 
   public setMaxFPS(fps: number) {
-    Ticker.shared.maxFPS = fps
+    this.maxFPS = fps
+
+    if (this.app) {
+      this.app.ticker.maxFPS = fps
+    }
   }
 }
 

@@ -7,7 +7,7 @@ import { convertFileSrc } from '@tauri-apps/api/core'
 import { exists } from '@tauri-apps/plugin-fs'
 import { useElementSize } from '@vueuse/core'
 import { CubismSetting, Live2DSprite } from 'easy-live2d'
-import { Application, Ticker } from 'pixi.js'
+import { Application } from 'pixi.js'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 
 import type { Model } from '@/stores/model'
@@ -78,6 +78,7 @@ async function loadPreview() {
       autoDensity: true,
       resolution: devicePixelRatio,
     })
+    nextApp.ticker.maxFPS = 24
 
     if (currentLoadId !== loadId) {
       nextApp.destroy(false)
@@ -105,7 +106,7 @@ async function loadPreview() {
 
     const nextSprite = new Live2DSprite({
       modelSetting,
-      ticker: Ticker.shared,
+      ticker: nextApp.ticker,
     })
 
     sprite = nextSprite

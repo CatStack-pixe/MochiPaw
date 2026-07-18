@@ -11,7 +11,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import type { ModelMotionInfo } from '@/stores/model'
 
@@ -63,6 +63,7 @@ let resizeFrame = 0
 let scalingWithShortcut = false
 let scaleSyncTimer: ReturnType<typeof setTimeout> | undefined
 let lastShortcutResizeAt = 0
+let currentModelLoadVersion = 0
 
 const SCALE_DRAG_SENSITIVITY = 0.12
 const SHORTCUT_RESIZE_INTERVAL = 33
@@ -92,14 +93,33 @@ useEventListener('resize', () => {
   debouncedResize()
 })
 
-watch(() => modelStore.currentModel, async (model) => {
+watch(() => {
+  const model = modelStore.currentModel
+
+  return model ? `${model.id}:${model.path}` : ''
+}, async () => {
+  const model = modelStore.currentModel
+  const loadVersion = ++currentModelLoadVersion
+
   if (!model) return
+
+  modelStore.modelReady = false
+
+  await nextTick()
 
   try {
     await ensureRuntimeLease(model)
+
+    if (loadVersion !== currentModelLoadVersion) return
+
     await handleLoad()
+
+    if (loadVersion !== currentModelLoadVersion) return
+
     reportRuntimeEventQuietly(model, 'opened')
   } catch (error) {
+    if (loadVersion !== currentModelLoadVersion) return
+
     console.warn('[mochi-paw] failed to load current model:', error)
     modelStore.modelReady = true
     return
@@ -108,6 +128,8 @@ watch(() => modelStore.currentModel, async (model) => {
   const path = join(model.path, 'resources', 'background.png')
 
   const existed = await exists(path)
+
+  if (loadVersion !== currentModelLoadVersion) return
 
   backgroundImagePath.value = existed ? convertFileSrc(path) : void 0
 
@@ -127,6 +149,8 @@ watch(() => modelStore.currentModel, async (model) => {
     const imageFiles = files.filter(file => isImage(file.name))
 
     for (const file of imageFiles) {
+      if (loadVersion !== currentModelLoadVersion) return
+
       const fileName = file.name.split('.')[0]
 
       modelStore.supportKeys[fileName] ??= []
@@ -137,8 +161,10 @@ watch(() => modelStore.currentModel, async (model) => {
     }
   }
 
-  modelStore.modelReady = true
-}, { deep: true, immediate: true })
+  if (loadVersion === currentModelLoadVersion) {
+    modelStore.modelReady = true
+  }
+}, { flush: 'post', immediate: true })
 
 watch([() => catStore.window.scale, modelSize], ([scale, modelSize]) => {
   if (!modelSize) return

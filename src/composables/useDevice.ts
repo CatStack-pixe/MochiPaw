@@ -6,7 +6,6 @@ import { invoke } from '@tauri-apps/api/core'
 import { PhysicalPosition } from '@tauri-apps/api/dpi'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { isNil } from 'es-toolkit'
-import { Ticker } from 'pixi.js'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { useAppStore } from '@/stores/app'
@@ -54,8 +53,10 @@ export function useDevice() {
   const latestCursorPoint = ref<CursorPoint>()
   const smoothedCursorPoint = ref<CursorPoint>()
   const scaleFactor = ref(1)
-  const { handlePress, handleRelease, handleMouseChange, handleMouseMove } = useModel()
+  const { handlePress, handleRelease, handleMouseChange, handleMouseMove, handleDestroy } = useModel()
   let lastRuntimeUsedReportAt = 0
+  let cursorSmoothingFrame = 0
+  let lastCursorSmoothingAt = 0
 
   const reportRuntimeUsed = () => {
     const now = Date.now()
@@ -64,14 +65,38 @@ export function useDevice() {
     reportRuntimeEventQuietly(modelStore.currentModel, 'used')
   }
 
-  const tickerCallback = (ticker: Ticker) => {
+  const stopCursorSmoothing = () => {
+    if (cursorSmoothingFrame) {
+      cancelAnimationFrame(cursorSmoothingFrame)
+      cursorSmoothingFrame = 0
+    }
+
+    lastCursorSmoothingAt = 0
+    latestCursorPoint.value = undefined
+    smoothedCursorPoint.value = undefined
+  }
+
+  const scheduleCursorSmoothing = () => {
+    if (catStore.model.ignoreMouse || cursorSmoothingFrame || !latestCursorPoint.value) return
+
+    cursorSmoothingFrame = requestAnimationFrame(runCursorSmoothing)
+  }
+
+  const runCursorSmoothing = (timestamp: number) => {
+    cursorSmoothingFrame = 0
+
     const destination = latestCursorPoint.value
 
     if (!destination) return
 
     const current = smoothedCursorPoint.value ?? destination
+    const deltaMS = lastCursorSmoothingAt
+      ? timestamp - lastCursorSmoothingAt
+      : 1000 / 60
 
-    const alpha = 1 - DAMPING_DECAY ** (ticker.deltaMS / (1000 / 60))
+    lastCursorSmoothingAt = timestamp
+
+    const alpha = 1 - DAMPING_DECAY ** (deltaMS / (1000 / 60))
 
     const interpolated = {
       x: current.x + (destination.x - current.x) * alpha,
@@ -82,11 +107,16 @@ export function useDevice() {
       smoothedCursorPoint.value = { ...destination }
 
       latestCursorPoint.value = void 0
+      lastCursorSmoothingAt = 0
     } else {
       smoothedCursorPoint.value = interpolated
     }
 
     void handleCursorMove(smoothedCursorPoint.value)
+
+    if (latestCursorPoint.value) {
+      scheduleCursorSmoothing()
+    }
   }
 
   onMounted(async () => {
@@ -100,15 +130,23 @@ export function useDevice() {
   })
 
   onUnmounted(() => {
-    Ticker.shared.remove(tickerCallback)
+    stopCursorSmoothing()
+
+    for (const timer of releaseTimers.values()) {
+      clearTimeout(timer)
+    }
+
+    releaseTimers.clear()
+    handleDestroy()
   })
 
   watch(() => catStore.model.ignoreMouse, (value) => {
     if (value) {
-      return Ticker.shared.remove(tickerCallback)
+      stopCursorSmoothing()
+      return
     }
 
-    return Ticker.shared.add(tickerCallback)
+    scheduleCursorSmoothing()
   }, { immediate: true })
 
   const startListening = () => {
@@ -277,7 +315,8 @@ export function useDevice() {
       case 'MouseRelease':
         return handleMouseChange(value, false)
       case 'MouseMove':
-        return latestCursorPoint.value = value
+        latestCursorPoint.value = value
+        return scheduleCursorSmoothing()
     }
   })
 

@@ -213,10 +213,23 @@ export function useModel() {
       if (isLive2dLoadCancelledError(error)) return
 
       message.error(String(error))
+      throw error
     }
   }
 
   function handleDestroy() {
+    if (typingExpressionTimer) {
+      clearTimeout(typingExpressionTimer)
+      typingExpressionTimer = undefined
+    }
+
+    if (activeMotionResetTimer) {
+      clearTimeout(activeMotionResetTimer)
+      activeMotionResetTimer = undefined
+    }
+
+    activeMotionBehaviorId = undefined
+    currentExpressionBehaviorId = undefined
     live2d.destroy()
   }
 
