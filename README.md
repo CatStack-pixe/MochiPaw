@@ -127,8 +127,8 @@ MochiPaw is a multi-license repository:
   License 1.0.0 unless a file states otherwise.
 - Third-party dependencies and bundled assets keep their own terms.
 
-See [LICENSE](./LICENSE), [NOTICE.md](./NOTICE.md), and the full texts in
-[`LICENSES/`](./LICENSES).
+See [LICENSE](./LICENSE) and [NOTICE.md](./NOTICE.md) for the full license
+texts, attribution, and notices.
 
 ## Attribution
 
@@ -136,9 +136,8 @@ MochiPaw is a derivative work of
 [ayangweb/BongoCat](https://github.com/ayangweb/BongoCat), which was released
 under the MIT License.
 
-The original MIT notice is retained in [NOTICE.md](./NOTICE.md) and
-[`LICENSES/MIT.txt`](./LICENSES/MIT.txt). CatStack-authored additions are
-listed in [NOTICE.md](./NOTICE.md).
+The BongoCat MIT license text, attribution details, CatStack-authored additions,
+and license scope are documented in [NOTICE.md](./NOTICE.md).
 
 Bundled Live2D/Cubism runtime files, model assets, images, icons, and other
 third-party material keep their original upstream terms. Review those terms
