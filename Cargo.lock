@@ -2949,7 +2949,7 @@ dependencies = [
 
 [[package]]
 name = "mochi-paw"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "fs_extra",
  "gilrs",
