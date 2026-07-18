@@ -15,6 +15,7 @@ import type { Model } from '@/stores/model'
 
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
+import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 
 import BehaviorModal from './components/behavior-modal/index.vue'
 import FloatMenu from './components/float-menu/index.vue'
@@ -74,7 +75,7 @@ function displayMetaValue(value: unknown) {
   if (typeof value !== 'string') return ''
 
   const text = value.trim()
-  if (!text || /^(none|null|undefined|n\/a)$/i.test(text)) return ''
+  if (!text || /^(?:none|null|undefined|n\/a)$/i.test(text)) return ''
 
   return text
 }
@@ -115,12 +116,20 @@ const masonryItems = computed(() => {
   return [{ key: 'upload', data: null }, ...items]
 })
 
-function handleToggle(nextModel: Model) {
+async function handleToggle(nextModel: Model) {
   if (modelStore.currentModel?.id === nextModel.id) return
+
+  try {
+    await ensureRuntimeLease(nextModel)
+  } catch (error) {
+    message.error(String(error))
+    return
+  }
 
   modelStore.modelReady = false
 
   modelStore.currentModel = nextModel
+  reportRuntimeEventQuietly(nextModel, 'opened')
 }
 
 async function handleDelete(item: Model) {

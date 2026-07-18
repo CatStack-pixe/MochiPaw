@@ -14,6 +14,7 @@ import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { inBetween } from '@/utils/is'
 import { isMac, isWindows } from '@/utils/platform'
+import { reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 
 import { INVOKE_KEY, LISTEN_KEY, WINDOW_LABEL } from '../constants'
 import { useModel } from './useModel'
@@ -42,6 +43,7 @@ interface KeyboardEvent {
 type DeviceEvent = MouseButtonEvent | MouseMoveEvent | KeyboardEvent
 
 const DAMPING_DECAY = 0.75
+const RUNTIME_USED_REPORT_INTERVAL = 5 * 60 * 1000
 const appWindow = getCurrentWebviewWindow()
 
 export function useDevice() {
@@ -53,6 +55,14 @@ export function useDevice() {
   const smoothedCursorPoint = ref<CursorPoint>()
   const scaleFactor = ref(1)
   const { handlePress, handleRelease, handleMouseChange, handleMouseMove } = useModel()
+  let lastRuntimeUsedReportAt = 0
+
+  const reportRuntimeUsed = () => {
+    const now = Date.now()
+    if (now - lastRuntimeUsedReportAt < RUNTIME_USED_REPORT_INTERVAL) return
+    lastRuntimeUsedReportAt = now
+    reportRuntimeEventQuietly(modelStore.currentModel, 'used')
+  }
 
   const tickerCallback = (ticker: Ticker) => {
     const destination = latestCursorPoint.value
@@ -234,6 +244,8 @@ export function useDevice() {
       }
 
       if (kind === 'KeyboardPress') {
+        reportRuntimeUsed()
+
         if (isWindows) {
           const delay = catStore.model.autoReleaseDelay * 1000
 
@@ -260,6 +272,7 @@ export function useDevice() {
 
     switch (kind) {
       case 'MousePress':
+        reportRuntimeUsed()
         return handleMouseChange(value)
       case 'MouseRelease':
         return handleMouseChange(value, false)

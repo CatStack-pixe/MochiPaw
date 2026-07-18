@@ -29,6 +29,7 @@ import { isImage } from '@/utils/is'
 import live2d from '@/utils/live2d'
 import { join } from '@/utils/path'
 import { isWindows } from '@/utils/platform'
+import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { clearObject } from '@/utils/shared'
 
 const { startListening } = useDevice()
@@ -94,7 +95,15 @@ useEventListener('resize', () => {
 watch(() => modelStore.currentModel, async (model) => {
   if (!model) return
 
-  await handleLoad()
+  try {
+    await ensureRuntimeLease(model)
+    await handleLoad()
+    reportRuntimeEventQuietly(model, 'opened')
+  } catch (error) {
+    console.warn('[mochi-paw] failed to load current model:', error)
+    modelStore.modelReady = true
+    return
+  }
 
   const path = join(model.path, 'resources', 'background.png')
 
