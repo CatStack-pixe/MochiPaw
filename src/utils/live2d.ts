@@ -202,7 +202,7 @@ class Live2d {
   private app: Application | null = null
   private appInitPromise: Promise<void> | null = null
   private loadVersion = 0
-  private maxFPS = 60
+  private maxFPS = 30
   public model: Live2DSprite | null = null
 
   constructor() { }
