@@ -207,16 +207,10 @@ class Live2d {
 
   constructor() { }
 
-  private async initApp() {
+  private async initApp(view: HTMLCanvasElement) {
     if (this.app) {
       await this.appInitPromise
       return
-    }
-
-    const view = document.getElementById('live2dCanvas')
-
-    if (!(view instanceof HTMLCanvasElement)) {
-      throw new TypeError('Live2D canvas is not mounted')
     }
 
     this.app = new Application()
@@ -239,10 +233,10 @@ class Live2d {
     }
   }
 
-  public async load(path: string) {
+  public async load(path: string, view: HTMLCanvasElement) {
     const version = ++this.loadVersion
 
-    await this.initApp()
+    await this.initApp(view)
 
     if (version !== this.loadVersion) {
       throw new Live2dLoadCancelledError()

@@ -157,7 +157,7 @@ export function useModel() {
     return index
   }
 
-  async function handleLoad() {
+  async function handleLoad(view: HTMLCanvasElement) {
     try {
       if (!modelStore.currentModel) return
 
@@ -165,7 +165,7 @@ export function useModel() {
 
       await resolveResource(path)
 
-      const { width, height, motions, expressions } = await live2d.load(path)
+      const { width, height, motions, expressions } = await live2d.load(path, view)
 
       const nextMotions = Object.entries(motions)
 

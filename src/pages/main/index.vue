@@ -11,7 +11,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import type { ModelMotionInfo } from '@/stores/model'
 
@@ -48,6 +48,7 @@ const { getBaseMenu, getExitMenu } = useAppMenu()
 const modelStore = useModelStore()
 const generalStore = useGeneralStore()
 const backgroundImagePath = ref<string>()
+const live2dCanvas = ref<HTMLCanvasElement | null>(null)
 const { stickActive } = useGamepad()
 const pressedKeyLayers = computed(() => {
   return Object.entries(modelStore.pressedKeys).flatMap(([key, layers]) => {
@@ -81,9 +82,14 @@ function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
   )
 }
 
-onMounted(startListening)
+onMounted(() => {
+  startListening()
+})
 
-onUnmounted(handleDestroy)
+onUnmounted(() => {
+  currentModelLoadVersion += 1
+  handleDestroy()
+})
 
 const debouncedResize = useDebounceFn(async () => {
   await handleResize({ syncScale: !scalingWithShortcut })
@@ -93,26 +99,27 @@ useEventListener('resize', () => {
   debouncedResize()
 })
 
-watch(() => {
+watch([() => {
   const model = modelStore.currentModel
 
   return model ? `${model.id}:${model.path}` : ''
-}, async () => {
+}, live2dCanvas], async ([, canvas]) => {
   const model = modelStore.currentModel
+
+  // An immediate watcher can run before the component's canvas is mounted.
+  // Watching the template ref retries the current model as soon as it exists.
+  if (!model || !canvas) return
+
   const loadVersion = ++currentModelLoadVersion
 
-  if (!model) return
-
   modelStore.modelReady = false
-
-  await nextTick()
 
   try {
     await ensureRuntimeLease(model)
 
     if (loadVersion !== currentModelLoadVersion) return
 
-    await handleLoad()
+    await handleLoad(canvas)
 
     if (loadVersion !== currentModelLoadVersion) return
 
@@ -207,7 +214,7 @@ watch(() => generalStore.app.taskbarVisible, setTaskbarVisibility, { immediate: 
 
 watch(() => catStore.model.motionSound, live2d.setMotionSoundEnabled, { immediate: true })
 
-watch(() => catStore.model.maxFPS, live2d.setMaxFPS, { immediate: true })
+watch(() => catStore.model.maxFPS, fps => live2d.setMaxFPS(fps), { immediate: true })
 
 useTauriListen<{
   id: string
@@ -310,7 +317,10 @@ function handleMouseMove(event: MouseEvent) {
       :src="backgroundImagePath"
     >
 
-    <canvas id="live2dCanvas" />
+    <canvas
+      id="live2dCanvas"
+      ref="live2dCanvas"
+    />
 
     <img
       v-for="{ key, path } in pressedKeyLayers"
