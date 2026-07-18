@@ -6,11 +6,11 @@ MochiPaw is a multi-license repository derived from
 [BongoCat](https://github.com/ayangweb/BongoCat).
 
 BongoCat-derived files remain available under the MIT License. The original
-MIT notice is preserved below and in `LICENSES/MIT.txt`.
+MIT notice is preserved below.
 
 CatStack-authored additions are licensed under the PolyForm Noncommercial
 License 1.0.0 unless a file states otherwise. The full PolyForm text is in
-`LICENSE` and `LICENSES/PolyForm-Noncommercial-1.0.0.txt`.
+`LICENSE`.
 
 The PolyForm license does not remove or narrow the MIT rights granted for
 BongoCat-derived material, bundled BongoCat model assets, or third-party
@@ -24,7 +24,6 @@ and attribution purposes:
 - `.env.example`
 - `.github/`
 - `Agent.md`
-- `docs/`
 - `scripts/packagePortable.mjs`
 - `src-tauri/src/core/author_proof.rs`
 - `src-tauri/src/plugins/self-protect/`
