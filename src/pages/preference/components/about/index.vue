@@ -30,6 +30,8 @@ const metricsLoading = ref(false)
 const compactingMemory = ref(false)
 const { t } = useI18n()
 let metricsTimer: ReturnType<typeof window.setInterval> | undefined
+let metricsRefreshing = false
+const METRICS_REFRESH_INTERVAL = 2000
 const authors = [
   {
     name: 'InfinityXCat',
@@ -52,13 +54,13 @@ const modStatement = [
 
 onMounted(async () => {
   logDir.value = await appLogDir()
-  await refreshMetrics()
-  metricsTimer = window.setInterval(refreshMetrics, 1000)
+  await refreshMetrics({ showLoading: true })
+  scheduleMetricsRefresh()
 })
 
 onBeforeUnmount(() => {
   if (metricsTimer) {
-    window.clearInterval(metricsTimer)
+    window.clearTimeout(metricsTimer)
   }
 })
 
@@ -86,8 +88,23 @@ async function copyText(value: string, successText: string) {
   message.success(successText)
 }
 
-async function refreshMetrics() {
-  metricsLoading.value = true
+function scheduleMetricsRefresh() {
+  metricsTimer = window.setTimeout(async () => {
+    await refreshMetrics()
+    scheduleMetricsRefresh()
+  }, METRICS_REFRESH_INTERVAL)
+}
+
+async function refreshMetrics(options: { showLoading?: boolean } = {}) {
+  if (metricsRefreshing) return
+
+  if (document.hidden) return
+
+  metricsRefreshing = true
+
+  if (options.showLoading) {
+    metricsLoading.value = true
+  }
 
   try {
     metrics.value = await getProcessMetrics()
@@ -95,8 +112,16 @@ async function refreshMetrics() {
   } catch (error) {
     metricsError.value = error instanceof Error ? error.message : String(error)
   } finally {
-    metricsLoading.value = false
+    metricsRefreshing = false
+
+    if (options.showLoading) {
+      metricsLoading.value = false
+    }
   }
+}
+
+function handleRefreshMetrics() {
+  return refreshMetrics({ showLoading: true })
 }
 
 async function handleCompactMemory() {
@@ -104,7 +129,7 @@ async function handleCompactMemory() {
 
   try {
     await compactProcessMemory()
-    await refreshMetrics()
+    await refreshMetrics({ showLoading: true })
     message.success(t('pages.preference.about.hints.compactMemorySuccess'))
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error))
@@ -285,7 +310,7 @@ const metricsItems = computed(() => [
 
       <Button
         :loading="metricsLoading"
-        @click="refreshMetrics"
+        @click="handleRefreshMetrics"
       >
         {{ $t('pages.preference.about.buttons.refresh') }}
       </Button>
