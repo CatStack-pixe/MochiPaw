@@ -65,7 +65,7 @@ export const useCatStore = defineStore('cat', () => {
     typingExpressionMaxDelay: 30,
     typingBehaviorGroup: 'default',
     autoReleaseDelay: 3,
-    maxFPS: 60,
+    maxFPS: 30,
     ignoreMouse: false,
   })
 
