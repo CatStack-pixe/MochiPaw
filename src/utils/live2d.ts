@@ -385,7 +385,7 @@ class Live2d {
   public setMaxFPS(fps: number) {
     this.maxFPS = fps
 
-    if (this.app) {
+    if (this.app?.ticker) {
       this.app.ticker.maxFPS = fps
     }
   }
