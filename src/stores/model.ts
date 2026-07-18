@@ -35,6 +35,18 @@ export interface ModelControlledRelease {
   runtimeTelemetryRequired?: boolean
   offlineLeaseAllowed?: boolean
   reimportRestricted?: boolean
+  contentEncryption?: {
+    status?: string
+    algorithm?: string
+    keyDelivery?: string
+    encryptedFiles?: Array<{
+      path?: string
+      algorithm?: string
+      nonce?: string
+      originalSize?: number
+      ciphertextSize?: number
+    }>
+  }
 }
 
 export interface ModelRuntimeLease {
