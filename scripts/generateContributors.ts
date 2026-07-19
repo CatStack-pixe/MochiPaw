@@ -3,7 +3,6 @@
 
 import { writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { env } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 interface GitHubContributor {
@@ -17,13 +16,11 @@ const outputPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'publi
 
 async function getContributors() {
   const contributors: GitHubContributor[] = []
-  const token = env.GITHUB_TOKEN
 
   for (let page = 1; ; page += 1) {
     const response = await fetch(`https://api.github.com/repos/${repository}/contributors?per_page=100&page=${page}`, {
       headers: {
         Accept: 'application/vnd.github+json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
 

@@ -76,8 +76,6 @@ jobs:
 
       - name: Generate contributors manifest
         run: pnpm generate:contributors
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
