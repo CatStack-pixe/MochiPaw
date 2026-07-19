@@ -74,6 +74,11 @@ jobs:
           pnpm config set registry https://registry.npmjs.org
           pnpm install --no-frozen-lockfile
 
+      - name: Generate contributors manifest
+        run: pnpm generate:contributors
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
