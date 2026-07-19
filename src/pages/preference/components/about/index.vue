@@ -28,32 +28,26 @@ const metrics = ref<ProcessMetrics>()
 const metricsError = ref('')
 const metricsLoading = ref(false)
 const compactingMemory = ref(false)
+const contributors = ref<GitHubContributor[]>([])
+const contributorsLoading = ref(false)
+const contributorsError = ref('')
 const { t } = useI18n()
 let metricsTimer: ReturnType<typeof window.setInterval> | undefined
 let metricsRefreshing = false
 const METRICS_REFRESH_INTERVAL = 2000
-const authors = [
-  {
-    name: 'InfinityXCat',
-    avatar: '/authors/infinityxcat.jpg',
-    role: 'Project maintainer',
-  },
-  {
-    name: 'Dev.Cloud.ZTR_OS',
-    avatar: '/authors/dev-cloud-ztros.jpg',
-    role: 'Contributor',
-  },
-]
-const qqGroup = '966043945'
-const originalProjectUrl = 'https://github.com/ayangweb/BongoCat'
-const modStatement = [
-  'MochiPaw is a maintained derivative of BongoCat with additional features, compatibility work, and packaging updates.',
-  'The original project link is kept here for attribution and history.',
-  'MochiPaw is maintained as a separate downstream version.',
-]
+const GITHUB_REPOSITORY_URL = 'https://github.com/CatStack-pixe/MochiPaw'
+const CONTRIBUTORS_MANIFEST_URL = '/contributors.json'
+const GITHUB_LICENSE_URL = `${GITHUB_REPOSITORY_URL}/blob/master/LICENSE`
+
+interface GitHubContributor {
+  login: string
+  avatarUrl: string
+  profileUrl: string
+}
 
 onMounted(async () => {
   logDir.value = await appLogDir()
+  void loadContributors()
   await refreshMetrics({ showLoading: true })
   scheduleMetricsRefresh()
 })
@@ -66,6 +60,45 @@ onBeforeUnmount(() => {
 
 function handleUpdate() {
   emit(LISTEN_KEY.UPDATE_APP)
+}
+
+async function loadContributors() {
+  contributorsLoading.value = true
+  contributorsError.value = ''
+
+  try {
+    const response = await fetch(CONTRIBUTORS_MANIFEST_URL)
+
+    if (!response.ok) throw new Error(`Contributors manifest request failed: ${response.status}`)
+
+    const payload: unknown = await response.json()
+
+    if (!Array.isArray(payload)) throw new Error('Contributors manifest response is not a list')
+
+    contributors.value = payload.flatMap((value) => {
+      if (!isContributor(value)) return []
+
+      return [{
+        login: value.login,
+        avatarUrl: value.avatarUrl,
+        profileUrl: value.profileUrl,
+      }]
+    })
+  } catch {
+    contributorsError.value = t('pages.preference.about.hints.contributorsUnavailable')
+  } finally {
+    contributorsLoading.value = false
+  }
+}
+
+function isContributor(value: unknown): value is GitHubContributor {
+  if (!value || typeof value !== 'object') return false
+
+  const contributor = value as Record<string, unknown>
+
+  return typeof contributor.login === 'string'
+    && typeof contributor.avatarUrl === 'string'
+    && typeof contributor.profileUrl === 'string'
 }
 
 async function copyInfo() {
@@ -81,11 +114,6 @@ async function copyInfo() {
   await writeText(JSON.stringify(info, null, 2))
 
   message.success(t('pages.preference.about.hints.copySuccess'))
-}
-
-async function copyText(value: string, successText: string) {
-  await writeText(value)
-  message.success(successText)
 }
 
 function scheduleMetricsRefresh() {
@@ -221,60 +249,66 @@ const metricsItems = computed(() => [
     </ProListItem>
 
     <ProListItem
-      :description="$t('pages.preference.about.hints.authorInfo')"
-      :title="$t('pages.preference.about.labels.authorInfo')"
+      :description="$t('pages.preference.about.hints.contributors')"
+      :title="$t('pages.preference.about.labels.contributors')"
       vertical
     >
-      <div class="author-list">
-        <div
-          v-for="author in authors"
-          :key="author.name"
-          class="author-item"
+      <div
+        v-if="contributorsLoading"
+        class="contributors-status"
+      >
+        {{ $t('pages.preference.about.hints.contributorsLoading') }}
+      </div>
+
+      <div
+        v-else-if="contributorsError"
+        class="contributors-status"
+      >
+        <span>{{ contributorsError }}</span>
+        <Button @click="loadContributors">
+          {{ $t('pages.preference.about.buttons.retry') }}
+        </Button>
+      </div>
+
+      <div
+        v-else
+        class="contributor-list"
+      >
+        <button
+          v-for="contributor in contributors"
+          :key="contributor.login"
+          class="contributor-item"
+          :title="contributor.login"
+          type="button"
+          @click="openUrl(contributor.profileUrl)"
         >
           <img
-            :alt="author.name"
-            class="author-avatar"
-            :src="author.avatar"
+            :alt="contributor.login"
+            class="contributor-avatar"
+            :src="contributor.avatarUrl"
           >
-          <div class="author-meta">
-            <span>{{ author.name }}</span>
-            <small v-if="author.role">{{ author.role }}</small>
-          </div>
-        </div>
+          <span>{{ contributor.login }}</span>
+        </button>
       </div>
     </ProListItem>
 
     <ProListItem
-      description="QQ group: 966043945"
-      title="Community"
+      :description="GITHUB_REPOSITORY_URL"
+      :title="$t('pages.preference.about.labels.repository')"
     >
-      <Button @click="copyText(qqGroup, 'QQ group ID copied')">
-        Copy group ID
+      <Button @click="openUrl(GITHUB_REPOSITORY_URL)">
+        {{ $t('pages.preference.about.buttons.openRepository') }}
       </Button>
     </ProListItem>
 
     <ProListItem
-      :description="originalProjectUrl"
-      title="Original project"
-    >
-      <Button @click="openUrl(originalProjectUrl)">
-        Open link
-      </Button>
-    </ProListItem>
-
-    <ProListItem
-      title="Version note"
+      :description="$t('pages.preference.about.hints.license')"
+      :title="$t('pages.preference.about.labels.license')"
       vertical
     >
-      <div class="about-notes">
-        <p
-          v-for="line in modStatement"
-          :key="line"
-          class="about-note"
-        >
-          {{ line }}
-        </p>
-      </div>
+      <Button @click="openUrl(GITHUB_LICENSE_URL)">
+        {{ $t('pages.preference.about.buttons.viewLicense') }}
+      </Button>
     </ProListItem>
 
     <ProListItem
@@ -327,46 +361,40 @@ const metricsItems = computed(() => [
 </template>
 
 <style scoped>
-.author-list {
+.contributor-list {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 }
 
-.author-item {
+.contributor-item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
   font-weight: 500;
 }
 
-.author-meta {
+.contributor-item:hover,
+.contributor-item:focus-visible {
+  color: var(--ant-color-primary);
+}
+
+.contributors-status {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.author-meta small {
+  align-items: center;
+  gap: 8px;
   color: var(--ant-color-text-description);
-  font-size: 12px;
-  font-weight: 400;
 }
 
-.author-avatar {
+.contributor-avatar {
   width: 32px;
   height: 32px;
   border-radius: 999px;
   object-fit: cover;
-}
-
-.about-notes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.about-note {
-  margin: 0;
-  line-height: 1.6;
 }
 </style>
