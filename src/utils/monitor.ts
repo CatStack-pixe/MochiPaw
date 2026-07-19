@@ -4,8 +4,11 @@
 
 import type { Monitor, PhysicalPosition } from '@tauri-apps/api/window'
 
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { cursorPosition, monitorFromPoint } from '@tauri-apps/api/window'
+
+export function getMonitorPoint(cursorPoint: PhysicalPosition) {
+  return { x: cursorPoint.x, y: cursorPoint.y }
+}
 
 function createCursorMonitor() {
   let cachedMonitor: Monitor | null = null
@@ -26,11 +29,9 @@ function createCursorMonitor() {
       }
     }
 
-    const appWindow = getCurrentWebviewWindow()
-
-    const scaleFactor = await appWindow.scaleFactor()
-
-    const { x, y } = cursorPoint.toLogical(scaleFactor)
+    // Both APIs use global physical coordinates. Converting with the current
+    // window's scale factor selects the wrong monitor on mixed-DPI setups.
+    const { x, y } = getMonitorPoint(cursorPoint)
 
     cachedMonitor = await monitorFromPoint(x, y)
 
