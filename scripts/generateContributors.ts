@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import { writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -52,6 +52,14 @@ function isGitHubContributor(value: unknown): value is GitHubContributor {
     && typeof contributor.html_url === 'string'
 }
 
-const contributors = await getContributors()
+try {
+  const contributors = await getContributors()
 
-writeFileSync(outputPath, `${JSON.stringify(contributors, null, 2)}\n`)
+  writeFileSync(outputPath, `${JSON.stringify(contributors, null, 2)}\n`)
+} catch (error) {
+  if (!existsSync(outputPath)) throw error
+
+  const message = error instanceof Error ? error.message : String(error)
+
+  console.warn(`Could not refresh GitHub contributors; keeping the bundled manifest: ${message}`)
+}
