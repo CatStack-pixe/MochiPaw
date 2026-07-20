@@ -7,8 +7,8 @@
 import { exists, remove } from '@tauri-apps/plugin-fs'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { useElementSize } from '@vueuse/core'
-import { Card, Masonry, message, Popconfirm } from 'antdv-next'
-import { computed, ref, useTemplateRef } from 'vue'
+import { Card, Masonry, message, Pagination, Popconfirm } from 'antdv-next'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Model } from '@/stores/model'
@@ -28,6 +28,9 @@ const firstCardRef = useTemplateRef('firstCard')
 const { height } = useElementSize(firstCardRef)
 const { t } = useI18n()
 const openBehaviorModal = ref(false)
+const currentPage = ref(1)
+
+const PAGE_SIZE = 12
 
 function proofLabel(model: Model) {
   if (model.importKind === 'controlled') return t('pages.preference.model.proof.controlled')
@@ -105,8 +108,13 @@ function waitForFrames(count = 2) {
   })
 }
 
+const pageCount = computed(() => {
+  return Math.max(1, Math.ceil(modelStore.models.length / PAGE_SIZE))
+})
+
 const masonryItems = computed(() => {
-  const items = modelStore.models.map((item) => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  const items = modelStore.models.slice(start, start + PAGE_SIZE).map((item) => {
     return {
       key: item.id,
       data: item,
@@ -115,6 +123,14 @@ const masonryItems = computed(() => {
 
   return [{ key: 'upload', data: null }, ...items]
 })
+
+watch(pageCount, (count) => {
+  currentPage.value = Math.min(currentPage.value, count)
+})
+
+function showImportedModels() {
+  currentPage.value = pageCount.value
+}
 
 async function handleToggle(nextModel: Model) {
   if (modelStore.currentModel?.id === nextModel.id) return
@@ -174,7 +190,10 @@ async function handleDelete(item: Model) {
   >
     <template #itemRender="{ data, index }">
       <template v-if="!data">
-        <Upload :style="{ height: `${height}px` }" />
+        <Upload
+          :style="{ height: `${height}px` }"
+          @imported="showImportedModels"
+        />
       </template>
 
       <Card
@@ -271,6 +290,18 @@ async function handleDelete(item: Model) {
     </template>
   </Masonry>
 
+  <div
+    v-if="modelStore.models.length > PAGE_SIZE"
+    class="model-pagination"
+  >
+    <Pagination
+      v-model:current="currentPage"
+      :page-size="PAGE_SIZE"
+      :show-size-changer="false"
+      :total="modelStore.models.length"
+    />
+  </div>
+
   <FloatMenu />
 
   <BehaviorModal
@@ -342,5 +373,11 @@ async function handleDelete(item: Model) {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.model-pagination {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
 }
 </style>
