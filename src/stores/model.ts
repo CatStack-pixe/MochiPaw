@@ -51,9 +51,9 @@ export interface ModelControlledRelease {
 }
 
 export interface ModelRuntimeLease {
-  leaseToken: string
   leaseId: string
   expiresAt: number
+  leaseToken?: string
 }
 
 export interface Model {
