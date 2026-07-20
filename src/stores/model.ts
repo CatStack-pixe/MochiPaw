@@ -43,6 +43,7 @@ export interface ModelControlledRelease {
       path?: string
       algorithm?: string
       nonce?: string
+      ciphertextSha256?: string
       originalSize?: number
       ciphertextSize?: number
     }>
@@ -68,6 +69,7 @@ export interface Model {
   author?: ModelAuthorProfile
   controlledRelease?: ModelControlledRelease
   dispatchToken?: string
+  activationToken?: string
   runtimeLease?: ModelRuntimeLease
 }
 
@@ -208,6 +210,7 @@ async function fillModelMetadata(model: Model) {
   model.author = proofManifest?.author ?? model.author
   model.controlledRelease = controlledRelease ?? model.controlledRelease
   model.dispatchToken = proofManifest?.dispatch?.dispatchToken ?? model.dispatchToken
+  model.activationToken = proofManifest?.dispatch?.activationToken ?? model.activationToken
 
   if (!model.isPreset && !model.displayName?.trim()) {
     model.displayName = await inferStoredModelDisplayName(model, proofManifest?.modelName)

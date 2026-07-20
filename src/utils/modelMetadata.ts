@@ -15,6 +15,7 @@ export interface ModelProofManifest {
   runtimeDistributionMode?: string
   dispatch?: {
     dispatchToken?: string
+    activationToken?: string
     dispatchCode?: string
     distributionCode?: string
     productId?: string

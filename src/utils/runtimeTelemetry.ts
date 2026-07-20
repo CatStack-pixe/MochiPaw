@@ -12,6 +12,8 @@ import { join } from '@/utils/path'
 const RUNTIME_API_BASE = (import.meta.env.VITE_MOCHI_RUNTIME_API_BASE || 'https://www.catpithos.top').replace(/\/$/, '')
 const LEASE_REFRESH_SKEW_SECONDS = 10 * 60
 const DECRYPTION_MARKER = 'decryption.json'
+const INSTALLATION_STORAGE_KEY = 'mochi-paw-runtime-installation-id'
+const DEVICE_PUBLIC_KEY_STORAGE_KEY = 'mochi-paw-runtime-device-public-key'
 
 type RuntimeEventType = 'imported' | 'opened' | 'used' | 'heartbeat' | 'failed'
 
@@ -19,6 +21,33 @@ interface AuthorProofEnvelope {
   payload?: {
     packageId?: string
     package_id?: string
+  }
+}
+
+function persistentRuntimeValue(storageKey: string) {
+  const existing = localStorage.getItem(storageKey)
+  if (existing) return existing
+  const value = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
+  localStorage.setItem(storageKey, value)
+  return value
+}
+
+async function sha256Base64Url(value: string) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function bytesToBase64Url(bytes: Uint8Array) {
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+async function installationIdentity() {
+  return {
+    installIdHash: await sha256Base64Url(persistentRuntimeValue(INSTALLATION_STORAGE_KEY)),
+    // The backend binds this handle today; a keychain-backed signing key replaces it in the next protocol revision.
+    devicePublicKey: persistentRuntimeValue(DEVICE_PUBLIC_KEY_STORAGE_KEY),
   }
 }
 
@@ -51,21 +80,13 @@ function base64UrlBytes(value: string) {
   return bytes
 }
 
-async function decryptControlledPackage(model: Model, contentKey?: string) {
+async function decryptDedicatedPackage(model: Model, leaseToken?: string) {
   const encryptedFiles = model.controlledRelease?.contentEncryption?.encryptedFiles ?? []
 
   if (!encryptedFiles.length) return
   const markerPath = join(model.path, 'mochi-control', DECRYPTION_MARKER)
   if (await exists(markerPath)) return
-  if (!contentKey) throw new Error('Controlled package runtime lease is missing a content key.')
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    base64UrlBytes(contentKey),
-    { name: 'AES-GCM' },
-    false,
-    ['decrypt'],
-  )
+  if (!leaseToken) throw new Error('Controlled package runtime lease is missing.')
 
   for (const file of encryptedFiles) {
     if (!file.path || !file.nonce) continue
@@ -75,13 +96,13 @@ async function decryptControlledPackage(model: Model, contentKey?: string) {
 
     const filePath = join(model.path, file.path)
     const ciphertext = await readFile(filePath)
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: base64UrlBytes(file.nonce) },
-      key,
-      ciphertext,
-    )
-
-    await writeFile(filePath, new Uint8Array(plaintext))
+    const resource = await postRuntimeJson<{ dataBase64: string }>('/runtime/resources', {
+      packageId: model.packageId,
+      path: file.path,
+      nonce: file.nonce,
+      ciphertext: bytesToBase64Url(ciphertext),
+    }, leaseToken)
+    await writeFile(filePath, base64UrlBytes(resource.dataBase64))
   }
 
   await writeTextFile(markerPath, JSON.stringify({
@@ -122,13 +143,66 @@ async function runtimeBody(model: Model, eventType?: RuntimeEventType) {
     eventType,
     authorProof: proof.parsed,
     appVersion: await getVersion().catch(() => undefined),
+    installIdHash: await sha256Base64Url(persistentRuntimeValue(INSTALLATION_STORAGE_KEY)),
+    platform: navigator.platform || 'unknown',
   }
+}
+
+async function decryptLegacyControlledPackage(model: Model, contentKey?: string) {
+  const encryptedFiles = model.controlledRelease?.contentEncryption?.encryptedFiles ?? []
+  if (!encryptedFiles.length) return
+  const markerPath = join(model.path, 'mochi-control', DECRYPTION_MARKER)
+  if (await exists(markerPath)) return
+  if (!contentKey) throw new Error('Controlled package runtime lease is missing a content key.')
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    base64UrlBytes(contentKey),
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt'],
+  )
+  for (const file of encryptedFiles) {
+    if (!file.path || !file.nonce) continue
+    const filePath = join(model.path, file.path)
+    const ciphertext = await readFile(filePath)
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: base64UrlBytes(file.nonce) },
+      key,
+      ciphertext,
+    )
+    await writeFile(filePath, new Uint8Array(plaintext))
+  }
+  await writeTextFile(markerPath, JSON.stringify({ schemaVersion: 1, packageId: model.packageId, decryptedAt: new Date().toISOString() }, null, 2))
 }
 
 export async function ensureRuntimeLease(model: Model) {
   if (model.importKind !== 'controlled' && model.proofStatus !== 'controlled-release') return
   if (isLeaseFresh(model)) {
-    await decryptControlledPackage(model)
+    if (model.activationToken?.startsWith('mat_')) await decryptDedicatedPackage(model, model.runtimeLease?.leaseToken)
+    return
+  }
+  const activationToken = model.activationToken
+  if (activationToken?.startsWith('mat_')) {
+    const body = await runtimeBody(model)
+    if (!body) throw new Error('Controlled package is missing author proof.')
+    const identity = await installationIdentity()
+    let lease: { leaseToken: string, leaseId: string, expiresAt: number }
+    try {
+      lease = await postRuntimeJson('/runtime/leases/refresh', {
+        packageId: body.packageId,
+        ...identity,
+      })
+    } catch {
+      lease = await postRuntimeJson('/runtime/activations', {
+        activationToken,
+        packageId: body.packageId,
+        authorProof: body.authorProof,
+        ...identity,
+      })
+    }
+    await decryptDedicatedPackage(model, lease.leaseToken)
+    model.runtimeLease = lease
     return
   }
   const dispatchToken = model.dispatchToken
@@ -140,7 +214,7 @@ export async function ensureRuntimeLease(model: Model) {
     packageId: body.packageId,
     authorProof: body.authorProof,
   })
-  await decryptControlledPackage(model, lease.contentKey)
+  await decryptLegacyControlledPackage(model, lease.contentKey)
   model.runtimeLease = {
     leaseToken: lease.leaseToken,
     leaseId: lease.leaseId,
