@@ -87,6 +87,10 @@ interface KeyImageRef {
   targetDir: 'left-keys' | 'right-keys' | 'keyboards' | 'faces'
 }
 
+const emit = defineEmits<{
+  imported: []
+}>()
+
 const dropRef = useTemplateRef('drop')
 const dragenter = ref(false)
 const importing = ref(false)
@@ -273,6 +277,7 @@ watch(selectPaths, async (paths) => {
         reportRuntimeEventQuietly(model, 'imported')
       }
 
+      emit('imported')
       message.success(t('pages.preference.model.hints.importSuccess'))
     } catch (error) {
       message.error(String(error))
