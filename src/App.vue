@@ -26,6 +26,7 @@ import { useCatStore } from './stores/cat'
 import { useGeneralStore } from './stores/general'
 import { useModelStore } from './stores/model'
 import { useShortcutStore } from './stores/shortcut.ts'
+import { openSubModelWindow } from './utils/subModelWindow'
 
 const appStore = useAppStore()
 const modelStore = useModelStore()
@@ -53,6 +54,13 @@ onMounted(async () => {
   await appStore.init()
   await modelStore.$tauri.start()
   await modelStore.init()
+
+  if (appWindow.label === 'main') {
+    await Promise.all(modelStore.subModels
+      .filter(instance => instance.visible && instance.showOnLaunch)
+      .map(openSubModelWindow))
+  }
+
   await catStore.$tauri.start()
   catStore.init()
   await generalStore.$tauri.start()
