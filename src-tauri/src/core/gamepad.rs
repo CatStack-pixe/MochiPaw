@@ -5,7 +5,11 @@
 use gilrs::{EventType, Gilrs};
 use serde::Serialize;
 use std::{
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    collections::HashSet,
+    sync::{
+        LazyLock, Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
     thread,
     time::Duration,
 };
@@ -13,6 +17,8 @@ use tauri::{AppHandle, Emitter, Runtime, command};
 
 static IS_LISTENING: AtomicBool = AtomicBool::new(false);
 static LISTENING_SESSION: AtomicU64 = AtomicU64::new(0);
+static LISTENER_DEMANDS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(8);
 
@@ -98,6 +104,44 @@ fn listen_for_gamepad_events<R: Runtime>(app_handle: AppHandle<R>, mut gilrs: Gi
 pub async fn stop_gamepad_listing() {
     LISTENING_SESSION.fetch_add(1, Ordering::SeqCst);
     IS_LISTENING.store(false, Ordering::SeqCst);
+}
+
+#[command]
+pub async fn set_gamepad_listener_enabled<R: Runtime>(
+    app_handle: AppHandle<R>,
+    window_label: String,
+    enabled: bool,
+) -> Result<(), String> {
+    let should_start = {
+        let mut demands = LISTENER_DEMANDS
+            .lock()
+            .map_err(|_| "Failed to lock gamepad listener demands".to_string())?;
+        let was_empty = demands.is_empty();
+
+        if enabled {
+            demands.insert(window_label);
+        } else {
+            demands.remove(&window_label);
+        }
+
+        was_empty && !demands.is_empty()
+    };
+
+    let should_stop = {
+        let demands = LISTENER_DEMANDS
+            .lock()
+            .map_err(|_| "Failed to lock gamepad listener demands".to_string())?;
+
+        demands.is_empty()
+    };
+
+    if should_start {
+        start_gamepad_listing(app_handle).await?;
+    } else if should_stop {
+        stop_gamepad_listing().await;
+    }
+
+    Ok(())
 }
 
 fn is_session_active(session: u64) -> bool {

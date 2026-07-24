@@ -48,7 +48,12 @@ const activeModel = computed(() => {
 })
 const windowSettings = computed(() => subModel.value?.window ?? catStore.window)
 const appearanceSettings = computed(() => subModel.value?.appearance ?? catStore.model)
-const { startListening } = isSubModel ? { startListening: () => undefined } : useDevice()
+const listenerSettings = computed(() => subModel.value?.listeners ?? {
+  keyboard: true,
+  mouse: true,
+  gamepad: true,
+  typingBehavior: true,
+})
 const {
   modelSize,
   handleLoad,
@@ -62,12 +67,20 @@ const {
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
   syncWindowScale: !isSubModel,
 })
+const { startListening } = useDevice({
+  currentModel: activeModel,
+  mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
+  listeners: listenerSettings,
+  enableWindowHover: !isSubModel,
+})
 const { getBaseMenu, getExitMenu } = useAppMenu()
 const backgroundImagePath = ref<string>()
 const live2dCanvas = ref<HTMLCanvasElement | null>(null)
-const { stickActive } = isSubModel
-  ? { stickActive: computed(() => ({ left: false, right: false })) }
-  : useGamepad()
+const { stickActive } = useGamepad({
+  currentModel: activeModel,
+  mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
+  enabled: computed(() => listenerSettings.value.gamepad),
+})
 const pressedKeyLayers = computed(() => {
   return Object.entries(modelStore.pressedKeys).flatMap(([key, layers]) => {
     return layers.map((layer, index) => ({
@@ -101,7 +114,9 @@ function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
 }
 
 onMounted(() => {
-  startListening()
+  if (!isSubModel) {
+    startListening()
+  }
 
   if (!isSubModel) return
 

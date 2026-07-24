@@ -22,6 +22,7 @@ export const INVOKE_KEY = {
   START_DEVICE_LISTENING: 'start_device_listening',
   START_GAMEPAD_LISTING: 'start_gamepad_listing',
   STOP_GAMEPAD_LISTING: 'stop_gamepad_listing',
+  SET_GAMEPAD_LISTENER_ENABLED: 'set_gamepad_listener_enabled',
 }
 
 export const LANGUAGE = {
