@@ -73,6 +73,26 @@ export function useGamepad(options: UseGamepadOptions = {}) {
     void syncGamepadListener(isEnabled)
   }, { immediate: true })
 
+  watch(enabled, (isEnabled) => {
+    if (isEnabled) return
+
+    Object.assign(sticks.left, INITIAL_STICK_STATE)
+    Object.assign(sticks.right, INITIAL_STICK_STATE)
+
+    for (const id of [
+      'CatParamStickLX',
+      'CatParamStickLY',
+      'CatParamStickRX',
+      'CatParamStickRY',
+      'CatParamStickLeftDown',
+      'CatParamStickRightDown',
+      'CatParamStickShowLeftHand',
+      'CatParamStickShowRightHand',
+    ]) {
+      live2d.setParameterValue(id, false)
+    }
+  }, { immediate: true })
+
   onUnmounted(() => {
     void syncGamepadListener(false)
   })

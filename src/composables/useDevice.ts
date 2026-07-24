@@ -170,6 +170,21 @@ export function useDevice(options: UseDeviceOptions = {}) {
     scheduleCursorSmoothing()
   }, { immediate: true })
 
+  watch(() => listeners.value.keyboard, (keyboardEnabled) => {
+    if (keyboardEnabled) return
+
+    for (const key of Object.keys(modelStore.activeKeys)) {
+      handleRelease(key)
+    }
+  }, { immediate: true })
+
+  watch(() => listeners.value.mouse, (mouseEnabled) => {
+    if (mouseEnabled) return
+
+    handleMouseChange('Left', false)
+    handleMouseChange('Right', false)
+  }, { immediate: true })
+
   const startListening = () => {
     invoke(INVOKE_KEY.START_DEVICE_LISTENING)
   }
