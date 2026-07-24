@@ -12,10 +12,10 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import type { ModelMotionInfo } from '@/stores/model'
+import type { ModelMotionInfo, SubModelInstance } from '@/stores/model'
 
 import { useAppMenu } from '@/composables/useAppMenu'
 import { useDevice } from '@/composables/useDevice'
@@ -41,7 +41,12 @@ const isSubModel = Boolean(subModelId)
 const modelStore = useModelStore()
 const catStore = useCatStore()
 const generalStore = useGeneralStore()
-const subModel = computed(() => subModelId ? modelStore.getSubModel(subModelId) : undefined)
+const syncedSubModel = ref<SubModelInstance>()
+const subModel = computed(() => {
+  if (!subModelId) return undefined
+
+  return syncedSubModel.value ?? modelStore.getSubModel(subModelId)
+})
 const activeModel = computed(() => {
   if (!subModel.value) return modelStore.currentModel
 
@@ -100,6 +105,9 @@ let currentModelLoadVersion = 0
 
 const SCALE_DRAG_SENSITIVITY = 0.12
 const SHORTCUT_RESIZE_INTERVAL = 33
+const reportSubModelWindowChange = useDebounceFn((instance: SubModelInstance) => {
+  void emit(LISTEN_KEY.SUB_MODEL_WINDOW_CHANGED, structuredClone(toRaw(instance)))
+}, 150)
 
 function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
   if (!modelSizeValue) return
@@ -128,6 +136,7 @@ onMounted(() => {
 
     instance.window.x = payload.x
     instance.window.y = payload.y
+    reportSubModelWindowChange(instance)
   })
 
   appWindow.onCloseRequested(() => {
@@ -295,6 +304,12 @@ useTauriListen<boolean>(LISTEN_KEY.SET_SUB_MODEL_RENDERING, ({ payload }) => {
   if (!isSubModel) return
 
   live2d.setRenderingEnabled(payload)
+})
+
+useTauriListen<SubModelInstance>(LISTEN_KEY.UPDATE_SUB_MODEL, ({ payload }) => {
+  if (!isSubModel || payload.id !== subModelId) return
+
+  syncedSubModel.value = payload
 })
 
 function handleMouseDown(event: MouseEvent) {

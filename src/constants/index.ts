@@ -16,6 +16,8 @@ export const LISTEN_KEY = {
   SET_EXPRESSION: 'set-expression',
   SET_SUB_MODEL_RENDERING: 'set-sub-model-rendering',
   SUB_MODEL_VISIBILITY_CHANGED: 'sub-model-visibility-changed',
+  SUB_MODEL_WINDOW_CHANGED: 'sub-model-window-changed',
+  UPDATE_SUB_MODEL: 'update-sub-model',
 }
 
 export const INVOKE_KEY = {
