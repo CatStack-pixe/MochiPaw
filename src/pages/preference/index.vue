@@ -86,7 +86,7 @@ const menus = computed(() => [
 
   <Flex class="h-screen">
     <div
-      class="h-full w-30 flex flex-col items-center gap-4 overflow-auto bg-gradient-from-blue-1 bg-gradient-to-black/1 bg-gradient-linear dark:bg-none"
+      class="preference-navigation h-full w-30 flex flex-col items-center gap-4 overflow-auto bg-gradient-from-blue-1 bg-gradient-to-black/1 bg-gradient-linear dark:bg-none"
       :class="[isMac ? 'pt-8' : 'pt-4']"
       data-tauri-drag-region
     >
@@ -133,3 +133,14 @@ const menus = computed(() => [
 
   <UpdateApp />
 </template>
+
+<style scoped>
+.preference-navigation {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.preference-navigation::-webkit-scrollbar {
+  display: none;
+}
+</style>
