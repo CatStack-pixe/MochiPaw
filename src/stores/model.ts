@@ -8,6 +8,7 @@ import { resolveResource } from '@tauri-apps/api/path'
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
 import { filter, find } from 'es-toolkit/compat'
 import JSON5 from 'json5'
+import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
@@ -107,6 +108,40 @@ export interface ModelBehaviorGroup {
   rules?: ModelBehaviorRule[]
 }
 
+export interface SubModelListeners {
+  keyboard: boolean
+  mouse: boolean
+  gamepad: boolean
+  typingBehavior: boolean
+}
+
+export interface SubModelWindowSettings {
+  x?: number
+  y?: number
+  scale: number
+  opacity: number
+  radius: number
+  passThrough: boolean
+  alwaysOnTop: boolean
+}
+
+export interface SubModelAppearanceSettings {
+  mirror: boolean
+  mouseMirror: boolean
+  maxFPS: number
+}
+
+export interface SubModelInstance {
+  id: string
+  modelId: string
+  visible: boolean
+  showOnLaunch: boolean
+  createdAt: number
+  listeners: SubModelListeners
+  window: SubModelWindowSettings
+  appearance: SubModelAppearanceSettings
+}
+
 interface PresetModel {
   id: string
   mode: ModelMode
@@ -148,6 +183,7 @@ export const useModelStore = defineStore('model', () => {
   const shortcuts = reactive<Record<string, string>>({})
   const behaviorNames = reactive<Record<string, string>>({})
   const behaviorGroups = reactive<Record<string, ModelBehaviorGroup[]>>({})
+  const subModels = ref<SubModelInstance[]>([])
 
   const init = async () => {
     const modelsPath = await resolveResource('assets/models')
@@ -180,6 +216,52 @@ export const useModelStore = defineStore('model', () => {
     models.value = nextModels
   }
 
+  const createSubModel = (modelId: string) => {
+    const instance: SubModelInstance = {
+      id: nanoid(),
+      modelId,
+      visible: true,
+      showOnLaunch: true,
+      createdAt: Date.now(),
+      listeners: {
+        keyboard: false,
+        mouse: false,
+        gamepad: false,
+        typingBehavior: false,
+      },
+      window: {
+        scale: 100,
+        opacity: 100,
+        radius: 0,
+        passThrough: false,
+        alwaysOnTop: false,
+      },
+      appearance: {
+        mirror: false,
+        mouseMirror: false,
+        maxFPS: 15,
+      },
+    }
+
+    subModels.value.push(instance)
+
+    return instance
+  }
+
+  const getSubModel = (id: string) => subModels.value.find(instance => instance.id === id)
+
+  const removeSubModel = (id: string) => {
+    const index = subModels.value.findIndex(instance => instance.id === id)
+
+    if (index !== -1) {
+      subModels.value.splice(index, 1)
+    }
+  }
+
+  const removeSubModelsByModelId = (modelId: string) => {
+    subModels.value = subModels.value.filter(instance => instance.modelId !== modelId)
+  }
+
   return {
     modelReady,
     models,
@@ -192,7 +274,12 @@ export const useModelStore = defineStore('model', () => {
     shortcuts,
     behaviorNames,
     behaviorGroups,
+    subModels,
     init,
+    createSubModel,
+    getSubModel,
+    removeSubModel,
+    removeSubModelsByModelId,
   }
 }, {
   tauri: {
