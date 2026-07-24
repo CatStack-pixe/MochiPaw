@@ -147,6 +147,36 @@
           "offlineLeaseAllowed": "允许离线授权"
         }
       },
+      "subModel": {
+        "title": "子模型",
+        "configured": "已配置 {count} 个",
+        "empty": "暂无子模型",
+        "actions": {
+          "add": "添加子模型",
+          "toggleVisibility": "显示或隐藏子模型",
+          "delete": "删除子模型"
+        },
+        "hints": {
+          "createTitle": "创建更多子模型？",
+          "createWarning": "更多可见模型会占用额外的 CPU、GPU 和内存。",
+          "delete": "这将删除子模型及其窗口设置。"
+        },
+        "labels": {
+          "showOnLaunch": "启动时显示",
+          "keyboard": "键盘",
+          "mouse": "鼠标",
+          "gamepad": "手柄",
+          "typingBehavior": "打字行为",
+          "passThrough": "鼠标穿透",
+          "alwaysOnTop": "窗口置顶",
+          "mirror": "镜像",
+          "mouseMirror": "鼠标镜像",
+          "fps": "帧率",
+          "scale": "缩放",
+          "opacity": "不透明度",
+          "radius": "圆角"
+        }
+      },
       "shortcut": {
         "title": "快捷键",
         "labels": {

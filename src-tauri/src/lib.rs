@@ -7,7 +7,7 @@ mod utils;
 
 use core::{
     device::start_device_listening,
-    gamepad::{start_gamepad_listing, stop_gamepad_listing},
+    gamepad::{set_gamepad_listener_enabled, start_gamepad_listing, stop_gamepad_listing},
     prevent_default,
     runtime_security::{
         prepare_dedicated_runtime, record_dedicated_runtime_event, runtime_installation_identity,
@@ -51,6 +51,7 @@ pub fn run() {
             start_device_listening,
             start_gamepad_listing,
             stop_gamepad_listing,
+            set_gamepad_listener_enabled,
             runtime_installation_identity,
             prepare_dedicated_runtime,
             record_dedicated_runtime_event

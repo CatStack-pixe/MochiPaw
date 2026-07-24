@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import type { PhysicalPosition } from '@tauri-apps/api/dpi'
+import type { Ref } from 'vue'
 
 import { LogicalSize } from '@tauri-apps/api/dpi'
 import { resolveResource } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { message } from 'antdv-next'
 import { isNil, round } from 'es-toolkit'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-import type { ModelBehaviorGroup, ModelBehaviorRef, ModelMotionInfo } from '@/stores/model'
+import type { Model, ModelBehaviorGroup, ModelBehaviorRef, ModelMotionInfo } from '@/stores/model'
 
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
@@ -34,9 +35,17 @@ export interface ModelSize {
   height: number
 }
 
-export function useModel() {
+export interface ModelRuntimeOptions {
+  currentModel?: Readonly<Ref<Model | undefined>>
+  mouseMirror?: Readonly<Ref<boolean>>
+  syncWindowScale?: boolean
+}
+
+export function useModel(options: ModelRuntimeOptions = {}) {
   const modelStore = useModelStore()
   const catStore = useCatStore()
+  const currentModel = options.currentModel ?? computed(() => modelStore.currentModel)
+  const mouseMirror = options.mouseMirror ?? computed(() => catStore.model.mouseMirror)
   const modelSize = ref<ModelSize>()
   let typingExpressionTimer: ReturnType<typeof setTimeout> | undefined
   let nextTypingExpressionAt = 0
@@ -159,9 +168,9 @@ export function useModel() {
 
   async function handleLoad(view: HTMLCanvasElement) {
     try {
-      if (!modelStore.currentModel) return
+      if (!currentModel.value) return
 
-      const { path } = modelStore.currentModel
+      const { path } = currentModel.value
 
       await resolveResource(path)
 
@@ -175,7 +184,7 @@ export function useModel() {
 
       await handleResize()
 
-      const modelId = modelStore.currentModel.id
+      const modelId = currentModel.value.id
 
       const behaviorIds: string[] = []
 
@@ -252,7 +261,7 @@ export function useModel() {
 
     live2d.resizeModel(modelSize.value)
 
-    if (options.syncScale === false) return
+    if (options.syncScale === false || options.syncWindowScale === false) return
 
     const size = await appWindow.size()
 
@@ -318,7 +327,7 @@ export function useModel() {
   }
 
   function handleTypingExpression() {
-    if (!catStore.model.behavior || !catStore.model.typingExpression || !modelStore.currentModel) {
+    if (!catStore.model.behavior || !catStore.model.typingExpression || !currentModel.value) {
       return
     }
 
@@ -345,9 +354,9 @@ export function useModel() {
   }
 
   function getRandomTypingBehavior() {
-    if (!modelStore.currentModel) return
+    if (!currentModel.value) return
 
-    const groups = getBehaviorGroups(modelStore.currentModel.id)
+    const groups = getBehaviorGroups(currentModel.value.id)
     const selectedGroup = groups.find(group => group.id === catStore.model.typingBehaviorGroup)
       ?? groups.find(group => group.id === 'default')
     const refs = selectedGroup?.items
@@ -438,9 +447,9 @@ export function useModel() {
   }
 
   function getBehaviorRuleGroup(behaviorId: string, groupId?: string): ModelBehaviorGroup | undefined {
-    if (!modelStore.currentModel) return
+    if (!currentModel.value) return
 
-    const groups = getBehaviorGroups(modelStore.currentModel.id)
+    const groups = getBehaviorGroups(currentModel.value.id)
 
     if (groupId) {
       const group = groups.find(group => group.id === groupId)
@@ -537,7 +546,7 @@ export function useModel() {
         value = max - ratio * (max - min)
       }
 
-      if (!isYAxis && catStore.model.mouseMirror) {
+      if (!isYAxis && mouseMirror.value) {
         value *= -1
       }
 

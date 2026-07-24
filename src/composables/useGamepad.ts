@@ -3,9 +3,14 @@
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
 import type { LiteralUnion } from 'type-fest'
+import type { Ref } from 'vue'
 
 import { invoke } from '@tauri-apps/api/core'
-import { computed, reactive, watch } from 'vue'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { computed, onUnmounted, reactive, watch } from 'vue'
+
+import type { ModelRuntimeOptions } from '@/composables/useModel'
+import type { Model } from '@/stores/model'
 
 import { INVOKE_KEY, LISTEN_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
@@ -35,10 +40,18 @@ interface Sticks {
 }
 
 const INITIAL_STICK_STATE: StickState = { x: 0, y: 0, moved: false, pressed: false }
+const appWindow = getCurrentWebviewWindow()
 
-export function useGamepad() {
+export interface UseGamepadOptions extends ModelRuntimeOptions {
+  enabled?: Readonly<Ref<boolean>>
+  currentModel?: Readonly<Ref<Model | undefined>>
+}
+
+export function useGamepad(options: UseGamepadOptions = {}) {
   const modelStore = useModelStore()
-  const { handlePress, handleRelease, handleAxisChange } = useModel()
+  const enabled = options.enabled ?? computed(() => true)
+  const currentModel = options.currentModel ?? computed(() => modelStore.currentModel)
+  const { handlePress, handleRelease, handleAxisChange } = useModel(options)
   const sticks = reactive<Sticks>({
     left: { ...INITIAL_STICK_STATE },
     right: { ...INITIAL_STICK_STATE },
@@ -49,13 +62,40 @@ export function useGamepad() {
     right: sticks.right.moved || sticks.right.pressed,
   }))
 
-  watch(() => modelStore.currentModel?.mode, (mode) => {
-    if (mode === 'gamepad') {
-      return invoke(INVOKE_KEY.START_GAMEPAD_LISTING)
-    }
+  const syncGamepadListener = (isEnabled: boolean) => {
+    return invoke(INVOKE_KEY.SET_GAMEPAD_LISTENER_ENABLED, {
+      windowLabel: appWindow.label,
+      enabled: isEnabled && currentModel.value?.mode === 'gamepad',
+    })
+  }
 
-    invoke(INVOKE_KEY.STOP_GAMEPAD_LISTING)
+  watch([enabled, currentModel], ([isEnabled]) => {
+    void syncGamepadListener(isEnabled)
   }, { immediate: true })
+
+  watch(enabled, (isEnabled) => {
+    if (isEnabled) return
+
+    Object.assign(sticks.left, INITIAL_STICK_STATE)
+    Object.assign(sticks.right, INITIAL_STICK_STATE)
+
+    for (const id of [
+      'CatParamStickLX',
+      'CatParamStickLY',
+      'CatParamStickRX',
+      'CatParamStickRY',
+      'CatParamStickLeftDown',
+      'CatParamStickRightDown',
+      'CatParamStickShowLeftHand',
+      'CatParamStickShowRightHand',
+    ]) {
+      live2d.setParameterValue(id, false)
+    }
+  }, { immediate: true })
+
+  onUnmounted(() => {
+    void syncGamepadListener(false)
+  })
 
   watch(sticks.left, ({ x, y, moved, pressed }) => {
     sticks.left.moved = x !== 0 || y !== 0
@@ -70,6 +110,8 @@ export function useGamepad() {
   }, { deep: true })
 
   useTauriListen<GamepadEvent>(LISTEN_KEY.GAMEPAD_CHANGED, ({ payload }) => {
+    if (!enabled.value) return
+
     const { name, value } = payload
 
     switch (name) {

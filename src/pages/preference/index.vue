@@ -21,6 +21,7 @@ import Cat from './components/cat/index.vue'
 import General from './components/general/index.vue'
 import Model from './components/model/index.vue'
 import Shortcut from './components/shortcut/index.vue'
+import SubModel from './components/sub-model/index.vue'
 
 useTray()
 const appStore = useAppStore()
@@ -54,6 +55,12 @@ const menus = computed(() => [
     component: Model,
   },
   {
+    key: 'sub-model',
+    label: t('pages.preference.subModel.title'),
+    icon: 'i-solar:cat-bold-duotone',
+    component: SubModel,
+  },
+  {
     key: 'shortcut',
     label: t('pages.preference.shortcut.title'),
     icon: 'i-solar:keyboard-bold',
@@ -79,12 +86,12 @@ const menus = computed(() => [
 
   <Flex class="h-screen">
     <div
-      class="h-full w-30 flex flex-col items-center gap-4 overflow-auto bg-gradient-from-blue-1 bg-gradient-to-black/1 bg-gradient-linear dark:bg-none"
+      class="preference-navigation h-full w-30 flex flex-col items-center gap-4 overflow-auto bg-gradient-from-blue-1 bg-gradient-to-black/1 bg-gradient-linear dark:bg-none"
       :class="[isMac ? 'pt-8' : 'pt-4']"
       data-tauri-drag-region
     >
       <div class="flex flex-col items-center gap-2">
-        <div class="b-1 b-solid b-border-sec rounded-2xl">
+        <div class="b-1 rounded-2xl b-solid b-border-sec">
           <img
             class="size-15"
             data-tauri-drag-region
@@ -126,3 +133,14 @@ const menus = computed(() => [
 
   <UpdateApp />
 </template>
+
+<style scoped>
+.preference-navigation {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.preference-navigation::-webkit-scrollbar {
+  display: none;
+}
+</style>

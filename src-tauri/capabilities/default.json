@@ -7,6 +7,11 @@
   ],
   "permissions": [
     "core:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-destroy",
     "core:window:allow-start-dragging",
     "core:window:allow-set-size",
     "core:window:deny-internal-toggle-maximize",

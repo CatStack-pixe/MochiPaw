@@ -147,6 +147,36 @@
           "offlineLeaseAllowed": "Cho ph?p lease ngo?i tuy?n"
         }
       },
+      "subModel": {
+        "title": "Mô hình phụ",
+        "configured": "Đã cấu hình {count}",
+        "empty": "Không có mô hình phụ",
+        "actions": {
+          "add": "Thêm mô hình phụ",
+          "toggleVisibility": "Hiện hoặc ẩn mô hình phụ",
+          "delete": "Xóa mô hình phụ"
+        },
+        "hints": {
+          "createTitle": "Tạo thêm mô hình phụ?",
+          "createWarning": "Nhiều mô hình hiển thị hơn cần thêm CPU, GPU và bộ nhớ.",
+          "delete": "Thao tác này xóa mô hình phụ và cài đặt cửa sổ của nó."
+        },
+        "labels": {
+          "showOnLaunch": "Hiện khi khởi động",
+          "keyboard": "Bàn phím",
+          "mouse": "Chuột",
+          "gamepad": "Tay cầm",
+          "typingBehavior": "Hành vi gõ phím",
+          "passThrough": "Xuyên chuột",
+          "alwaysOnTop": "Luôn trên cùng",
+          "mirror": "Phản chiếu",
+          "mouseMirror": "Phản chiếu chuột",
+          "fps": "FPS",
+          "scale": "Tỷ lệ",
+          "opacity": "Độ mờ",
+          "radius": "Bo góc"
+        }
+      },
       "shortcut": {
         "title": "Phím tắt",
         "labels": {

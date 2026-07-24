@@ -2,11 +2,15 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
+import type { Ref } from 'vue'
+
 import { invoke } from '@tauri-apps/api/core'
 import { PhysicalPosition } from '@tauri-apps/api/dpi'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { isNil } from 'es-toolkit'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+
+import type { ModelRuntimeOptions } from '@/composables/useModel'
 
 import { useAppStore } from '@/stores/app'
 import { useCatStore } from '@/stores/cat'
@@ -29,6 +33,17 @@ export interface CursorPoint {
   y: number
 }
 
+export interface DeviceListenerOptions {
+  keyboard: boolean
+  mouse: boolean
+  typingBehavior: boolean
+}
+
+export interface UseDeviceOptions extends ModelRuntimeOptions {
+  listeners?: Readonly<Ref<DeviceListenerOptions>>
+  enableWindowHover?: boolean
+}
+
 interface MouseMoveEvent {
   kind: 'MouseMove'
   value: CursorPoint
@@ -45,15 +60,21 @@ const DAMPING_DECAY = 0.75
 const RUNTIME_USED_REPORT_INTERVAL = 5 * 60 * 1000
 const appWindow = getCurrentWebviewWindow()
 
-export function useDevice() {
+export function useDevice(options: UseDeviceOptions = {}) {
   const modelStore = useModelStore()
+  const currentModel = options.currentModel ?? computed(() => modelStore.currentModel)
   const releaseTimers = new Map<string, NodeJS.Timeout>()
   const appStore = useAppStore()
   const catStore = useCatStore()
   const latestCursorPoint = ref<CursorPoint>()
   const smoothedCursorPoint = ref<CursorPoint>()
   const scaleFactor = ref(1)
-  const { handlePress, handleRelease, handleMouseChange, handleMouseMove, handleDestroy } = useModel()
+  const listeners = options.listeners ?? computed<DeviceListenerOptions>(() => ({
+    keyboard: true,
+    mouse: true,
+    typingBehavior: true,
+  }))
+  const { handlePress, handleRelease, handleMouseChange, handleMouseMove, handleDestroy } = useModel(options)
   let lastRuntimeUsedReportAt = 0
   let cursorSmoothingFrame = 0
   let lastCursorSmoothingAt = 0
@@ -62,7 +83,7 @@ export function useDevice() {
     const now = Date.now()
     if (now - lastRuntimeUsedReportAt < RUNTIME_USED_REPORT_INTERVAL) return
     lastRuntimeUsedReportAt = now
-    reportRuntimeEventQuietly(modelStore.currentModel, 'used')
+    reportRuntimeEventQuietly(currentModel.value, 'used')
   }
 
   const stopCursorSmoothing = () => {
@@ -77,7 +98,7 @@ export function useDevice() {
   }
 
   const scheduleCursorSmoothing = () => {
-    if (catStore.model.ignoreMouse || cursorSmoothingFrame || !latestCursorPoint.value) return
+    if (catStore.model.ignoreMouse || !listeners.value.mouse || cursorSmoothingFrame || !latestCursorPoint.value) return
 
     cursorSmoothingFrame = requestAnimationFrame(runCursorSmoothing)
   }
@@ -140,13 +161,28 @@ export function useDevice() {
     handleDestroy()
   })
 
-  watch(() => catStore.model.ignoreMouse, (value) => {
-    if (value) {
+  watch([() => catStore.model.ignoreMouse, () => listeners.value.mouse], ([ignoreMouse, mouseEnabled]) => {
+    if (ignoreMouse || !mouseEnabled) {
       stopCursorSmoothing()
       return
     }
 
     scheduleCursorSmoothing()
+  }, { immediate: true })
+
+  watch(() => listeners.value.keyboard, (keyboardEnabled) => {
+    if (keyboardEnabled) return
+
+    for (const key of Object.keys(modelStore.activeKeys)) {
+      handleRelease(key)
+    }
+  }, { immediate: true })
+
+  watch(() => listeners.value.mouse, (mouseEnabled) => {
+    if (mouseEnabled) return
+
+    handleMouseChange('Left', false)
+    handleMouseChange('Right', false)
   }, { immediate: true })
 
   const startListening = () => {
@@ -234,7 +270,7 @@ export function useDevice() {
 
     handleMouseMove(new PhysicalPosition(x, y))
 
-    if (!catStore.window.hideOnHover) return
+    if (!options.enableWindowHover || !catStore.window.hideOnHover) return
 
     onHideOnHover(x, y)
   }
@@ -244,7 +280,7 @@ export function useDevice() {
       clearTimeout(releaseTimers.get(key))
     }
 
-    handlePress(key, { triggerExpression: true })
+    handlePress(key, { triggerExpression: listeners.value.typingBehavior })
 
     const timer = setTimeout(() => {
       handleRelease(key)
@@ -268,6 +304,8 @@ export function useDevice() {
     const { kind, value } = payload
 
     if (kind === 'KeyboardPress' || kind === 'KeyboardRelease') {
+      if (!listeners.value.keyboard) return
+
       const nextValues = getSupportedKeys(value)
         .filter((key) => {
           return modelStore.supportKeys[key]?.length
@@ -295,7 +333,7 @@ export function useDevice() {
         }
 
         for (const nextValue of nextValues) {
-          handlePress(nextValue, { triggerExpression: true })
+          handlePress(nextValue, { triggerExpression: listeners.value.typingBehavior })
         }
 
         return
@@ -310,11 +348,14 @@ export function useDevice() {
 
     switch (kind) {
       case 'MousePress':
+        if (!listeners.value.mouse) return
         reportRuntimeUsed()
         return handleMouseChange(value)
       case 'MouseRelease':
+        if (!listeners.value.mouse) return
         return handleMouseChange(value, false)
       case 'MouseMove':
+        if (!listeners.value.mouse) return
         latestCursorPoint.value = value
         return scheduleCursorSmoothing()
     }

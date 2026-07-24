@@ -203,6 +203,7 @@ class Live2d {
   private appInitPromise: Promise<void> | null = null
   private loadVersion = 0
   private maxFPS = 30
+  private renderingEnabled = true
   public model: Live2DSprite | null = null
 
   constructor() { }
@@ -281,6 +282,10 @@ class Live2d {
 
     await model.ready
 
+    if (!this.renderingEnabled) {
+      app.stop()
+    }
+
     if (version !== this.loadVersion || this.model !== model) {
       if (this.model === model) {
         this.destroyCurrentModel()
@@ -353,7 +358,9 @@ class Live2d {
     this.model.x = innerWidth / 2
     this.model.y = innerHeight / 2
     this.model.anchor.set(0.5)
-    this.app?.start()
+    if (this.renderingEnabled) {
+      this.app?.start()
+    }
   }
 
   public startMotion(motion: MotionInfo) {
@@ -384,6 +391,19 @@ class Live2d {
 
     if (this.app?.ticker) {
       this.app.ticker.maxFPS = fps
+    }
+  }
+
+  public setRenderingEnabled(enabled: boolean) {
+    this.renderingEnabled = enabled
+
+    if (!enabled) {
+      this.app?.stop()
+      return
+    }
+
+    if (this.model) {
+      this.app?.start()
     }
   }
 }

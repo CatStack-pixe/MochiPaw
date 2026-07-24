@@ -147,6 +147,36 @@
           "offlineLeaseAllowed": "允許離線授權"
         }
       },
+      "subModel": {
+        "title": "子模型",
+        "configured": "已設定 {count} 個",
+        "empty": "尚無子模型",
+        "actions": {
+          "add": "新增子模型",
+          "toggleVisibility": "顯示或隱藏子模型",
+          "delete": "刪除子模型"
+        },
+        "hints": {
+          "createTitle": "要建立更多子模型嗎？",
+          "createWarning": "更多可見模型會使用額外的 CPU、GPU 與記憶體。",
+          "delete": "這會刪除子模型及其視窗設定。"
+        },
+        "labels": {
+          "showOnLaunch": "啟動時顯示",
+          "keyboard": "鍵盤",
+          "mouse": "滑鼠",
+          "gamepad": "手把",
+          "typingBehavior": "輸入行為",
+          "passThrough": "滑鼠穿透",
+          "alwaysOnTop": "視窗置頂",
+          "mirror": "鏡像",
+          "mouseMirror": "滑鼠鏡像",
+          "fps": "幀率",
+          "scale": "縮放",
+          "opacity": "不透明度",
+          "radius": "圓角"
+        }
+      },
       "shortcut": {
         "title": "快速鍵",
         "labels": {

@@ -14,6 +14,10 @@ export const LISTEN_KEY = {
   GAMEPAD_CHANGED: 'gamepad-changed',
   START_MOTION: 'start-motion',
   SET_EXPRESSION: 'set-expression',
+  SET_SUB_MODEL_RENDERING: 'set-sub-model-rendering',
+  SUB_MODEL_VISIBILITY_CHANGED: 'sub-model-visibility-changed',
+  SUB_MODEL_WINDOW_CHANGED: 'sub-model-window-changed',
+  UPDATE_SUB_MODEL: 'update-sub-model',
 }
 
 export const INVOKE_KEY = {
@@ -22,6 +26,7 @@ export const INVOKE_KEY = {
   START_DEVICE_LISTENING: 'start_device_listening',
   START_GAMEPAD_LISTING: 'start_gamepad_listing',
   STOP_GAMEPAD_LISTING: 'stop_gamepad_listing',
+  SET_GAMEPAD_LISTENER_ENABLED: 'set_gamepad_listener_enabled',
 }
 
 export const LANGUAGE = {

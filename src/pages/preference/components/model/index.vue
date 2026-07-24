@@ -16,6 +16,7 @@ import type { Model } from '@/stores/model'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
+import { destroySubModelWindow } from '@/utils/subModelWindow'
 
 import BehaviorModal from './components/behavior-modal/index.vue'
 import ModelPreview from './components/model-preview/index.vue'
@@ -168,6 +169,11 @@ async function handleDelete(item: Model) {
       await remove(path, { recursive: true })
     }
 
+    const subModels = modelStore.subModels.filter(instance => instance.modelId === id)
+
+    await Promise.all(subModels.map(instance => destroySubModelWindow(instance.id)))
+    modelStore.removeSubModelsByModelId(id)
+
     message.success(t('pages.preference.model.hints.deleteSuccess'))
   } catch (error) {
     modelStore.models = previousModels
@@ -291,18 +297,18 @@ async function handleDelete(item: Model) {
           </Card>
         </template>
       </Masonry>
-    </div>
 
-    <div
-      v-if="modelStore.models.length > PAGE_SIZE"
-      class="model-pagination"
-    >
-      <Pagination
-        v-model:current="currentPage"
-        :page-size="PAGE_SIZE"
-        :show-size-changer="false"
-        :total="modelStore.models.length"
-      />
+      <div
+        v-if="modelStore.models.length > PAGE_SIZE"
+        class="model-pagination"
+      >
+        <Pagination
+          v-model:current="currentPage"
+          :page-size="PAGE_SIZE"
+          :show-size-changer="false"
+          :total="modelStore.models.length"
+        />
+      </div>
     </div>
   </section>
 
