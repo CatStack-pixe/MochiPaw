@@ -1,9 +1,12 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import { emitTo } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 import type { SubModelInstance } from '@/stores/model'
+
+import { LISTEN_KEY } from '@/constants'
 
 const SUB_MODEL_WINDOW_PREFIX = 'sub-model-'
 const DEFAULT_SIZE = 300
@@ -18,6 +21,7 @@ export async function openSubModelWindow(instance: SubModelInstance) {
 
   if (existingWindow) {
     await existingWindow.show()
+    await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, true)
     await existingWindow.setFocus()
     return existingWindow
   }
@@ -45,8 +49,10 @@ export async function openSubModelWindow(instance: SubModelInstance) {
 }
 
 export async function hideSubModelWindow(instanceId: string) {
-  const window = await WebviewWindow.getByLabel(getSubModelWindowLabel(instanceId))
+  const label = getSubModelWindowLabel(instanceId)
+  const window = await WebviewWindow.getByLabel(label)
 
+  await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, false)
   await window?.hide()
 }
 

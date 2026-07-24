@@ -6,6 +6,7 @@
 <script setup lang="ts">
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { PhysicalSize } from '@tauri-apps/api/dpi'
+import { emit } from '@tauri-apps/api/event'
 import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
@@ -127,6 +128,16 @@ onMounted(() => {
 
     instance.window.x = payload.x
     instance.window.y = payload.y
+  })
+
+  appWindow.onCloseRequested(() => {
+    const instance = subModel.value
+
+    if (!instance) return
+
+    instance.visible = false
+    live2d.setRenderingEnabled(false)
+    void emit(LISTEN_KEY.SUB_MODEL_VISIBILITY_CHANGED, { id: instance.id, visible: false })
   })
 })
 
@@ -278,6 +289,12 @@ useTauriListen<{
   groupId?: string
 }>(LISTEN_KEY.SET_EXPRESSION, ({ payload }) => {
   playExpressionBehavior(payload.id, payload.index, payload.groupId)
+})
+
+useTauriListen<boolean>(LISTEN_KEY.SET_SUB_MODEL_RENDERING, ({ payload }) => {
+  if (!isSubModel) return
+
+  live2d.setRenderingEnabled(payload)
 })
 
 function handleMouseDown(event: MouseEvent) {

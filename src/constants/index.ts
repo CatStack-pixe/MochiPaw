@@ -14,6 +14,8 @@ export const LISTEN_KEY = {
   GAMEPAD_CHANGED: 'gamepad-changed',
   START_MOTION: 'start-motion',
   SET_EXPRESSION: 'set-expression',
+  SET_SUB_MODEL_RENDERING: 'set-sub-model-rendering',
+  SUB_MODEL_VISIBILITY_CHANGED: 'sub-model-visibility-changed',
 }
 
 export const INVOKE_KEY = {
