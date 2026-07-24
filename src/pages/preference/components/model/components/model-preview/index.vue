@@ -29,6 +29,7 @@ const naturalSize = ref({ width: 612, height: 354 })
 let app: Application | undefined
 let sprite: Live2DSprite | undefined
 let loadId = 0
+let resizeFrame: number | undefined
 
 const previewAspectRatio = computed(() => {
   return `${naturalSize.value.width} / ${naturalSize.value.height}`
@@ -138,13 +139,14 @@ async function loadPreview() {
       return
     }
 
+    const canvasSize = nextSprite.getModelCanvasSize()
     naturalSize.value = {
-      width: Math.max(1, nextSprite.width),
-      height: Math.max(1, nextSprite.height),
+      width: Math.max(1, canvasSize?.width ?? nextSprite.width),
+      height: Math.max(1, canvasSize?.height ?? nextSprite.height),
     }
 
     await nextTick()
-    resizePreview()
+    scheduleResize()
   } catch {
     loadFailed.value = true
     destroyPreview()
@@ -154,8 +156,12 @@ async function loadPreview() {
 function resizePreview() {
   if (!app || !sprite) return
 
-  const previewWidth = Math.max(1, Math.round(width.value))
-  const previewHeight = Math.max(1, Math.round(height.value))
+  const previewWidth = Math.round(width.value)
+  const previewHeight = Math.round(height.value)
+
+  // Masonry briefly mounts page items with no measured size. Scaling during
+  // that frame permanently leaves the preview zoomed after the layout settles.
+  if (previewWidth < 1 || previewHeight < 1) return
 
   app.renderer.resize(previewWidth, previewHeight)
 
@@ -170,15 +176,27 @@ function resizePreview() {
   sprite.anchor.set(0.5)
 }
 
+function scheduleResize() {
+  if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame)
+
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = undefined
+      resizePreview()
+    })
+  })
+}
+
 onMounted(loadPreview)
 
 watch(() => props.model.path, loadPreview)
 watch([width, height], () => {
-  requestAnimationFrame(resizePreview)
+  scheduleResize()
 })
 
 onBeforeUnmount(() => {
   loadId += 1
+  if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame)
   destroyPreview()
 })
 </script>
