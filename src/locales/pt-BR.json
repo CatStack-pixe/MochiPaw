@@ -147,6 +147,36 @@
           "offlineLeaseAllowed": "Licen?a offline"
         }
       },
+      "subModel": {
+        "title": "Submodelos",
+        "configured": "{count} configurados",
+        "empty": "Nenhum submodelo",
+        "actions": {
+          "add": "Adicionar submodelo",
+          "toggleVisibility": "Mostrar ou ocultar submodelo",
+          "delete": "Remover submodelo"
+        },
+        "hints": {
+          "createTitle": "Criar outro submodelo?",
+          "createWarning": "Mais modelos visíveis exigem CPU, GPU e memória adicionais.",
+          "delete": "Isso remove o submodelo e suas configurações de janela."
+        },
+        "labels": {
+          "showOnLaunch": "Mostrar ao iniciar",
+          "keyboard": "Teclado",
+          "mouse": "Mouse",
+          "gamepad": "Controle",
+          "typingBehavior": "Comportamento de digitação",
+          "passThrough": "Atravessar cliques",
+          "alwaysOnTop": "Sempre no topo",
+          "mirror": "Espelho",
+          "mouseMirror": "Espelho do mouse",
+          "fps": "FPS",
+          "scale": "Escala",
+          "opacity": "Opacidade",
+          "radius": "Raio"
+        }
+      },
       "shortcut": {
         "title": "Atalhos",
         "labels": {

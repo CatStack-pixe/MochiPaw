@@ -6,6 +6,7 @@
 import { emitTo } from '@tauri-apps/api/event'
 import { Button, InputNumber, message, Modal, Popconfirm, Select, Switch } from 'antdv-next'
 import { computed, ref, toRaw, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { Model, SubModelInstance } from '@/stores/model'
 
@@ -18,6 +19,7 @@ const { standalone = false } = defineProps<{
   standalone?: boolean
 }>()
 const modelStore = useModelStore()
+const { t } = useI18n()
 const selectedModelId = ref<string>()
 const models = computed(() => modelStore.models)
 const modelOptions = computed(() => models.value.map(model => ({
@@ -84,8 +86,8 @@ function handleCreate() {
   }
 
   Modal.confirm({
-    title: 'Create another sub model?',
-    content: 'More visible models require additional CPU, GPU, and memory.',
+    title: t('pages.preference.subModel.hints.createTitle'),
+    content: t('pages.preference.subModel.hints.createWarning'),
     onOk: createInstance,
   })
 }
@@ -120,13 +122,13 @@ async function handleDelete(instance: SubModelInstance) {
   >
     <div class="sub-model-header">
       <div>
-        <h2>Sub models</h2>
-        <span>{{ modelStore.subModels.length }} configured</span>
+        <h2>{{ t('pages.preference.subModel.title') }}</h2>
+        <span>{{ t('pages.preference.subModel.configured', { count: modelStore.subModels.length }) }}</span>
       </div>
 
       <Button
         :disabled="!selectedModelId"
-        title="Add sub model"
+        :title="t('pages.preference.subModel.actions.add')"
         type="primary"
         @click="handleCreate"
       >
@@ -144,7 +146,7 @@ async function handleDelete(instance: SubModelInstance) {
       v-if="!modelStore.subModels.length"
       class="sub-model-empty"
     >
-      No sub models
+      {{ t('pages.preference.subModel.empty') }}
     </div>
 
     <div class="sub-model-list">
@@ -159,19 +161,19 @@ async function handleDelete(instance: SubModelInstance) {
           <div class="flex items-center gap-2">
             <Switch
               :checked="instance.visible"
-              title="Show sub model"
+              :title="t('pages.preference.subModel.actions.toggleVisibility')"
               @change="value => setVisible(instance, value)"
             />
 
             <Popconfirm
-              description="This removes the sub model and its window settings."
-              title="Remove sub model?"
+              :description="t('pages.preference.subModel.hints.delete')"
+              :title="t('pages.preference.subModel.actions.delete')"
               @confirm="handleDelete(instance)"
             >
               <Button
                 danger
                 size="small"
-                title="Remove sub model"
+                :title="t('pages.preference.subModel.actions.delete')"
               >
                 <i class="i-lucide:trash-2" />
               </Button>
@@ -188,7 +190,7 @@ async function handleDelete(instance: SubModelInstance) {
 
         <div class="sub-model-options">
           <label>
-            <span>Show on launch</span>
+            <span>{{ t('pages.preference.subModel.labels.showOnLaunch') }}</span>
             <Switch
               v-model:checked="instance.showOnLaunch"
               @change="notifyInstance(instance)"
@@ -196,7 +198,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Keyboard</span>
+            <span>{{ t('pages.preference.subModel.labels.keyboard') }}</span>
             <Switch
               v-model:checked="instance.listeners.keyboard"
               @change="notifyInstance(instance)"
@@ -204,7 +206,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Mouse</span>
+            <span>{{ t('pages.preference.subModel.labels.mouse') }}</span>
             <Switch
               v-model:checked="instance.listeners.mouse"
               @change="notifyInstance(instance)"
@@ -212,7 +214,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Gamepad</span>
+            <span>{{ t('pages.preference.subModel.labels.gamepad') }}</span>
             <Switch
               v-model:checked="instance.listeners.gamepad"
               @change="notifyInstance(instance)"
@@ -220,7 +222,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Typing behavior</span>
+            <span>{{ t('pages.preference.subModel.labels.typingBehavior') }}</span>
             <Switch
               v-model:checked="instance.listeners.typingBehavior"
               @change="notifyInstance(instance)"
@@ -228,7 +230,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Pass through</span>
+            <span>{{ t('pages.preference.subModel.labels.passThrough') }}</span>
             <Switch
               v-model:checked="instance.window.passThrough"
               @change="notifyInstance(instance)"
@@ -236,7 +238,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Always on top</span>
+            <span>{{ t('pages.preference.subModel.labels.alwaysOnTop') }}</span>
             <Switch
               v-model:checked="instance.window.alwaysOnTop"
               @change="notifyInstance(instance)"
@@ -244,7 +246,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Mirror</span>
+            <span>{{ t('pages.preference.subModel.labels.mirror') }}</span>
             <Switch
               v-model:checked="instance.appearance.mirror"
               @change="notifyInstance(instance)"
@@ -252,7 +254,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Mouse mirror</span>
+            <span>{{ t('pages.preference.subModel.labels.mouseMirror') }}</span>
             <Switch
               v-model:checked="instance.appearance.mouseMirror"
               @change="notifyInstance(instance)"
@@ -260,7 +262,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>FPS</span>
+            <span>{{ t('pages.preference.subModel.labels.fps') }}</span>
             <InputNumber
               v-model:value="instance.appearance.maxFPS"
               :max="60"
@@ -270,7 +272,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Scale</span>
+            <span>{{ t('pages.preference.subModel.labels.scale') }}</span>
             <InputNumber
               v-model:value="instance.window.scale"
               :max="500"
@@ -280,7 +282,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Opacity</span>
+            <span>{{ t('pages.preference.subModel.labels.opacity') }}</span>
             <InputNumber
               v-model:value="instance.window.opacity"
               :max="100"
@@ -290,7 +292,7 @@ async function handleDelete(instance: SubModelInstance) {
           </label>
 
           <label>
-            <span>Radius</span>
+            <span>{{ t('pages.preference.subModel.labels.radius') }}</span>
             <InputNumber
               v-model:value="instance.window.radius"
               :max="100"

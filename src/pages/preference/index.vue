@@ -56,7 +56,7 @@ const menus = computed(() => [
   },
   {
     key: 'sub-model',
-    label: '子模型',
+    label: t('pages.preference.subModel.title'),
     icon: 'i-solar:cat-bold-duotone',
     component: SubModel,
   },

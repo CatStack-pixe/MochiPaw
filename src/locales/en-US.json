@@ -147,6 +147,36 @@
           }
         }
       },
+      "subModel": {
+        "title": "Sub Models",
+        "configured": "{count} configured",
+        "empty": "No sub models",
+        "actions": {
+          "add": "Add sub model",
+          "toggleVisibility": "Show or hide sub model",
+          "delete": "Remove sub model"
+        },
+        "hints": {
+          "createTitle": "Create another sub model?",
+          "createWarning": "More visible models require additional CPU, GPU, and memory.",
+          "delete": "This removes the sub model and its window settings."
+        },
+        "labels": {
+          "showOnLaunch": "Show on launch",
+          "keyboard": "Keyboard",
+          "mouse": "Mouse",
+          "gamepad": "Gamepad",
+          "typingBehavior": "Typing behavior",
+          "passThrough": "Pass through",
+          "alwaysOnTop": "Always on top",
+          "mirror": "Mirror",
+          "mouseMirror": "Mouse mirror",
+          "fps": "FPS",
+          "scale": "Scale",
+          "opacity": "Opacity",
+          "radius": "Radius"
+        }
+      },
       "shortcut": {
         "title": "Shortcuts",
         "labels": {
