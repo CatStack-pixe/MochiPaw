@@ -21,6 +21,7 @@ import Cat from './components/cat/index.vue'
 import General from './components/general/index.vue'
 import Model from './components/model/index.vue'
 import Shortcut from './components/shortcut/index.vue'
+import SubModel from './components/sub-model/index.vue'
 
 useTray()
 const appStore = useAppStore()
@@ -54,6 +55,12 @@ const menus = computed(() => [
     component: Model,
   },
   {
+    key: 'sub-model',
+    label: '子模型',
+    icon: 'i-solar:cat-bold-duotone',
+    component: SubModel,
+  },
+  {
     key: 'shortcut',
     label: t('pages.preference.shortcut.title'),
     icon: 'i-solar:keyboard-bold',
@@ -84,7 +91,7 @@ const menus = computed(() => [
       data-tauri-drag-region
     >
       <div class="flex flex-col items-center gap-2">
-        <div class="b-1 b-solid b-border-sec rounded-2xl">
+        <div class="b-1 rounded-2xl b-solid b-border-sec">
           <img
             class="size-15"
             data-tauri-drag-region

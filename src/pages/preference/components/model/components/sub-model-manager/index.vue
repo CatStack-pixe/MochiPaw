@@ -14,9 +14,11 @@ import { LISTEN_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
 import { destroySubModelWindow, getSubModelWindowLabel, hideSubModelWindow, openSubModelWindow } from '@/utils/subModelWindow'
 
+const { standalone = false } = defineProps<{
+  standalone?: boolean
+}>()
 const modelStore = useModelStore()
 const selectedModelId = ref<string>()
-
 const models = computed(() => modelStore.models)
 const modelOptions = computed(() => models.value.map(model => ({
   label: modelName(model),
@@ -112,7 +114,10 @@ async function handleDelete(instance: SubModelInstance) {
 </script>
 
 <template>
-  <aside class="sub-model-manager">
+  <aside
+    class="sub-model-manager"
+    :class="{ 'sub-model-manager-standalone': standalone }"
+  >
     <div class="sub-model-header">
       <div>
         <h2>Sub models</h2>
@@ -309,6 +314,13 @@ async function handleDelete(instance: SubModelInstance) {
   gap: 12px;
   border-left: 1px solid var(--ant-color-border-secondary);
   padding-left: 16px;
+}
+
+.sub-model-manager-standalone {
+  width: 100%;
+  flex-basis: auto;
+  border-left: 0;
+  padding-left: 0;
 }
 
 .sub-model-header,
