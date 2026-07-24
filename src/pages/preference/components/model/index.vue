@@ -18,7 +18,6 @@ import { useModelStore } from '@/stores/model'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 
 import BehaviorModal from './components/behavior-modal/index.vue'
-import FloatMenu from './components/float-menu/index.vue'
 import ModelPreview from './components/model-preview/index.vue'
 import Upload from './components/upload/index.vue'
 
@@ -30,7 +29,7 @@ const { t } = useI18n()
 const openBehaviorModal = ref(false)
 const currentPage = ref(1)
 
-const PAGE_SIZE = 12
+const PAGE_SIZE = 5
 
 function proofLabel(model: Model) {
   if (model.importKind === 'controlled') return t('pages.preference.model.proof.controlled')
@@ -183,126 +182,129 @@ async function handleDelete(item: Model) {
 </script>
 
 <template>
-  <Masonry
-    :columns="{ xs: 3, lg: 4, xxl: 6 }"
-    :gutter="16"
-    :items="masonryItems"
-  >
-    <template #itemRender="{ data, index }">
-      <template v-if="!data">
-        <Upload
-          :style="{ height: `${height}px` }"
-          @imported="showImportedModels"
-        />
-      </template>
-
-      <Card
-        v-else
-        :ref="index === 1 ? 'firstCard' : void 0"
-        :classes="{
-          actions: `[&>li]:(flex justify-center) [&>li>span]:(inline-flex! justify-center text-4!)`,
-        }"
-        hoverable
-        size="small"
-        @click="handleToggle(data)"
+  <section class="model-manager">
+    <div class="model-grid">
+      <Masonry
+        :key="currentPage"
+        :columns="{ xs: 3, lg: 4, xxl: 6 }"
+        :gutter="16"
+        :items="masonryItems"
       >
-        <template #cover>
-          <ModelPreview :model="data" />
-        </template>
-
-        <template #title>
-          <div class="model-card-title">
-            <span class="model-title-text">{{ modelTitle(data) }}</span>
-            <span class="model-proof-pill">{{ proofLabel(data) }}</span>
-          </div>
-        </template>
-
-        <div class="model-card-meta">
-          <div
-            v-if="authorSummary(data)"
-            class="meta-line"
-          >
-            <strong>{{ $t('pages.preference.model.meta.author') }}</strong>
-            <span>{{ authorSummary(data) }}</span>
-          </div>
-          <div
-            v-if="packageSummary(data)"
-            class="meta-line"
-          >
-            <strong>{{ $t('pages.preference.model.meta.packageId') }}</strong>
-            <span>{{ packageSummary(data) }}</span>
-          </div>
-          <div
-            v-if="policySummary(data)"
-            class="meta-line"
-          >
-            <strong>{{ $t('pages.preference.model.meta.policy') }}</strong>
-            <span>{{ policySummary(data) }}</span>
-          </div>
-          <div
-            v-if="displayMetaValue(data.author?.statement)"
-            class="meta-statement"
-          >
-            {{ displayMetaValue(data.author?.statement) }}
-          </div>
-          <div
-            v-for="item in authorMetaLines(data)"
-            :key="item.label"
-            class="meta-line"
-          >
-            <strong>{{ item.label }}</strong>
-            <span>{{ item.value }}</span>
-          </div>
-        </div>
-
-        <template #actions>
-          <i
-            class="i-lucide:circle-check"
-            :class="{ 'text-success': data.id === modelStore.currentModel?.id }"
-          />
-
-          <i
-            v-if="catStore.model.behavior && modelStore.currentModel?.id === data.id"
-            class="i-lucide:smile"
-            @click.stop="openBehaviorModal = true"
-          />
-
-          <i
-            class="i-lucide:folder-open"
-            @click.stop="revealItemInDir(data.path)"
-          />
-
-          <template v-if="!data.isPreset">
-            <Popconfirm
-              :description="$t('pages.preference.model.hints.deleteModel')"
-              placement="topRight"
-              :title="$t('pages.preference.model.labels.deleteModel')"
-              @confirm="handleDelete(data)"
-            >
-              <i
-                class="i-lucide:trash-2"
-                @click.stop
-              />
-            </Popconfirm>
+        <template #itemRender="{ data, index }">
+          <template v-if="!data">
+            <Upload
+              :style="{ height: `${height}px` }"
+              @imported="showImportedModels"
+            />
           </template>
+
+          <Card
+            v-else
+            :ref="index === 1 ? 'firstCard' : void 0"
+            :classes="{
+              actions: `[&>li]:(flex justify-center) [&>li>span]:(inline-flex! justify-center text-4!)`,
+            }"
+            hoverable
+            size="small"
+            @click="handleToggle(data)"
+          >
+            <template #cover>
+              <ModelPreview :model="data" />
+            </template>
+
+            <template #title>
+              <div class="model-card-title">
+                <span class="model-title-text">{{ modelTitle(data) }}</span>
+                <span class="model-proof-pill">{{ proofLabel(data) }}</span>
+              </div>
+            </template>
+
+            <div class="model-card-meta">
+              <div
+                v-if="authorSummary(data)"
+                class="meta-line"
+              >
+                <strong>{{ $t('pages.preference.model.meta.author') }}</strong>
+                <span>{{ authorSummary(data) }}</span>
+              </div>
+              <div
+                v-if="packageSummary(data)"
+                class="meta-line"
+              >
+                <strong>{{ $t('pages.preference.model.meta.packageId') }}</strong>
+                <span>{{ packageSummary(data) }}</span>
+              </div>
+              <div
+                v-if="policySummary(data)"
+                class="meta-line"
+              >
+                <strong>{{ $t('pages.preference.model.meta.policy') }}</strong>
+                <span>{{ policySummary(data) }}</span>
+              </div>
+              <div
+                v-if="displayMetaValue(data.author?.statement)"
+                class="meta-statement"
+              >
+                {{ displayMetaValue(data.author?.statement) }}
+              </div>
+              <div
+                v-for="item in authorMetaLines(data)"
+                :key="item.label"
+                class="meta-line"
+              >
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.value }}</span>
+              </div>
+            </div>
+
+            <template #actions>
+              <i
+                class="i-lucide:circle-check"
+                :class="{ 'text-success': data.id === modelStore.currentModel?.id }"
+              />
+
+              <i
+                v-if="catStore.model.behavior && modelStore.currentModel?.id === data.id"
+                class="i-lucide:smile"
+                @click.stop="openBehaviorModal = true"
+              />
+
+              <i
+                class="i-lucide:folder-open"
+                @click.stop="revealItemInDir(data.path)"
+              />
+
+              <template v-if="!data.isPreset">
+                <Popconfirm
+                  :description="$t('pages.preference.model.hints.deleteModel')"
+                  placement="topRight"
+                  :title="$t('pages.preference.model.labels.deleteModel')"
+                  @confirm="handleDelete(data)"
+                >
+                  <i
+                    class="i-lucide:trash-2"
+                    @click.stop
+                  />
+                </Popconfirm>
+              </template>
+            </template>
+          </Card>
         </template>
-      </Card>
-    </template>
-  </Masonry>
+      </Masonry>
+    </div>
 
-  <div
-    v-if="modelStore.models.length > PAGE_SIZE"
-    class="model-pagination"
-  >
-    <Pagination
-      v-model:current="currentPage"
-      :page-size="PAGE_SIZE"
-      :show-size-changer="false"
-      :total="modelStore.models.length"
-    />
-  </div>
-
-  <FloatMenu />
+    <div
+      v-if="modelStore.models.length > PAGE_SIZE"
+      class="model-pagination"
+    >
+      <Pagination
+        v-model:current="currentPage"
+        :page-size="PAGE_SIZE"
+        :show-size-changer="false"
+        :total="modelStore.models.length"
+      />
+    </div>
+  </section>
 
   <BehaviorModal
     v-if="catStore.model.behavior"
@@ -311,6 +313,20 @@ async function handleDelete(item: Model) {
 </template>
 
 <style scoped lang="scss">
+.model-manager {
+  display: grid;
+  height: calc(100dvh - 32px);
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.model-grid {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 16px;
+}
+
 .model-card-title {
   display: flex;
   align-items: center;
@@ -378,6 +394,7 @@ async function handleDelete(item: Model) {
 .model-pagination {
   display: flex;
   justify-content: center;
-  padding-top: 16px;
+  padding: 16px 0 4px;
+  background: var(--ant-color-fill-quaternary);
 }
 </style>
