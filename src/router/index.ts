@@ -18,6 +18,10 @@ const routes: Readonly<RouteRecordRaw[]> = [
     path: '/preference',
     component: Preference,
   },
+  {
+    path: '/sub-model',
+    component: Main,
+  },
 ]
 
 const router = createRouter({

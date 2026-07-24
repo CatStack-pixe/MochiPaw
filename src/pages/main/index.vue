@@ -12,6 +12,7 @@ import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import type { ModelMotionInfo } from '@/stores/model'
 
@@ -32,8 +33,22 @@ import { isWindows } from '@/utils/platform'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { clearObject } from '@/utils/shared'
 
-const { startListening } = useDevice()
 const appWindow = getCurrentWebviewWindow()
+const route = useRoute()
+const subModelId = typeof route.query.instance === 'string' ? route.query.instance : undefined
+const isSubModel = Boolean(subModelId)
+const modelStore = useModelStore()
+const catStore = useCatStore()
+const generalStore = useGeneralStore()
+const subModel = computed(() => subModelId ? modelStore.getSubModel(subModelId) : undefined)
+const activeModel = computed(() => {
+  if (!subModel.value) return modelStore.currentModel
+
+  return modelStore.models.find(model => model.id === subModel.value?.modelId)
+})
+const windowSettings = computed(() => subModel.value?.window ?? catStore.window)
+const appearanceSettings = computed(() => subModel.value?.appearance ?? catStore.model)
+const { startListening } = isSubModel ? { startListening: () => undefined } : useDevice()
 const {
   modelSize,
   handleLoad,
@@ -42,14 +57,17 @@ const {
   handleKeyChange,
   playMotionBehavior,
   playExpressionBehavior,
-} = useModel()
-const catStore = useCatStore()
+} = useModel({
+  currentModel: activeModel,
+  mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
+  syncWindowScale: !isSubModel,
+})
 const { getBaseMenu, getExitMenu } = useAppMenu()
-const modelStore = useModelStore()
-const generalStore = useGeneralStore()
 const backgroundImagePath = ref<string>()
 const live2dCanvas = ref<HTMLCanvasElement | null>(null)
-const { stickActive } = useGamepad()
+const { stickActive } = isSubModel
+  ? { stickActive: computed(() => ({ left: false, right: false })) }
+  : useGamepad()
 const pressedKeyLayers = computed(() => {
   return Object.entries(modelStore.pressedKeys).flatMap(([key, layers]) => {
     return layers.map((layer, index) => ({
@@ -84,6 +102,17 @@ function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
 
 onMounted(() => {
   startListening()
+
+  if (!isSubModel) return
+
+  appWindow.onMoved(({ payload }) => {
+    const instance = subModel.value
+
+    if (!instance) return
+
+    instance.window.x = payload.x
+    instance.window.y = payload.y
+  })
 })
 
 onUnmounted(() => {
@@ -100,11 +129,11 @@ useEventListener('resize', () => {
 })
 
 watch([() => {
-  const model = modelStore.currentModel
+  const model = activeModel.value
 
   return model ? `${model.id}:${model.path}` : ''
 }, live2dCanvas], async ([, canvas]) => {
-  const model = modelStore.currentModel
+  const model = activeModel.value
 
   // An immediate watcher can run before the component's canvas is mounted.
   // Watching the template ref retries the current model as soon as it exists.
@@ -173,7 +202,7 @@ watch([() => {
   }
 }, { flush: 'post', immediate: true })
 
-watch([() => catStore.window.scale, modelSize], ([scale, modelSize]) => {
+watch([() => windowSettings.value.scale, modelSize], ([scale, modelSize]) => {
   if (!modelSize) return
 
   cancelAnimationFrame(resizeFrame)
@@ -200,21 +229,25 @@ watch([modelStore.pressedKeys, stickActive], ([keys, stickActive]) => {
   handleKeyChange(false, stickActive.right || hasRight)
 }, { deep: true })
 
-watch(() => catStore.window.visible, async (value) => {
-  value ? showWindow() : hideWindow()
-})
+if (!isSubModel) {
+  watch(() => catStore.window.visible, async (value) => {
+    value ? showWindow() : hideWindow()
+  })
+}
 
-watch(() => catStore.window.passThrough, (value) => {
+watch(() => windowSettings.value.passThrough, (value) => {
   appWindow.setIgnoreCursorEvents(value)
 }, { immediate: true })
 
-watch(() => catStore.window.alwaysOnTop, setAlwaysOnTop, { immediate: true })
+watch(() => windowSettings.value.alwaysOnTop, setAlwaysOnTop, { immediate: true })
 
-watch(() => generalStore.app.taskbarVisible, setTaskbarVisibility, { immediate: true })
+if (!isSubModel) {
+  watch(() => generalStore.app.taskbarVisible, setTaskbarVisibility, { immediate: true })
+}
 
 watch(() => catStore.model.motionSound, live2d.setMotionSoundEnabled, { immediate: true })
 
-watch(() => catStore.model.maxFPS, fps => live2d.setMaxFPS(fps), { immediate: true })
+watch(() => appearanceSettings.value.maxFPS, fps => live2d.setMaxFPS(fps), { immediate: true })
 
 useTauriListen<{
   id: string
@@ -233,7 +266,7 @@ useTauriListen<{
 })
 
 function handleMouseDown(event: MouseEvent) {
-  if (catStore.window.passThrough || event.button !== 0) return
+  if (windowSettings.value.passThrough || event.button !== 0) return
 
   appWindow.startDragging()
 }
@@ -252,14 +285,14 @@ async function handleContextmenu(event: MouseEvent) {
   })
 
   // Temporarily disable always-on-top on Windows so the context menu is not covered
-  if (isWindows && catStore.window.alwaysOnTop) {
+  if (isWindows && windowSettings.value.alwaysOnTop) {
     setAlwaysOnTop(false)
   }
 
   await menu.popup()
 
   // Restore always-on-top after the menu is closed
-  if (!isWindows || !catStore.window.alwaysOnTop) return
+  if (!isWindows || !windowSettings.value.alwaysOnTop) return
 
   setAlwaysOnTop(true)
 }
@@ -267,7 +300,7 @@ async function handleContextmenu(event: MouseEvent) {
 function handleMouseMove(event: MouseEvent) {
   const { buttons, ctrlKey, movementX, movementY } = event
 
-  if (catStore.window.passThrough || buttons !== 2 || !ctrlKey) return
+  if (windowSettings.value.passThrough || buttons !== 2 || !ctrlKey) return
 
   pendingScaleDelta += (movementX + movementY) * SCALE_DRAG_SENSITIVITY
 
@@ -281,18 +314,18 @@ function handleMouseMove(event: MouseEvent) {
       return
     }
 
-    const nextScale = Math.max(10, Math.min(catStore.window.scale + pendingScaleDelta, 500))
+    const nextScale = Math.max(10, Math.min(windowSettings.value.scale + pendingScaleDelta, 500))
 
     pendingScaleDelta = 0
     scalingWithShortcut = true
-    catStore.window.scale = round(nextScale)
+    windowSettings.value.scale = round(nextScale)
 
     if (scaleSyncTimer) {
       clearTimeout(scaleSyncTimer)
     }
 
     scaleSyncTimer = setTimeout(() => {
-      applyWindowScale(catStore.window.scale)
+      applyWindowScale(windowSettings.value.scale)
       scalingWithShortcut = false
     }, 120)
   })
@@ -302,10 +335,10 @@ function handleMouseMove(event: MouseEvent) {
 <template>
   <div
     class="relative size-screen overflow-hidden children:(absolute size-full)"
-    :class="{ '-scale-x-100': catStore.model.mirror }"
+    :class="{ '-scale-x-100': appearanceSettings.mirror }"
     :style="{
-      opacity: catStore.window.opacity / 100,
-      borderRadius: `${catStore.window.radius}%`,
+      opacity: windowSettings.opacity / 100,
+      borderRadius: `${windowSettings.radius}%`,
     }"
     @contextmenu="handleContextmenu"
     @mousedown="handleMouseDown"
