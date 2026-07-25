@@ -2,36 +2,66 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
+import type { Ref } from 'vue'
+
 import { CheckMenuItem, MenuItem, PredefinedMenuItem, Submenu } from '@tauri-apps/api/menu'
 import { exit, relaunch } from '@tauri-apps/plugin-process'
 import { range } from 'es-toolkit'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import type { CatStore } from '@/stores/cat'
 
 import { WINDOW_LABEL } from '@/constants'
 import { showWindow } from '@/plugins/window'
 import { useCatStore } from '@/stores/cat'
 import { isMac } from '@/utils/platform'
 
-export function useAppMenu() {
+type AppMenuWindowSettings = Pick<CatStore['window'], 'passThrough' | 'scale' | 'opacity'>
+
+export interface AppMenuOptions {
+  windowSettings?: Readonly<Ref<AppMenuWindowSettings>>
+  visible?: Readonly<Ref<boolean>>
+  onWindowSettingsChange?: () => void
+  toggleVisibility?: () => void | Promise<void>
+}
+
+export function useAppMenu(options: AppMenuOptions = {}) {
   const catStore = useCatStore()
   const { t } = useI18n()
+  const windowSettings = options.windowSettings ?? computed(() => catStore.window)
+  const visible = options.visible ?? computed(() => catStore.window.visible)
+
+  const notifyWindowSettingsChange = () => {
+    options.onWindowSettingsChange?.()
+  }
+
+  const toggleVisibility = () => {
+    if (options.toggleVisibility) {
+      void options.toggleVisibility()
+      return
+    }
+
+    catStore.window.visible = !catStore.window.visible
+  }
 
   const getScaleMenuItems = async () => {
-    const options = range(50, 151, 25)
+    const scaleOptions = range(50, 151, 25)
 
-    const items = options.map((item) => {
+    const items = scaleOptions.map((item) => {
       return CheckMenuItem.new({
         text: `${item}%`,
-        checked: catStore.window.scale === item,
+        checked: windowSettings.value.scale === item,
         action: () => {
-          catStore.window.scale = item
+          windowSettings.value.scale = item
+          notifyWindowSettingsChange()
         },
       })
     })
 
-    if (!options.includes(catStore.window.scale)) {
+    if (!scaleOptions.includes(windowSettings.value.scale)) {
       items.unshift(CheckMenuItem.new({
-        text: `${catStore.window.scale}%`,
+        text: `${windowSettings.value.scale}%`,
         checked: true,
         enabled: false,
       }))
@@ -41,21 +71,22 @@ export function useAppMenu() {
   }
 
   const getOpacityMenuItems = async () => {
-    const options = range(25, 101, 25)
+    const opacityOptions = range(25, 101, 25)
 
-    const items = options.map((item) => {
+    const items = opacityOptions.map((item) => {
       return CheckMenuItem.new({
         text: `${item}%`,
-        checked: catStore.window.opacity === item,
+        checked: windowSettings.value.opacity === item,
         action: () => {
-          catStore.window.opacity = item
+          windowSettings.value.opacity = item
+          notifyWindowSettingsChange()
         },
       })
     })
 
-    if (!options.includes(catStore.window.opacity)) {
+    if (!opacityOptions.includes(windowSettings.value.opacity)) {
       items.unshift(CheckMenuItem.new({
-        text: `${catStore.window.opacity}%`,
+        text: `${windowSettings.value.opacity}%`,
         checked: true,
         enabled: false,
       }))
@@ -72,17 +103,16 @@ export function useAppMenu() {
         action: () => showWindow(WINDOW_LABEL.PREFERENCE),
       }),
       MenuItem.new({
-        text: catStore.window.visible ? t('composables.useAppMenu.labels.hideCat') : t('composables.useAppMenu.labels.showCat'),
-        action: () => {
-          catStore.window.visible = !catStore.window.visible
-        },
+        text: visible.value ? t('composables.useAppMenu.labels.hideCat') : t('composables.useAppMenu.labels.showCat'),
+        action: toggleVisibility,
       }),
       PredefinedMenuItem.new({ item: 'Separator' }),
       CheckMenuItem.new({
         text: t('composables.useAppMenu.labels.passThrough'),
-        checked: catStore.window.passThrough,
+        checked: windowSettings.value.passThrough,
         action: () => {
-          catStore.window.passThrough = !catStore.window.passThrough
+          windowSettings.value.passThrough = !windowSettings.value.passThrough
+          notifyWindowSettingsChange()
         },
       }),
       Submenu.new({
