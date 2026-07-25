@@ -93,7 +93,8 @@
       "model": {
         "title": "Model",
         "labels": {
-          "deleteModel": "Delete Model"
+          "deleteModel": "Delete Model",
+          "customName": "Custom name"
         },
         "hints": {
           "deleteSuccess": "Deleted Successfully",
@@ -101,7 +102,11 @@
           "importSuccess": "Imported Successfully",
           "alreadyImported": "Model already imported",
           "clickOrDragToImport": "Click or drag here to import",
-          "importing": "Importing {current}/{total}"
+          "importing": "Importing {current}/{total}",
+          "customName": "Leave blank to use the model's original name."
+        },
+        "actions": {
+          "rename": "Rename model"
         },
         "controlledImport": {
           "title": "Controlled packages cannot be imported here",
@@ -154,7 +159,9 @@
         "actions": {
           "add": "Add sub model",
           "toggleVisibility": "Show or hide sub model",
-          "delete": "Remove sub model"
+          "delete": "Remove sub model",
+          "expand": "Expand settings",
+          "collapse": "Collapse settings"
         },
         "hints": {
           "createTitle": "Create another sub model?",
@@ -162,6 +169,8 @@
           "delete": "This removes the sub model and its window settings."
         },
         "labels": {
+          "customName": "Name",
+          "note": "Note",
           "showOnLaunch": "Show on launch",
           "keyboard": "Keyboard",
           "mouse": "Mouse",

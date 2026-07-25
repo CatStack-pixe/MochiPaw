@@ -93,7 +93,8 @@
       "model": {
         "title": "Mô hình",
         "labels": {
-          "deleteModel": "Xóa mô hình"
+          "deleteModel": "Xóa mô hình",
+          "customName": "Tên tùy chỉnh"
         },
         "hints": {
           "deleteSuccess": "Xóa thành công",
@@ -101,7 +102,11 @@
           "importSuccess": "Nhập thành công",
           "clickOrDragToImport": "Nhấp hoặc kéo tệp vào đây",
           "importing": "Đang nhập {current}/{total}",
-          "alreadyImported": "M? h?nh ?? ???c nh?p"
+          "alreadyImported": "M? h?nh ?? ???c nh?p",
+          "customName": "Để trống để dùng tên gốc của mô hình."
+        },
+        "actions": {
+          "rename": "Đổi tên mô hình"
         },
         "tooltips": {
           "createModel": "Tạo mô hình",
@@ -154,7 +159,9 @@
         "actions": {
           "add": "Thêm mô hình phụ",
           "toggleVisibility": "Hiện hoặc ẩn mô hình phụ",
-          "delete": "Xóa mô hình phụ"
+          "delete": "Xóa mô hình phụ",
+          "expand": "Mở rộng cài đặt",
+          "collapse": "Thu gọn cài đặt"
         },
         "hints": {
           "createTitle": "Tạo thêm mô hình phụ?",
@@ -162,6 +169,8 @@
           "delete": "Thao tác này xóa mô hình phụ và cài đặt cửa sổ của nó."
         },
         "labels": {
+          "customName": "Tên",
+          "note": "Ghi chú",
           "showOnLaunch": "Hiện khi khởi động",
           "keyboard": "Bàn phím",
           "mouse": "Chuột",

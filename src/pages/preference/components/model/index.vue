@@ -7,14 +7,14 @@
 import { exists, remove } from '@tauri-apps/plugin-fs'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { useElementSize } from '@vueuse/core'
-import { Card, Masonry, message, Pagination, Popconfirm } from 'antdv-next'
+import { Card, Input, Masonry, message, Modal, Pagination, Popconfirm } from 'antdv-next'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Model } from '@/stores/model'
 
 import { useCatStore } from '@/stores/cat'
-import { useModelStore } from '@/stores/model'
+import { getModelDisplayName, useModelStore } from '@/stores/model'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { destroySubModelWindow } from '@/utils/subModelWindow'
 
@@ -29,6 +29,9 @@ const { height } = useElementSize(firstCardRef)
 const { t } = useI18n()
 const openBehaviorModal = ref(false)
 const currentPage = ref(1)
+const renameModelOpen = ref(false)
+const renameModelTarget = ref<Model>()
+const renameModelDraft = ref('')
 
 const PAGE_SIZE = 5
 
@@ -71,7 +74,27 @@ function policySummary(model: Model) {
 }
 
 function modelTitle(model: Model) {
+  return getModelDisplayName(model)
+}
+
+function modelFallbackTitle(model: Model) {
   return displayMetaValue(model.displayName) || model.id
+}
+
+function openRenameModel(model: Model) {
+  renameModelTarget.value = model
+  renameModelDraft.value = model.customName ?? ''
+  renameModelOpen.value = true
+}
+
+function saveModelName() {
+  const model = renameModelTarget.value
+
+  if (!model) return
+
+  model.customName = renameModelDraft.value.trim() || undefined
+  renameModelOpen.value = false
+  renameModelTarget.value = undefined
 }
 
 function displayMetaValue(value: unknown) {
@@ -276,6 +299,12 @@ async function handleDelete(item: Model) {
               />
 
               <i
+                class="i-lucide:pencil"
+                :title="$t('pages.preference.model.actions.rename')"
+                @click.stop="openRenameModel(data)"
+              />
+
+              <i
                 class="i-lucide:folder-open"
                 @click.stop="revealItemInDir(data.path)"
               />
@@ -316,6 +345,23 @@ async function handleDelete(item: Model) {
     v-if="catStore.model.behavior"
     v-model="openBehaviorModal"
   />
+
+  <Modal
+    v-model:open="renameModelOpen"
+    :title="$t('pages.preference.model.actions.rename')"
+    @ok="saveModelName"
+  >
+    <label class="rename-model-field">
+      <span>{{ $t('pages.preference.model.labels.customName') }}</span>
+      <Input
+        v-model:value="renameModelDraft"
+        allow-clear
+        :placeholder="renameModelTarget ? modelFallbackTitle(renameModelTarget) : ''"
+        @press-enter="saveModelName"
+      />
+      <small>{{ $t('pages.preference.model.hints.customName') }}</small>
+    </label>
+  </Modal>
 </template>
 
 <style scoped lang="scss">
@@ -331,6 +377,16 @@ async function handleDelete(item: Model) {
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 16px;
+}
+
+.rename-model-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rename-model-field small {
+  color: var(--ant-color-text-secondary);
 }
 
 .model-card-title {

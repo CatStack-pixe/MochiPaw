@@ -59,6 +59,7 @@ export interface ModelRuntimeLease {
 
 export interface Model {
   id: string
+  customName?: string
   displayName?: string
   path: string
   mode: ModelMode
@@ -134,6 +135,8 @@ export interface SubModelAppearanceSettings {
 export interface SubModelInstance {
   id: string
   modelId: string
+  customName?: string
+  note?: string
   visible: boolean
   showOnLaunch: boolean
   createdAt: number
@@ -203,6 +206,7 @@ export const useModelStore = defineStore('model', () => {
 
       nextModels.unshift({
         id: matched?.id ?? preset.id,
+        customName: matched?.customName,
         mode: preset.mode,
         isPreset: true,
         path: join(modelsPath, preset.path),
@@ -220,6 +224,8 @@ export const useModelStore = defineStore('model', () => {
     const instance: SubModelInstance = {
       id: nanoid(),
       modelId,
+      customName: '',
+      note: '',
       visible: true,
       showOnLaunch: true,
       createdAt: Date.now(),
@@ -342,6 +348,17 @@ function normalizeDisplayName(value: unknown) {
   if (!displayName || /^(?:none|null|undefined|n\/a)$/i.test(displayName)) return undefined
 
   return displayName
+}
+
+export function getModelDisplayName(model: Pick<Model, 'id' | 'customName' | 'displayName'>) {
+  return normalizeDisplayName(model.customName) ?? normalizeDisplayName(model.displayName) ?? model.id
+}
+
+export function getSubModelDisplayName(
+  instance: Pick<SubModelInstance, 'modelId' | 'customName'>,
+  model?: Pick<Model, 'id' | 'customName' | 'displayName'>,
+) {
+  return normalizeDisplayName(instance.customName) ?? (model ? getModelDisplayName(model) : instance.modelId)
 }
 
 function getPathBaseName(path: string) {

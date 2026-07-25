@@ -93,7 +93,8 @@
       "model": {
         "title": "模型管理",
         "labels": {
-          "deleteModel": "删除模型"
+          "deleteModel": "删除模型",
+          "customName": "自定义名称"
         },
         "hints": {
           "deleteSuccess": "删除成功",
@@ -101,7 +102,11 @@
           "importSuccess": "导入成功",
           "clickOrDragToImport": "点击或拖动至此区域导入",
           "importing": "正在导入 {current}/{total}",
-          "alreadyImported": "模型已导入"
+          "alreadyImported": "模型已导入",
+          "customName": "留空时使用模型原始名称。"
+        },
+        "actions": {
+          "rename": "重命名模型"
         },
         "tooltips": {
           "createModel": "制作模型",
@@ -154,7 +159,9 @@
         "actions": {
           "add": "添加子模型",
           "toggleVisibility": "显示或隐藏子模型",
-          "delete": "删除子模型"
+          "delete": "删除子模型",
+          "expand": "展开设置",
+          "collapse": "收起设置"
         },
         "hints": {
           "createTitle": "创建更多子模型？",
@@ -162,6 +169,8 @@
           "delete": "这将删除子模型及其窗口设置。"
         },
         "labels": {
+          "customName": "名称",
+          "note": "备注",
           "showOnLaunch": "启动时显示",
           "keyboard": "键盘",
           "mouse": "鼠标",

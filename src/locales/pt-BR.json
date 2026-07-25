@@ -93,7 +93,8 @@
       "model": {
         "title": "Modelo",
         "labels": {
-          "deleteModel": "Excluir modelo"
+          "deleteModel": "Excluir modelo",
+          "customName": "Nome personalizado"
         },
         "hints": {
           "deleteSuccess": "Excluído com sucesso",
@@ -101,7 +102,11 @@
           "importSuccess": "Importação bem-sucedida",
           "clickOrDragToImport": "Clique ou arraste para importar",
           "importing": "Importando {current}/{total}",
-          "alreadyImported": "Modelo j? importado"
+          "alreadyImported": "Modelo j? importado",
+          "customName": "Deixe em branco para usar o nome original do modelo."
+        },
+        "actions": {
+          "rename": "Renomear modelo"
         },
         "tooltips": {
           "createModel": "Criar modelo",
@@ -154,7 +159,9 @@
         "actions": {
           "add": "Adicionar submodelo",
           "toggleVisibility": "Mostrar ou ocultar submodelo",
-          "delete": "Remover submodelo"
+          "delete": "Remover submodelo",
+          "expand": "Expandir configurações",
+          "collapse": "Recolher configurações"
         },
         "hints": {
           "createTitle": "Criar outro submodelo?",
@@ -162,6 +169,8 @@
           "delete": "Isso remove o submodelo e suas configurações de janela."
         },
         "labels": {
+          "customName": "Nome",
+          "note": "Observação",
           "showOnLaunch": "Mostrar ao iniciar",
           "keyboard": "Teclado",
           "mouse": "Mouse",
