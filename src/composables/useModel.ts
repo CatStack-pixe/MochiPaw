@@ -41,11 +41,11 @@ export interface ModelRuntimeOptions {
   syncWindowScale?: boolean
 }
 
-export function useModel(options: ModelRuntimeOptions = {}) {
+export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
   const modelStore = useModelStore()
   const catStore = useCatStore()
-  const currentModel = options.currentModel ?? computed(() => modelStore.currentModel)
-  const mouseMirror = options.mouseMirror ?? computed(() => catStore.model.mouseMirror)
+  const currentModel = runtimeOptions.currentModel ?? computed(() => modelStore.currentModel)
+  const mouseMirror = runtimeOptions.mouseMirror ?? computed(() => catStore.model.mouseMirror)
   const modelSize = ref<ModelSize>()
   let typingExpressionTimer: ReturnType<typeof setTimeout> | undefined
   let nextTypingExpressionAt = 0
@@ -242,7 +242,7 @@ export function useModel(options: ModelRuntimeOptions = {}) {
     live2d.destroy()
   }
 
-  async function handleResize(options: { syncScale?: boolean } = {}) {
+  async function handleResize(resizeOptions: { syncScale?: boolean } = {}) {
     if (!modelSize.value) return
 
     const { width, height } = modelSize.value
@@ -261,7 +261,7 @@ export function useModel(options: ModelRuntimeOptions = {}) {
 
     live2d.resizeModel(modelSize.value)
 
-    if (options.syncScale === false || options.syncWindowScale === false) return
+    if (resizeOptions.syncScale === false || runtimeOptions.syncWindowScale === false) return
 
     const size = await appWindow.size()
 

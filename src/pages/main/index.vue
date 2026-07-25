@@ -60,6 +60,9 @@ const listenerSettings = computed(() => subModel.value?.listeners ?? {
   gamepad: true,
   typingBehavior: true,
 })
+const reportSubModelWindowChange = useDebounceFn((instance: SubModelInstance) => {
+  void emit(LISTEN_KEY.SUB_MODEL_WINDOW_CHANGED, structuredClone(toRaw(instance)))
+}, 150)
 const {
   modelSize,
   handleLoad,
@@ -79,7 +82,12 @@ const { startListening } = useDevice({
   listeners: listenerSettings,
   enableWindowHover: !isSubModel,
 })
-const { getBaseMenu, getExitMenu } = useAppMenu()
+const { getBaseMenu, getExitMenu } = useAppMenu({
+  windowSettings,
+  visible: computed(() => subModel.value?.visible ?? catStore.window.visible),
+  onWindowSettingsChange: reportCurrentSubModelWindowChange,
+  toggleVisibility: isSubModel ? toggleMenuVisibility : undefined,
+})
 const backgroundImagePath = ref<string>()
 const live2dCanvas = ref<HTMLCanvasElement | null>(null)
 const { stickActive } = useGamepad({
@@ -105,9 +113,28 @@ let currentModelLoadVersion = 0
 
 const SCALE_DRAG_SENSITIVITY = 0.12
 const SHORTCUT_RESIZE_INTERVAL = 33
-const reportSubModelWindowChange = useDebounceFn((instance: SubModelInstance) => {
-  void emit(LISTEN_KEY.SUB_MODEL_WINDOW_CHANGED, structuredClone(toRaw(instance)))
-}, 150)
+
+function reportCurrentSubModelWindowChange() {
+  const instance = subModel.value
+
+  if (instance) {
+    reportSubModelWindowChange(instance)
+  }
+}
+
+async function toggleMenuVisibility() {
+  const instance = subModel.value
+
+  if (!instance) return
+
+  instance.visible = !instance.visible
+  live2d.setRenderingEnabled(instance.visible)
+  await emit(LISTEN_KEY.SUB_MODEL_VISIBILITY_CHANGED, { id: instance.id, visible: instance.visible })
+
+  if (!instance.visible) {
+    await hideWindow()
+  }
+}
 
 function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
   if (!modelSizeValue) return
@@ -366,6 +393,8 @@ function handleMouseMove(event: MouseEvent) {
     pendingScaleDelta = 0
     scalingWithShortcut = true
     windowSettings.value.scale = round(nextScale)
+
+    reportCurrentSubModelWindowChange()
 
     if (scaleSyncTimer) {
       clearTimeout(scaleSyncTimer)

@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { emitTo } from '@tauri-apps/api/event'
 import { Button, InputNumber, message, Modal, Popconfirm, Select, Switch } from 'antdv-next'
-import { computed, ref, toRaw, watch } from 'vue'
+import { computed, nextTick, ref, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Model, SubModelInstance } from '@/stores/model'
@@ -60,6 +60,8 @@ function getModelName(instance: SubModelInstance) {
 }
 
 async function notifyInstance(instance: SubModelInstance) {
+  await nextTick()
+
   await emitTo(
     getSubModelWindowLabel(instance.id),
     LISTEN_KEY.UPDATE_SUB_MODEL,
