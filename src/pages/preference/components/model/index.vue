@@ -367,7 +367,7 @@ async function handleDelete(item: Model) {
 <style scoped lang="scss">
 .model-manager {
   display: grid;
-  height: calc(100dvh - 32px);
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   grid-template-rows: minmax(0, 1fr) auto;
@@ -376,7 +376,20 @@ async function handleDelete(item: Model) {
 .model-grid {
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 16px;
+  padding-bottom: 72px;
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+
+.rename-model-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rename-model-field small {
+  color: var(--ant-color-text-secondary);
 }
 
 .rename-model-field {
@@ -456,7 +469,12 @@ async function handleDelete(item: Model) {
 .model-pagination {
   display: flex;
   justify-content: center;
-  padding: 16px 0 4px;
+  padding: 12px 0;
   background: var(--ant-color-fill-quaternary);
+  position: fixed;
+  z-index: 2;
+  right: 16px;
+  bottom: 16px;
+  left: calc(7.5rem + 16px);
 }
 </style>

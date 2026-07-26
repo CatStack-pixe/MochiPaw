@@ -124,7 +124,7 @@ const menus = computed(() => [
       v-for="(item, index) in menus"
       v-show="current === index"
       :key="item.key"
-      class="flex-1 overflow-auto bg-[--ant-color-fill-quaternary] p-4 dark:bg-container"
+      class="h-full min-h-0 flex-1 overflow-auto bg-[--ant-color-fill-quaternary] p-4 dark:bg-container"
       data-tauri-drag-region
     >
       <component :is="item.component" />
