@@ -31,7 +31,7 @@ export const useGeneralStore = defineStore('general', () => {
   /* ------------ 废弃字段（后续删除） ------------ */
 
   /** @deprecated 请使用 `update.autoCheck` */
-  const autoCheckUpdate = ref(false)
+  const autoCheckUpdate = ref(true)
 
   /** @deprecated 请使用 `app.autostart` */
   const autostart = ref(false)
@@ -60,7 +60,7 @@ export const useGeneralStore = defineStore('general', () => {
   })
 
   const update = reactive<GeneralStore['update']>({
-    autoCheck: false,
+    autoCheck: true,
   })
 
   const getLanguage = async () => {
