@@ -73,6 +73,8 @@ const FALLBACK_PHYSICS_PARAMETER_STRENGTHS = {
   ParamHairBack: 0.24,
 } as const
 
+const PHYSICS_INPUT_GAIN = 1.4
+
 type FallbackPhysicsParameter = keyof typeof FALLBACK_PHYSICS_PARAMETER_STRENGTHS
 type FallbackPhysicsParameters = Partial<Record<FallbackPhysicsParameter, true>>
 
@@ -213,6 +215,14 @@ function clamp(value: number, min: number, max: number) {
 
 function smoothingFactor(rate: number, deltaSeconds: number) {
   return 1 - Math.exp(-rate * deltaSeconds)
+}
+
+function applyPhysicsInputGain(value: number) {
+  return clamp(value * PHYSICS_INPUT_GAIN, -1, 1)
+}
+
+function applyPhysicsAngleGain(value: number) {
+  return applyPhysicsInputGain(value / 30) * 30
 }
 
 function hasNativePhysics(modelJSON: CubismModelJson) {
@@ -430,8 +440,8 @@ class Live2d {
   }
 
   public setLookTarget(x: number, y: number) {
-    const targetX = clamp(x, -1, 1)
-    const targetY = clamp(y, -1, 1)
+    const targetX = applyPhysicsInputGain(x)
+    const targetY = applyPhysicsInputGain(y)
     const model = this.model as DraggableLive2DSprite | null
 
     this.fallbackPhysicsAngles.x = targetX * 30
@@ -554,13 +564,13 @@ class Live2d {
   private trackFallbackPhysicsInput(id: string, value: number) {
     switch (id) {
       case 'ParamAngleX':
-        this.fallbackPhysicsAngles.x = value
+        this.fallbackPhysicsAngles.x = applyPhysicsAngleGain(value)
         return
       case 'ParamAngleY':
-        this.fallbackPhysicsAngles.y = value
+        this.fallbackPhysicsAngles.y = applyPhysicsAngleGain(value)
         return
       case 'ParamAngleZ':
-        this.fallbackPhysicsAngles.z = value
+        this.fallbackPhysicsAngles.z = applyPhysicsAngleGain(value)
     }
   }
 }
