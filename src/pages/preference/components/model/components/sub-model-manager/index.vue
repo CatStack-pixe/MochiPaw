@@ -3,9 +3,9 @@
  -->
 
 <script setup lang="ts">
-import { emitTo } from '@tauri-apps/api/event'
+import { useDebounceFn } from '@vueuse/core'
 import { Button, Input, InputNumber, message, Modal, Popconfirm, Select, Switch } from 'antdv-next'
-import { computed, nextTick, reactive, ref, toRaw, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SubModelInstance } from '@/stores/model'
@@ -14,11 +14,10 @@ import { useTauriListen } from '@/composables/useTauriListen'
 import { LISTEN_KEY } from '@/constants'
 import { getModelDisplayName, getSubModelDisplayName, useModelStore } from '@/stores/model'
 import {
-  applySubModelWindowPosition,
   destroySubModelWindow,
-  getSubModelWindowLabel,
   hideSubModelWindow,
   openSubModelWindow,
+  syncSubModelWindow,
 } from '@/utils/subModelWindow'
 
 const { standalone = false } = defineProps<{
@@ -56,6 +55,31 @@ useTauriListen<{ id: string, visible: boolean }>(LISTEN_KEY.SUB_MODEL_VISIBILITY
   }
 })
 
+const syncVisibleSubModels = useDebounceFn(() => {
+  modelStore.subModels
+    .filter(instance => instance.visible)
+    .forEach((instance) => {
+      void syncSubModelWindow(instance)
+    })
+}, 16)
+
+watch(() => modelStore.subModels.map(instance => ({
+  id: instance.id,
+  modelId: instance.modelId,
+  visible: instance.visible,
+  listeners: { ...instance.listeners },
+  window: {
+    scale: instance.window.scale,
+    opacity: instance.window.opacity,
+    radius: instance.window.radius,
+    passThrough: instance.window.passThrough,
+    alwaysOnTop: instance.window.alwaysOnTop,
+  },
+  appearance: { ...instance.appearance },
+})), () => {
+  syncVisibleSubModels()
+}, { deep: true })
+
 function getInstanceModel(instance: SubModelInstance) {
   return models.value.find(item => item.id === instance.modelId)
 }
@@ -85,11 +109,7 @@ function toggleExpanded(instanceId: string) {
 async function notifyInstance(instance: SubModelInstance) {
   await nextTick()
 
-  await emitTo(
-    getSubModelWindowLabel(instance.id),
-    LISTEN_KEY.UPDATE_SUB_MODEL,
-    structuredClone(toRaw(instance)),
-  ).catch(() => undefined)
+  await syncSubModelWindow(instance)
 }
 
 function normalizePositionValue(value: number | string | null | undefined) {
@@ -110,7 +130,6 @@ async function updateWindowPosition(
   instance.window[axis] = normalizePositionValue(value)
 
   await notifyInstance(instance)
-  await applySubModelWindowPosition(instance).catch(() => undefined)
 }
 
 async function saveInstanceText(instance: SubModelInstance, field: 'customName' | 'note') {

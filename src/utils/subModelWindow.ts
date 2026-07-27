@@ -4,6 +4,7 @@
 import { PhysicalPosition } from '@tauri-apps/api/dpi'
 import { emitTo } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { toRaw } from 'vue'
 
 import type { SubModelInstance } from '@/stores/model'
 
@@ -21,7 +22,7 @@ export async function openSubModelWindow(instance: SubModelInstance) {
   const existingWindow = await WebviewWindow.getByLabel(label)
 
   if (existingWindow) {
-    await applySubModelWindowPosition(instance, existingWindow)
+    await syncSubModelWindow(instance, existingWindow)
     await existingWindow.show()
     await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, true)
     await existingWindow.setFocus()
@@ -45,6 +46,7 @@ export async function openSubModelWindow(instance: SubModelInstance) {
   })
 
   await waitForWindowCreation(window)
+  await syncSubModelWindow(instance, window)
   await window.show()
 
   return window
@@ -72,6 +74,27 @@ export async function applySubModelWindowPosition(instance: SubModelInstance, ex
   const window = existingWindow ?? await WebviewWindow.getByLabel(getSubModelWindowLabel(instance.id))
 
   await window?.setPosition(new PhysicalPosition(x, y))
+}
+
+export async function applySubModelWindowSettings(instance: SubModelInstance, existingWindow?: WebviewWindow | null) {
+  const window = existingWindow ?? await WebviewWindow.getByLabel(getSubModelWindowLabel(instance.id))
+
+  if (!window) return
+
+  await Promise.all([
+    applySubModelWindowPosition(instance, window).catch(() => undefined),
+    window.setAlwaysOnTop(instance.window.alwaysOnTop).catch(() => undefined),
+    window.setIgnoreCursorEvents(instance.window.passThrough).catch(() => undefined),
+  ])
+}
+
+export async function syncSubModelWindow(instance: SubModelInstance, existingWindow?: WebviewWindow | null) {
+  const label = getSubModelWindowLabel(instance.id)
+
+  await Promise.all([
+    applySubModelWindowSettings(instance, existingWindow),
+    emitTo(label, LISTEN_KEY.UPDATE_SUB_MODEL, structuredClone(toRaw(instance))).catch(() => undefined),
+  ])
 }
 
 async function waitForWindowCreation(window: WebviewWindow) {

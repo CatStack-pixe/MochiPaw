@@ -230,10 +230,10 @@ export const useModelStore = defineStore('model', () => {
       showOnLaunch: true,
       createdAt: Date.now(),
       listeners: {
-        keyboard: false,
-        mouse: false,
-        gamepad: false,
-        typingBehavior: false,
+        keyboard: true,
+        mouse: true,
+        gamepad: true,
+        typingBehavior: true,
       },
       window: {
         scale: 100,
@@ -245,7 +245,7 @@ export const useModelStore = defineStore('model', () => {
       appearance: {
         mirror: false,
         mouseMirror: false,
-        maxFPS: 15,
+        maxFPS: 60,
       },
     }
 
