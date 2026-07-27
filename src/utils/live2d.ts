@@ -96,6 +96,13 @@ type RenderableLive2DSprite = Live2DSprite & {
   onRender: null | ((...args: unknown[]) => void)
 }
 
+type DraggableLive2DSprite = Live2DSprite & {
+  _model?: {
+    setDragging?: (x: number, y: number) => void
+  } | null
+  setDragging?: (x: number, y: number) => void
+}
+
 export function destroyLive2dSprite(model: Live2DSprite | null | undefined, app?: Application | null) {
   detachLive2dSprite(model, app)
   model?.destroy()
@@ -420,6 +427,23 @@ class Live2d {
     this.trackFallbackPhysicsInput(id, Number(value))
 
     return this.model?.setParameterValueById(id, Number(value))
+  }
+
+  public setLookTarget(x: number, y: number) {
+    const targetX = clamp(x, -1, 1)
+    const targetY = clamp(y, -1, 1)
+    const model = this.model as DraggableLive2DSprite | null
+
+    this.fallbackPhysicsAngles.x = targetX * 30
+    this.fallbackPhysicsAngles.y = targetY * 30
+    this.fallbackPhysicsAngles.z = targetX * targetY * -30
+
+    if (model?._model?.setDragging) {
+      model._model.setDragging(targetX, targetY)
+      return
+    }
+
+    model?.setDragging?.(targetX, targetY)
   }
 
   public setMotionSoundEnabled(enabled: boolean) {
