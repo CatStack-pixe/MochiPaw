@@ -168,7 +168,14 @@
           "createWarning": "Nhiều mô hình hiển thị hơn cần thêm CPU, GPU và bộ nhớ.",
           "delete": "Thao tác này xóa mô hình phụ và cài đặt cửa sổ của nó."
         },
+        "sections": {
+          "basic": "Cơ bản",
+          "launch": "Khởi động và đầu vào",
+          "window": "Cửa sổ",
+          "appearance": "Giao diện"
+        },
         "labels": {
+          "auto": "Tự động",
           "customName": "Tên",
           "note": "Ghi chú",
           "showOnLaunch": "Hiện khi khởi động",
@@ -181,6 +188,8 @@
           "mirror": "Phản chiếu",
           "mouseMirror": "Phản chiếu chuột",
           "fps": "FPS",
+          "positionX": "X",
+          "positionY": "Y",
           "scale": "Tỷ lệ",
           "opacity": "Độ mờ",
           "radius": "Bo góc"

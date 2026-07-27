@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
 import type { ExpressionInfo, MotionInfo } from 'easy-live2d'
+import type { Ticker } from 'pixi.js'
 
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
@@ -30,6 +31,7 @@ interface CubismDisplayInfo {
 interface CubismModelJson {
   FileReferences?: {
     DisplayInfo?: string
+    Physics?: string
     Expressions?: Array<{
       Name?: string
       File?: string
@@ -62,6 +64,22 @@ const MOTION_DISPLAY_NAMES: Record<string, string> = {
   reshuihuK: 'Kettle Off',
   youeryuanK: 'Kindergarten On',
   youeryuanG: 'Kindergarten Off',
+}
+
+const FALLBACK_PHYSICS_PARAMETER_STRENGTHS = {
+  ParamBreath: 0.38,
+  ParamHairFront: 0.26,
+  ParamHairSide: 0.32,
+  ParamHairBack: 0.24,
+} as const
+
+type FallbackPhysicsParameter = keyof typeof FALLBACK_PHYSICS_PARAMETER_STRENGTHS
+type FallbackPhysicsParameters = Partial<Record<FallbackPhysicsParameter, true>>
+
+interface FallbackPhysicsVector {
+  x: number
+  y: number
+  z: number
 }
 
 export class Live2dLoadCancelledError extends Error {
@@ -182,6 +200,18 @@ function removeModelFileExtension(file: string) {
     .replace(/\.[^.]+$/, '')
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function smoothingFactor(rate: number, deltaSeconds: number) {
+  return 1 - Math.exp(-rate * deltaSeconds)
+}
+
+function hasNativePhysics(modelJSON: CubismModelJson) {
+  return Boolean(modelJSON.FileReferences?.Physics?.trim())
+}
+
 async function getParameterNames(path: string, modelJSON: CubismModelJson) {
   const displayInfo = modelJSON.FileReferences?.DisplayInfo
 
@@ -201,6 +231,11 @@ async function getParameterNames(path: string, modelJSON: CubismModelJson) {
 class Live2d {
   private app: Application | null = null
   private appInitPromise: Promise<void> | null = null
+  private fallbackPhysicsAngles: FallbackPhysicsVector = { x: 0, y: 0, z: 0 }
+  private fallbackPhysicsParameters: FallbackPhysicsParameters = {}
+  private fallbackPhysicsSmoothedAngles: FallbackPhysicsVector = { x: 0, y: 0, z: 0 }
+  private fallbackPhysicsTime = 0
+  private fallbackPhysicsVelocity: FallbackPhysicsVector = { x: 0, y: 0, z: 0 }
   private loadVersion = 0
   private maxFPS = 30
   private renderingEnabled = true
@@ -316,6 +351,8 @@ class Live2d {
       throw new Live2dLoadCancelledError()
     }
 
+    this.setupFallbackPhysics(modelJSON)
+
     return {
       width,
       height,
@@ -335,6 +372,7 @@ class Live2d {
   private destroyCurrentModel() {
     const model = this.model
 
+    this.stopFallbackPhysics()
     this.model = null
 
     this.destroySprite(model)
@@ -379,6 +417,8 @@ class Live2d {
   }
 
   public setParameterValue(id: string, value: number | boolean) {
+    this.trackFallbackPhysicsInput(id, Number(value))
+
     return this.model?.setParameterValueById(id, Number(value))
   }
 
@@ -404,6 +444,99 @@ class Live2d {
 
     if (this.model) {
       this.app?.start()
+    }
+  }
+
+  private setupFallbackPhysics(modelJSON: CubismModelJson) {
+    this.stopFallbackPhysics()
+
+    if (hasNativePhysics(modelJSON) || !this.model || !this.app) return
+
+    const parameters = Object.keys(FALLBACK_PHYSICS_PARAMETER_STRENGTHS)
+      .filter((id): id is FallbackPhysicsParameter => Boolean(this.model?.getParameterValueRangeById(id)))
+
+    if (!parameters.length) return
+
+    this.fallbackPhysicsParameters = Object.fromEntries(parameters.map(id => [id, true])) as FallbackPhysicsParameters
+    this.fallbackPhysicsAngles = { x: 0, y: 0, z: 0 }
+    this.fallbackPhysicsSmoothedAngles = { x: 0, y: 0, z: 0 }
+    this.fallbackPhysicsVelocity = { x: 0, y: 0, z: 0 }
+    this.fallbackPhysicsTime = 0
+    this.app.ticker.add(this.updateFallbackPhysics)
+  }
+
+  private stopFallbackPhysics() {
+    this.app?.ticker.remove(this.updateFallbackPhysics)
+    this.fallbackPhysicsParameters = {}
+    this.fallbackPhysicsTime = 0
+  }
+
+  private readonly updateFallbackPhysics = (ticker: Ticker) => {
+    if (!this.model || !Object.keys(this.fallbackPhysicsParameters).length) return
+
+    const deltaSeconds = clamp(ticker.deltaMS / 1000 || 1 / 60, 1 / 120, 0.1)
+    const previousAngles = { ...this.fallbackPhysicsSmoothedAngles }
+    const angleFactor = smoothingFactor(8, deltaSeconds)
+
+    this.fallbackPhysicsTime += deltaSeconds
+    this.fallbackPhysicsSmoothedAngles.x += (this.fallbackPhysicsAngles.x - this.fallbackPhysicsSmoothedAngles.x) * angleFactor
+    this.fallbackPhysicsSmoothedAngles.y += (this.fallbackPhysicsAngles.y - this.fallbackPhysicsSmoothedAngles.y) * angleFactor
+    this.fallbackPhysicsSmoothedAngles.z += (this.fallbackPhysicsAngles.z - this.fallbackPhysicsSmoothedAngles.z) * angleFactor
+    this.fallbackPhysicsVelocity.x += (
+      (this.fallbackPhysicsSmoothedAngles.x - previousAngles.x) / deltaSeconds
+      - this.fallbackPhysicsVelocity.x
+    ) * smoothingFactor(10, deltaSeconds)
+    this.fallbackPhysicsVelocity.y += (
+      (this.fallbackPhysicsSmoothedAngles.y - previousAngles.y) / deltaSeconds
+      - this.fallbackPhysicsVelocity.y
+    ) * smoothingFactor(10, deltaSeconds)
+    this.fallbackPhysicsVelocity.z += (
+      (this.fallbackPhysicsSmoothedAngles.z - previousAngles.z) / deltaSeconds
+      - this.fallbackPhysicsVelocity.z
+    ) * smoothingFactor(10, deltaSeconds)
+
+    const idle = Math.sin(this.fallbackPhysicsTime * 1.8)
+    const idleSlow = Math.sin(this.fallbackPhysicsTime * 1.15 + 1.2)
+    const idleSide = Math.sin(this.fallbackPhysicsTime * 1.45 + 2.4)
+    const angleX = clamp(this.fallbackPhysicsSmoothedAngles.x / 30, -1, 1)
+    const angleY = clamp(this.fallbackPhysicsSmoothedAngles.y / 30, -1, 1)
+    const angleZ = clamp(this.fallbackPhysicsSmoothedAngles.z / 30, -1, 1)
+    const velocityX = clamp(this.fallbackPhysicsVelocity.x / 300, -1, 1)
+    const velocityY = clamp(this.fallbackPhysicsVelocity.y / 300, -1, 1)
+    const velocityZ = clamp(this.fallbackPhysicsVelocity.z / 300, -1, 1)
+
+    this.setFallbackParameter('ParamBreath', 0.45 + 0.55 * idle)
+    this.setFallbackParameter('ParamHairFront', idle * 0.4 - angleY * 0.45 - velocityY * 0.22)
+    this.setFallbackParameter('ParamHairSide', idleSide * 0.28 - angleX * 0.55 - velocityX * 0.28)
+    this.setFallbackParameter('ParamHairBack', idleSlow * 0.36 - angleZ * 0.48 - velocityZ * 0.22)
+  }
+
+  private setFallbackParameter(id: FallbackPhysicsParameter, normalizedValue: number) {
+    if (!this.model || !this.fallbackPhysicsParameters[id]) return
+
+    const range = this.model.getParameterValueRangeById(id)
+
+    if (!range) return
+
+    const { min, max } = range
+    const center = min <= 0 && max >= 0 ? 0 : (min + max) / 2
+    const radius = Math.min(Math.abs(min - center), Math.abs(max - center))
+    const strength = FALLBACK_PHYSICS_PARAMETER_STRENGTHS[id]
+    const value = clamp(center + clamp(normalizedValue, -1, 1) * radius * strength, min, max)
+
+    this.model.setParameterValueById(id, value)
+  }
+
+  private trackFallbackPhysicsInput(id: string, value: number) {
+    switch (id) {
+      case 'ParamAngleX':
+        this.fallbackPhysicsAngles.x = value
+        return
+      case 'ParamAngleY':
+        this.fallbackPhysicsAngles.y = value
+        return
+      case 'ParamAngleZ':
+        this.fallbackPhysicsAngles.z = value
     }
   }
 }

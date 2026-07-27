@@ -168,7 +168,14 @@
           "createWarning": "More visible models require additional CPU, GPU, and memory.",
           "delete": "This removes the sub model and its window settings."
         },
+        "sections": {
+          "basic": "Basic",
+          "launch": "Launch and input",
+          "window": "Window",
+          "appearance": "Appearance"
+        },
         "labels": {
+          "auto": "Auto",
           "customName": "Name",
           "note": "Note",
           "showOnLaunch": "Show on launch",
@@ -181,6 +188,8 @@
           "mirror": "Mirror",
           "mouseMirror": "Mouse mirror",
           "fps": "FPS",
+          "positionX": "X",
+          "positionY": "Y",
           "scale": "Scale",
           "opacity": "Opacity",
           "radius": "Radius"
