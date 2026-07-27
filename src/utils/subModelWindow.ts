@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import { PhysicalPosition } from '@tauri-apps/api/dpi'
 import { emitTo } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 
@@ -20,6 +21,7 @@ export async function openSubModelWindow(instance: SubModelInstance) {
   const existingWindow = await WebviewWindow.getByLabel(label)
 
   if (existingWindow) {
+    await applySubModelWindowPosition(instance, existingWindow)
     await existingWindow.show()
     await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, true)
     await existingWindow.setFocus()
@@ -60,6 +62,16 @@ export async function destroySubModelWindow(instanceId: string) {
   const window = await WebviewWindow.getByLabel(getSubModelWindowLabel(instanceId))
 
   await window?.destroy()
+}
+
+export async function applySubModelWindowPosition(instance: SubModelInstance, existingWindow?: WebviewWindow | null) {
+  const { x, y } = instance.window
+
+  if (typeof x !== 'number' || typeof y !== 'number') return
+
+  const window = existingWindow ?? await WebviewWindow.getByLabel(getSubModelWindowLabel(instance.id))
+
+  await window?.setPosition(new PhysicalPosition(x, y))
 }
 
 async function waitForWindowCreation(window: WebviewWindow) {

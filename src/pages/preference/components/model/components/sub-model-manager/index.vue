@@ -13,7 +13,13 @@ import type { SubModelInstance } from '@/stores/model'
 import { useTauriListen } from '@/composables/useTauriListen'
 import { LISTEN_KEY } from '@/constants'
 import { getModelDisplayName, getSubModelDisplayName, useModelStore } from '@/stores/model'
-import { destroySubModelWindow, getSubModelWindowLabel, hideSubModelWindow, openSubModelWindow } from '@/utils/subModelWindow'
+import {
+  applySubModelWindowPosition,
+  destroySubModelWindow,
+  getSubModelWindowLabel,
+  hideSubModelWindow,
+  openSubModelWindow,
+} from '@/utils/subModelWindow'
 
 const { standalone = false } = defineProps<{
   standalone?: boolean
@@ -84,6 +90,27 @@ async function notifyInstance(instance: SubModelInstance) {
     LISTEN_KEY.UPDATE_SUB_MODEL,
     structuredClone(toRaw(instance)),
   ).catch(() => undefined)
+}
+
+function normalizePositionValue(value: number | string | null | undefined) {
+  if (typeof value === 'number') return Number.isFinite(value) ? Math.round(value) : undefined
+
+  if (typeof value !== 'string' || !value.trim()) return undefined
+
+  const parsed = Number(value)
+
+  return Number.isFinite(parsed) ? Math.round(parsed) : undefined
+}
+
+async function updateWindowPosition(
+  instance: SubModelInstance,
+  axis: 'x' | 'y',
+  value: number | string | null | undefined,
+) {
+  instance.window[axis] = normalizePositionValue(value)
+
+  await notifyInstance(instance)
+  await applySubModelWindowPosition(instance).catch(() => undefined)
 }
 
 async function saveInstanceText(instance: SubModelInstance, field: 'customName' | 'note') {
@@ -239,146 +266,190 @@ async function handleDelete(instance: SubModelInstance) {
           v-if="expandedIds.has(instance.id)"
           class="sub-model-details"
         >
-          <label class="sub-model-text-field">
-            <span>{{ t('pages.preference.subModel.labels.customName') }}</span>
-            <Input
-              v-model:value="instance.customName"
-              allow-clear
-              :placeholder="getInstanceModelName(instance)"
-              @blur="saveInstanceText(instance, 'customName')"
-              @press-enter="saveInstanceText(instance, 'customName')"
+          <div class="sub-model-section">
+            <h3>{{ t('pages.preference.subModel.sections.basic') }}</h3>
+
+            <label class="sub-model-text-field">
+              <span>{{ t('pages.preference.subModel.labels.customName') }}</span>
+              <Input
+                v-model:value="instance.customName"
+                allow-clear
+                :placeholder="getInstanceModelName(instance)"
+                @blur="saveInstanceText(instance, 'customName')"
+                @press-enter="saveInstanceText(instance, 'customName')"
+              />
+            </label>
+
+            <label class="sub-model-text-field">
+              <span>{{ t('pages.preference.subModel.labels.note') }}</span>
+              <Input
+                v-model:value="instance.note"
+                allow-clear
+                @blur="saveInstanceText(instance, 'note')"
+                @press-enter="saveInstanceText(instance, 'note')"
+              />
+            </label>
+
+            <Select
+              v-model:value="instance.modelId"
+              class="w-full"
+              :options="modelOptions"
+              @change="notifyInstance(instance)"
             />
-          </label>
+          </div>
 
-          <label class="sub-model-text-field">
-            <span>{{ t('pages.preference.subModel.labels.note') }}</span>
-            <Input
-              v-model:value="instance.note"
-              allow-clear
-              @blur="saveInstanceText(instance, 'note')"
-              @press-enter="saveInstanceText(instance, 'note')"
-            />
-          </label>
+          <div class="sub-model-section">
+            <h3>{{ t('pages.preference.subModel.sections.launch') }}</h3>
 
-          <Select
-            v-model:value="instance.modelId"
-            class="w-full"
-            :options="modelOptions"
-            @change="notifyInstance(instance)"
-          />
+            <div class="sub-model-options">
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.showOnLaunch') }}</span>
+                <Switch
+                  v-model:checked="instance.showOnLaunch"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
 
-          <div class="sub-model-options">
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.showOnLaunch') }}</span>
-              <Switch
-                v-model:checked="instance.showOnLaunch"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.keyboard') }}</span>
+                <Switch
+                  v-model:checked="instance.listeners.keyboard"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.keyboard') }}</span>
-              <Switch
-                v-model:checked="instance.listeners.keyboard"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.mouse') }}</span>
+                <Switch
+                  v-model:checked="instance.listeners.mouse"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.mouse') }}</span>
-              <Switch
-                v-model:checked="instance.listeners.mouse"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.gamepad') }}</span>
+                <Switch
+                  v-model:checked="instance.listeners.gamepad"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.gamepad') }}</span>
-              <Switch
-                v-model:checked="instance.listeners.gamepad"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.typingBehavior') }}</span>
+                <Switch
+                  v-model:checked="instance.listeners.typingBehavior"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
+            </div>
+          </div>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.typingBehavior') }}</span>
-              <Switch
-                v-model:checked="instance.listeners.typingBehavior"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+          <div class="sub-model-section">
+            <h3>{{ t('pages.preference.subModel.sections.window') }}</h3>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.passThrough') }}</span>
-              <Switch
-                v-model:checked="instance.window.passThrough"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+            <div class="sub-model-options">
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.passThrough') }}</span>
+                <Switch
+                  v-model:checked="instance.window.passThrough"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.alwaysOnTop') }}</span>
-              <Switch
-                v-model:checked="instance.window.alwaysOnTop"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.alwaysOnTop') }}</span>
+                <Switch
+                  v-model:checked="instance.window.alwaysOnTop"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.mirror') }}</span>
-              <Switch
-                v-model:checked="instance.appearance.mirror"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.positionX') }}</span>
+                <InputNumber
+                  :max="20000"
+                  :min="-20000"
+                  :placeholder="t('pages.preference.subModel.labels.auto')"
+                  :precision="0"
+                  :value="instance.window.x"
+                  @change="value => updateWindowPosition(instance, 'x', value)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.mouseMirror') }}</span>
-              <Switch
-                v-model:checked="instance.appearance.mouseMirror"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.positionY') }}</span>
+                <InputNumber
+                  :max="20000"
+                  :min="-20000"
+                  :placeholder="t('pages.preference.subModel.labels.auto')"
+                  :precision="0"
+                  :value="instance.window.y"
+                  @change="value => updateWindowPosition(instance, 'y', value)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.fps') }}</span>
-              <InputNumber
-                v-model:value="instance.appearance.maxFPS"
-                :max="60"
-                :min="1"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.scale') }}</span>
+                <InputNumber
+                  v-model:value="instance.window.scale"
+                  :max="500"
+                  :min="10"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.scale') }}</span>
-              <InputNumber
-                v-model:value="instance.window.scale"
-                :max="500"
-                :min="10"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.opacity') }}</span>
+                <InputNumber
+                  v-model:value="instance.window.opacity"
+                  :max="100"
+                  :min="10"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.opacity') }}</span>
-              <InputNumber
-                v-model:value="instance.window.opacity"
-                :max="100"
-                :min="10"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.radius') }}</span>
+                <InputNumber
+                  v-model:value="instance.window.radius"
+                  :max="100"
+                  :min="0"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
+            </div>
+          </div>
 
-            <label>
-              <span>{{ t('pages.preference.subModel.labels.radius') }}</span>
-              <InputNumber
-                v-model:value="instance.window.radius"
-                :max="100"
-                :min="0"
-                @change="notifyInstance(instance)"
-              />
-            </label>
+          <div class="sub-model-section">
+            <h3>{{ t('pages.preference.subModel.sections.appearance') }}</h3>
+
+            <div class="sub-model-options">
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.mirror') }}</span>
+                <Switch
+                  v-model:checked="instance.appearance.mirror"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
+
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.mouseMirror') }}</span>
+                <Switch
+                  v-model:checked="instance.appearance.mouseMirror"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
+
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.fps') }}</span>
+                <InputNumber
+                  v-model:value="instance.appearance.maxFPS"
+                  :max="60"
+                  :min="1"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
+            </div>
           </div>
         </div>
       </section>
@@ -453,7 +524,21 @@ async function handleDelete(instance: SubModelInstance) {
 .sub-model-details {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.sub-model-section {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+}
+
+.sub-model-section h3 {
+  margin: 0;
+  color: var(--ant-color-text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .sub-model-text-field {
@@ -507,6 +592,6 @@ async function handleDelete(instance: SubModelInstance) {
 }
 
 .sub-model-options :deep(.ant-input-number) {
-  width: 72px;
+  width: 86px;
 }
 </style>

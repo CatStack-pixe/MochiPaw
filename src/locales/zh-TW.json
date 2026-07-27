@@ -168,7 +168,14 @@
           "createWarning": "更多可見模型會使用額外的 CPU、GPU 與記憶體。",
           "delete": "這會刪除子模型及其視窗設定。"
         },
+        "sections": {
+          "basic": "基礎",
+          "launch": "啟動與輸入",
+          "window": "視窗",
+          "appearance": "外觀"
+        },
         "labels": {
+          "auto": "自動",
           "customName": "名稱",
           "note": "備註",
           "showOnLaunch": "啟動時顯示",
@@ -181,6 +188,8 @@
           "mirror": "鏡像",
           "mouseMirror": "滑鼠鏡像",
           "fps": "幀率",
+          "positionX": "X",
+          "positionY": "Y",
           "scale": "縮放",
           "opacity": "不透明度",
           "radius": "圓角"

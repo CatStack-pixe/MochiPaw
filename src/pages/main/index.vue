@@ -150,9 +150,7 @@ function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
 }
 
 onMounted(() => {
-  if (!isSubModel) {
-    startListening()
-  }
+  startListening()
 
   if (!isSubModel) return
 

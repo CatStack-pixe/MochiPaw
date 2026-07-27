@@ -168,7 +168,14 @@
           "createWarning": "Mais modelos visíveis exigem CPU, GPU e memória adicionais.",
           "delete": "Isso remove o submodelo e suas configurações de janela."
         },
+        "sections": {
+          "basic": "Básico",
+          "launch": "Inicialização e entrada",
+          "window": "Janela",
+          "appearance": "Aparência"
+        },
         "labels": {
+          "auto": "Auto",
           "customName": "Nome",
           "note": "Observação",
           "showOnLaunch": "Mostrar ao iniciar",
@@ -181,6 +188,8 @@
           "mirror": "Espelho",
           "mouseMirror": "Espelho do mouse",
           "fps": "FPS",
+          "positionX": "X",
+          "positionY": "Y",
           "scale": "Escala",
           "opacity": "Opacidade",
           "radius": "Raio"

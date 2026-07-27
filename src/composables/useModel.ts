@@ -511,6 +511,8 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
 
     const xRatio = (cursorPoint.x - position.x) / size.width
     const yRatio = (cursorPoint.y - position.y) / size.height
+    const lookTargetX = (mouseMirror.value ? -1 : 1) * (1 - 2 * xRatio)
+    const lookTargetY = 1 - 2 * yRatio
 
     for (const id of [
       'ParamMouseX',
@@ -552,6 +554,8 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
 
       live2d.setParameterValue(id, value)
     }
+
+    live2d.setLookTarget(lookTargetX, lookTargetY)
   }
 
   async function handleAxisChange(id: string, value: number) {
