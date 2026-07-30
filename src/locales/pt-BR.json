@@ -121,9 +121,16 @@
             "motionIndex": "Movimento {index}",
             "motionGroupIndex": "Grupo de Movimento {index}",
             "expressionIndex": "Expressão {index}",
-            "randomGroups": "Grupos aleat?rios",
-            "mutualExclusionRules": "Mutual exclusion rules",
+            "randomGroups": "Grupo aleatorio de digitacao",
+            "mutualExclusionRules": "Nao podem ficar ativos juntos",
             "ruleIndex": "Rule {index}"
+          },
+          "hints": {
+            "randomGroups": "Durante a digitacao, um movimento ou expressao marcado deste grupo e escolhido aleatoriamente.",
+            "mutualExclusionRules": "Coloque movimentos ou expressoes que nao podem coexistir na mesma regra."
+          },
+          "actions": {
+            "deleteGroup": "Excluir grupo aleatorio"
           }
         },
         "controlledImport": {

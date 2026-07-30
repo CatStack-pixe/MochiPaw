@@ -146,9 +146,16 @@
             "motionIndex": "Motion {index}",
             "motionGroupIndex": "Motion Group {index}",
             "expressionIndex": "Expression {index}",
-            "randomGroups": "Random groups",
-            "mutualExclusionRules": "Mutual exclusion rules",
+            "randomGroups": "Typing random group",
+            "mutualExclusionRules": "Cannot be active together",
             "ruleIndex": "Rule {index}"
+          },
+          "hints": {
+            "randomGroups": "While typing, one checked motion or expression from this group is selected at random.",
+            "mutualExclusionRules": "Put motions or expressions that cannot coexist in the same rule."
+          },
+          "actions": {
+            "deleteGroup": "Delete random group"
           }
         }
       },

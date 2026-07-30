@@ -12,12 +12,14 @@ import { useI18n } from 'vue-i18n'
 import type { ModelBehaviorGroup, ModelBehaviorRule, ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
 
 import { LISTEN_KEY } from '@/constants'
+import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { resolveModelExpressions, resolveModelMotions } from '@/utils/live2d'
 
 import BehaviorItem from './components/behavior-item/index.vue'
 
 const modelValue = defineModel<boolean>()
+const catStore = useCatStore()
 const modelStore = useModelStore()
 const { t } = useI18n()
 const currentGroupId = ref('default')
@@ -155,6 +157,22 @@ function addBehaviorGroup() {
   currentGroupId.value = group.id
 }
 
+function removeBehaviorGroup(group: ModelBehaviorGroup) {
+  if (!modelStore.currentModel || group.id === 'default') return
+
+  const modelId = modelStore.currentModel.id
+  modelStore.behaviorGroups[modelId] = (modelStore.behaviorGroups[modelId] ?? [])
+    .filter(item => item.id !== group.id)
+
+  if (catStore.model.typingBehaviorGroup === group.id) {
+    catStore.model.typingBehaviorGroup = 'default'
+  }
+
+  if (currentGroupId.value === group.id) {
+    currentGroupId.value = 'default'
+  }
+}
+
 const behaviorOptions = computed(() => {
   return getAllBehaviorIds().map(id => ({
     label: modelStore.behaviorNames[`${id}:name`] ?? id,
@@ -254,9 +272,14 @@ watch(modelValue, async (open) => {
     <div class="max-h-[70vh] flex flex-col gap-5 overflow-auto pr-1">
       <section class="b-1 b-solid b-border rounded-lg">
         <div class="bg-fill-sec flex items-center justify-between gap-3 px-4 py-3">
-          <span class="font-medium text-sm">
-            {{ $t('pages.preference.model.behaviorModal.labels.randomGroups') }}
-          </span>
+          <div>
+            <div class="font-medium text-sm">
+              {{ $t('pages.preference.model.behaviorModal.labels.randomGroups') }}
+            </div>
+            <div class="text-secondary mt-1 text-xs">
+              {{ $t('pages.preference.model.behaviorModal.hints.randomGroups') }}
+            </div>
+          </div>
 
           <Button
             class="inline-flex items-center justify-center"
@@ -273,7 +296,7 @@ watch(modelValue, async (open) => {
           <div
             v-for="group in currentModelGroups"
             :key="group.id"
-            class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2"
+            class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2"
           >
             <Button
               class="inline-flex items-center justify-center"
@@ -289,14 +312,32 @@ watch(modelValue, async (open) => {
               v-model:value="group.name"
               size="small"
             />
+
+            <Button
+              v-if="group.id !== 'default'"
+              class="inline-flex items-center justify-center"
+              danger
+              size="small"
+              :title="$t('pages.preference.model.behaviorModal.actions.deleteGroup')"
+              @click="removeBehaviorGroup(group)"
+            >
+              <template #icon>
+                <div class="i-lucide:trash-2" />
+              </template>
+            </Button>
           </div>
         </div>
 
         <div class="b-t b-t-solid px-4 py-3 b-border">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <span class="font-medium text-sm">
-              {{ $t('pages.preference.model.behaviorModal.labels.mutualExclusionRules') }}
-            </span>
+          <div class="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <div class="font-medium text-sm">
+                {{ $t('pages.preference.model.behaviorModal.labels.mutualExclusionRules') }}
+              </div>
+              <div class="text-secondary mt-1 text-xs">
+                {{ $t('pages.preference.model.behaviorModal.hints.mutualExclusionRules') }}
+              </div>
+            </div>
 
             <Button
               class="inline-flex items-center justify-center"

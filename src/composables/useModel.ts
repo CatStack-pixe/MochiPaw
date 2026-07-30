@@ -488,7 +488,7 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
 
   function resetExpression() {
     currentExpressionBehaviorId = undefined
-    live2d.setExpression(0)
+    live2d.clearExpression()
   }
 
   function isPromiseLike(value: unknown): value is Promise<unknown> {
