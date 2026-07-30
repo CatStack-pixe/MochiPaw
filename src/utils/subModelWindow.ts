@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { PhysicalPosition } from '@tauri-apps/api/dpi'
-import { emitTo } from '@tauri-apps/api/event'
+import { emitTo, listen } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { toRaw } from 'vue'
 
@@ -12,12 +12,24 @@ import { LISTEN_KEY } from '@/constants'
 
 const SUB_MODEL_WINDOW_PREFIX = 'sub-model-'
 const DEFAULT_SIZE = 300
+const WINDOW_READY_TIMEOUT = 10_000
+let windowOpenQueue = Promise.resolve()
 
 export function getSubModelWindowLabel(instanceId: string) {
   return `${SUB_MODEL_WINDOW_PREFIX}${instanceId}`
 }
 
 export async function openSubModelWindow(instance: SubModelInstance) {
+  const task = windowOpenQueue.then(() => openSubModelWindowNow(instance))
+
+  windowOpenQueue = task.then(() => undefined, () => undefined)
+
+  return task
+}
+
+async function openSubModelWindowNow(instance: SubModelInstance) {
+  if (!instance.visible) return
+
   const label = getSubModelWindowLabel(instance.id)
   const existingWindow = await WebviewWindow.getByLabel(label)
 
@@ -29,35 +41,51 @@ export async function openSubModelWindow(instance: SubModelInstance) {
     return existingWindow
   }
 
-  const window = new WebviewWindow(label, {
-    url: `index.html/#/sub-model?instance=${encodeURIComponent(instance.id)}`,
-    title: 'MochiPaw',
-    width: DEFAULT_SIZE,
-    height: DEFAULT_SIZE,
-    x: instance.window.x,
-    y: instance.window.y,
-    shadow: false,
-    transparent: true,
-    decorations: false,
-    alwaysOnTop: instance.window.alwaysOnTop,
-    skipTaskbar: true,
-    maximizable: false,
-    visible: false,
-  })
+  const runtimeReady = await listenForSubModelRuntimeReady(instance.id)
+  let window: WebviewWindow | undefined
 
-  await waitForWindowCreation(window)
-  await syncSubModelWindow(instance, window)
-  await window.show()
+  try {
+    window = new WebviewWindow(label, {
+      url: `index.html/#/sub-model?instance=${encodeURIComponent(instance.id)}`,
+      title: 'MochiPaw',
+      width: DEFAULT_SIZE,
+      height: DEFAULT_SIZE,
+      x: instance.window.x,
+      y: instance.window.y,
+      shadow: false,
+      transparent: true,
+      decorations: false,
+      alwaysOnTop: instance.window.alwaysOnTop,
+      skipTaskbar: true,
+      maximizable: false,
+      visible: false,
+    })
 
-  return window
+    await Promise.all([waitForWindowCreation(window), runtimeReady.ready])
+
+    if (!instance.visible) {
+      await window.destroy()
+      return
+    }
+
+    await syncSubModelWindow(instance, window)
+    await window.show()
+
+    return window
+  } catch (error) {
+    await window?.destroy().catch(() => undefined)
+    throw error
+  } finally {
+    runtimeReady.dispose()
+  }
 }
 
 export async function hideSubModelWindow(instanceId: string) {
   const label = getSubModelWindowLabel(instanceId)
   const window = await WebviewWindow.getByLabel(label)
 
-  await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, false)
-  await window?.hide()
+  await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, false).catch(() => undefined)
+  await window?.destroy()
 }
 
 export async function destroySubModelWindow(instanceId: string) {
@@ -102,4 +130,32 @@ async function waitForWindowCreation(window: WebviewWindow) {
     void window.once('tauri://created', () => resolve())
     void window.once<string>('tauri://error', ({ payload }) => reject(new Error(payload)))
   })
+}
+
+async function listenForSubModelRuntimeReady(instanceId: string) {
+  let resolve!: () => void
+  let reject!: (error: Error) => void
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  const ready = new Promise<void>((resolveReady, rejectReady) => {
+    resolve = resolveReady
+    reject = rejectReady
+  })
+  const unlisten = await listen<{ id: string }>(LISTEN_KEY.SUB_MODEL_RUNTIME_READY, ({ payload }) => {
+    if (payload.id !== instanceId) return
+
+    if (timeout) clearTimeout(timeout)
+    resolve()
+  })
+
+  timeout = setTimeout(() => {
+    reject(new Error(`Timed out waiting for sub-model ${instanceId} to initialize.`))
+  }, WINDOW_READY_TIMEOUT)
+
+  return {
+    ready,
+    dispose() {
+      if (timeout) clearTimeout(timeout)
+      unlisten()
+    },
+  }
 }

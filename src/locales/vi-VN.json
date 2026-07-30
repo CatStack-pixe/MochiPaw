@@ -173,7 +173,8 @@
         "hints": {
           "createTitle": "Tạo thêm mô hình phụ?",
           "createWarning": "Nhiều mô hình hiển thị hơn cần thêm CPU, GPU và bộ nhớ.",
-          "delete": "Thao tác này xóa mô hình phụ và cài đặt cửa sổ của nó."
+          "delete": "Thao tác này xóa mô hình phụ và cài đặt cửa sổ của nó.",
+          "resourceLimit": "Không thể khởi động pet này vì sẽ vượt quá ngân sách bộ nhớ của các mô hình đang hoạt động. Hãy ẩn hoặc xóa mô hình phụ khác, hoặc chọn mô hình nhẹ hơn."
         },
         "sections": {
           "basic": "Cơ bản",

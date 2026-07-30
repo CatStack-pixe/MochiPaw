@@ -8,12 +8,24 @@ import { onMounted, onUnmounted, ref } from 'vue'
 
 export function useTauriListen<T>(...args: Parameters<typeof listen<T>>) {
   const unlisten = ref(noop)
+  let resolveReady!: () => void
+  const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve
+  })
 
   onMounted(async () => {
-    unlisten.value = await listen<T>(...args)
+    try {
+      unlisten.value = await listen<T>(...args)
+    } finally {
+      resolveReady()
+    }
   })
 
   onUnmounted(() => {
     unlisten.value()
   })
+
+  return {
+    ready,
+  }
 }

@@ -173,7 +173,8 @@
         "hints": {
           "createTitle": "Criar outro submodelo?",
           "createWarning": "Mais modelos visíveis exigem CPU, GPU e memória adicionais.",
-          "delete": "Isso remove o submodelo e suas configurações de janela."
+          "delete": "Isso remove o submodelo e suas configurações de janela.",
+          "resourceLimit": "Este pet não pode ser iniciado porque excederia o orçamento de memória dos modelos ativos. Oculte ou remova outro submodelo, ou escolha um modelo mais leve."
         },
         "sections": {
           "basic": "Básico",

@@ -16,6 +16,7 @@ import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import type { ModelMotionInfo, SubModelInstance } from '@/stores/model'
+import type { SubModelInputFrame } from '@/utils/subModelRuntime'
 
 import { useAppMenu } from '@/composables/useAppMenu'
 import { useDevice } from '@/composables/useDevice'
@@ -33,6 +34,7 @@ import { join } from '@/utils/path'
 import { isWindows } from '@/utils/platform'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { clearObject } from '@/utils/shared'
+import { SubModelInputCoordinator } from '@/utils/subModelRuntime'
 
 const appWindow = getCurrentWebviewWindow()
 const route = useRoute()
@@ -41,6 +43,9 @@ const isSubModel = Boolean(subModelId)
 const modelStore = useModelStore()
 const catStore = useCatStore()
 const generalStore = useGeneralStore()
+const inputCoordinator = isSubModel
+  ? undefined
+  : new SubModelInputCoordinator(() => modelStore.subModels.filter(instance => instance.visible))
 const syncedSubModel = ref<SubModelInstance>()
 const subModel = computed(() => {
   if (!subModelId) return undefined
@@ -60,6 +65,18 @@ const listenerSettings = computed(() => subModel.value?.listeners ?? {
   gamepad: true,
   typingBehavior: true,
 })
+const gamepadEnabled = computed(() => {
+  return isSubModel ? listenerSettings.value.gamepad : activeModel.value?.mode === 'gamepad'
+})
+const gamepadNativeDemand = computed(() => {
+  if (activeModel.value?.mode === 'gamepad') return true
+
+  return modelStore.subModels.some((instance) => {
+    const model = modelStore.models.find(item => item.id === instance.modelId)
+
+    return instance.visible && instance.listeners.gamepad && model?.mode === 'gamepad'
+  })
+})
 const reportSubModelWindowChange = useDebounceFn((instance: SubModelInstance) => {
   void emit(LISTEN_KEY.SUB_MODEL_WINDOW_CHANGED, structuredClone(toRaw(instance)))
 }, 150)
@@ -76,11 +93,13 @@ const {
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
   syncWindowScale: !isSubModel,
 })
-const { startListening } = useDevice({
+const { startListening, handleInputEvent: handleDeviceInputEvent } = useDevice({
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
   listeners: listenerSettings,
   enableWindowHover: !isSubModel,
+  listen: !isSubModel,
+  onInputEvent: event => inputCoordinator?.enqueueDevice(event),
 })
 const { getBaseMenu, getExitMenu } = useAppMenu({
   windowSettings,
@@ -90,10 +109,13 @@ const { getBaseMenu, getExitMenu } = useAppMenu({
 })
 const backgroundImagePath = ref<string>()
 const live2dCanvas = ref<HTMLCanvasElement | null>(null)
-const { stickActive } = useGamepad({
+const { stickActive, handleInputEvent: handleGamepadInputEvent } = useGamepad({
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
-  enabled: computed(() => listenerSettings.value.gamepad),
+  enabled: gamepadEnabled,
+  listen: !isSubModel,
+  nativeDemand: isSubModel ? undefined : gamepadNativeDemand,
+  onInputEvent: event => inputCoordinator?.enqueueGamepad(event),
 })
 const pressedKeyLayers = computed(() => {
   return Object.entries(modelStore.pressedKeys).flatMap(([key, layers]) => {
@@ -132,7 +154,7 @@ async function toggleMenuVisibility() {
   await emit(LISTEN_KEY.SUB_MODEL_VISIBILITY_CHANGED, { id: instance.id, visible: instance.visible })
 
   if (!instance.visible) {
-    await hideWindow()
+    await appWindow.destroy()
   }
 }
 
@@ -150,7 +172,7 @@ function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
 }
 
 onMounted(() => {
-  startListening()
+  if (!isSubModel) startListening()
 
   if (!isSubModel) return
 
@@ -176,6 +198,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  inputCoordinator?.dispose()
   currentModelLoadVersion += 1
   handleDestroy()
 })
@@ -331,10 +354,29 @@ useTauriListen<boolean>(LISTEN_KEY.SET_SUB_MODEL_RENDERING, ({ payload }) => {
   live2d.setRenderingEnabled(payload)
 })
 
-useTauriListen<SubModelInstance>(LISTEN_KEY.UPDATE_SUB_MODEL, ({ payload }) => {
+const subModelConfigListener = useTauriListen<SubModelInstance>(LISTEN_KEY.UPDATE_SUB_MODEL, ({ payload }) => {
   if (!isSubModel || payload.id !== subModelId) return
 
   syncedSubModel.value = payload
+})
+
+const subModelInputListener = useTauriListen<SubModelInputFrame>(LISTEN_KEY.SUB_MODEL_INPUT_FRAME, ({ payload }) => {
+  if (!isSubModel) return
+
+  for (const event of payload.deviceEvents) {
+    handleDeviceInputEvent(event)
+  }
+
+  for (const event of payload.gamepadEvents) {
+    handleGamepadInputEvent(event)
+  }
+})
+
+onMounted(async () => {
+  if (!isSubModel || !subModelId) return
+
+  await Promise.all([subModelConfigListener.ready, subModelInputListener.ready])
+  await emit(LISTEN_KEY.SUB_MODEL_RUNTIME_READY, { id: subModelId })
 })
 
 function handleMouseDown(event: MouseEvent) {

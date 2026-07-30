@@ -11,6 +11,7 @@ import { isNil } from 'es-toolkit'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import type { ModelRuntimeOptions } from '@/composables/useModel'
+import type { DeviceInputEvent } from '@/utils/subModelRuntime'
 
 import { useAppStore } from '@/stores/app'
 import { useCatStore } from '@/stores/cat'
@@ -23,15 +24,7 @@ import { INVOKE_KEY, LISTEN_KEY, WINDOW_LABEL } from '../constants'
 import { useModel } from './useModel'
 import { useTauriListen } from './useTauriListen'
 
-interface MouseButtonEvent {
-  kind: 'MousePress' | 'MouseRelease'
-  value: string
-}
-
-export interface CursorPoint {
-  x: number
-  y: number
-}
+type CursorPoint = Extract<DeviceInputEvent, { kind: 'MouseMove' }>['value']
 
 export interface DeviceListenerOptions {
   keyboard: boolean
@@ -42,19 +35,9 @@ export interface DeviceListenerOptions {
 export interface UseDeviceOptions extends ModelRuntimeOptions {
   listeners?: Readonly<Ref<DeviceListenerOptions>>
   enableWindowHover?: boolean
+  listen?: boolean
+  onInputEvent?: (event: DeviceInputEvent) => void
 }
-
-interface MouseMoveEvent {
-  kind: 'MouseMove'
-  value: CursorPoint
-}
-
-interface KeyboardEvent {
-  kind: 'KeyboardPress' | 'KeyboardRelease'
-  value: string
-}
-
-type DeviceEvent = MouseButtonEvent | MouseMoveEvent | KeyboardEvent
 
 const DAMPING_DECAY = 0.75
 const RUNTIME_USED_REPORT_INTERVAL = 5 * 60 * 1000
@@ -300,8 +283,8 @@ export function useDevice(options: UseDeviceOptions = {}) {
     handleRelease(key)
   }
 
-  useTauriListen<DeviceEvent>(LISTEN_KEY.DEVICE_CHANGED, ({ payload }) => {
-    const { kind, value } = payload
+  const handleInputEvent = (event: DeviceInputEvent) => {
+    const { kind, value } = event
 
     if (kind === 'KeyboardPress' || kind === 'KeyboardRelease') {
       if (!listeners.value.keyboard) return
@@ -359,9 +342,17 @@ export function useDevice(options: UseDeviceOptions = {}) {
         latestCursorPoint.value = value
         return scheduleCursorSmoothing()
     }
-  })
+  }
+
+  if (options.listen !== false) {
+    useTauriListen<DeviceInputEvent>(LISTEN_KEY.DEVICE_CHANGED, ({ payload }) => {
+      handleInputEvent(payload)
+      options.onInputEvent?.(payload)
+    })
+  }
 
   return {
+    handleInputEvent,
     startListening,
   }
 }
