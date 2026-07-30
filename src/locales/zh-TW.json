@@ -121,9 +121,16 @@
             "motionIndex": "動作{index}",
             "motionGroupIndex": "動作組{index}",
             "expressionIndex": "表情{index}",
-            "randomGroups": "隨機組",
-            "mutualExclusionRules": "互斥規則",
+            "randomGroups": "打字隨機組",
+            "mutualExclusionRules": "不能同時生效的項目",
             "ruleIndex": "規則 {index}"
+          },
+          "hints": {
+            "randomGroups": "打字時，會從目前群組已勾選的動作和表情中隨機選一個。",
+            "mutualExclusionRules": "把不能同時存在的動作或表情放進同一條規則。"
+          },
+          "actions": {
+            "deleteGroup": "刪除隨機組"
           }
         },
         "controlledImport": {

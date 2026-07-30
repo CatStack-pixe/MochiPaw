@@ -121,9 +121,16 @@
             "motionIndex": "Chuyển động {index}",
             "motionGroupIndex": "Nhóm chuyển động {index}",
             "expressionIndex": "Biểu cảm {index}",
-            "randomGroups": "Nh?m ng?u nhi?n",
-            "mutualExclusionRules": "Mutual exclusion rules",
+            "randomGroups": "Nhom ngau nhien khi go",
+            "mutualExclusionRules": "Khong the hoat dong cung luc",
             "ruleIndex": "Rule {index}"
+          },
+          "hints": {
+            "randomGroups": "Khi go, mot chuyen dong hoac bieu cam da chon trong nhom nay se duoc chon ngau nhien.",
+            "mutualExclusionRules": "Dat cac chuyen dong hoac bieu cam khong the cung ton tai vao cung mot quy tac."
+          },
+          "actions": {
+            "deleteGroup": "Xoa nhom ngau nhien"
           }
         },
         "controlledImport": {

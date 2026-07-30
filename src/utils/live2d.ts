@@ -429,6 +429,22 @@ class Live2d {
     return this.model?.setExpression({ index })
   }
 
+  public clearExpression() {
+    // easy-live2d exposes expression selection but not clearing. Stopping its
+    // expression motion manager restores the model parameters saved before it ran.
+    const expressionManager = (this.model as unknown as {
+      _model?: {
+        expressionCtrl?: {
+          _expressionManager?: {
+            stopAllMotions: () => void
+          }
+        }
+      }
+    })?._model?.expressionCtrl?._expressionManager
+
+    expressionManager?.stopAllMotions()
+  }
+
   public getParameterValueRange(id: string) {
     return this.model?.getParameterValueRangeById(id)
   }
