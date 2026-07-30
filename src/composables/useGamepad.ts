@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
-import type { LiteralUnion } from 'type-fest'
 import type { Ref } from 'vue'
 
 import { invoke } from '@tauri-apps/api/core'
@@ -11,6 +10,7 @@ import { computed, onUnmounted, reactive, watch } from 'vue'
 
 import type { ModelRuntimeOptions } from '@/composables/useModel'
 import type { Model } from '@/stores/model'
+import type { GamepadInputEvent } from '@/utils/subModelRuntime'
 
 import { INVOKE_KEY, LISTEN_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
@@ -18,14 +18,6 @@ import live2d from '@/utils/live2d'
 
 import { useModel } from './useModel'
 import { useTauriListen } from './useTauriListen'
-
-type GamepadEventName = LiteralUnion<'LeftStickX' | 'LeftStickY' | 'RightStickX' | 'RightStickY' | 'LeftThumb' | 'RightThumb', string>
-
-interface GamepadEvent {
-  kind: 'ButtonChanged' | 'AxisChanged'
-  name: GamepadEventName
-  value: number
-}
 
 interface StickState {
   x: number
@@ -45,12 +37,18 @@ const appWindow = getCurrentWebviewWindow()
 export interface UseGamepadOptions extends ModelRuntimeOptions {
   enabled?: Readonly<Ref<boolean>>
   currentModel?: Readonly<Ref<Model | undefined>>
+  listen?: boolean
+  nativeDemand?: Readonly<Ref<boolean>>
+  onInputEvent?: (event: GamepadInputEvent) => void
 }
 
 export function useGamepad(options: UseGamepadOptions = {}) {
   const modelStore = useModelStore()
   const enabled = options.enabled ?? computed(() => true)
   const currentModel = options.currentModel ?? computed(() => modelStore.currentModel)
+  const nativeDemand = computed(() => {
+    return options.nativeDemand?.value || (enabled.value && currentModel.value?.mode === 'gamepad')
+  })
   const { handlePress, handleRelease, handleAxisChange } = useModel(options)
   const sticks = reactive<Sticks>({
     left: { ...INITIAL_STICK_STATE },
@@ -63,13 +61,15 @@ export function useGamepad(options: UseGamepadOptions = {}) {
   }))
 
   const syncGamepadListener = (isEnabled: boolean) => {
+    if (options.listen === false) return Promise.resolve()
+
     return invoke(INVOKE_KEY.SET_GAMEPAD_LISTENER_ENABLED, {
       windowLabel: appWindow.label,
-      enabled: isEnabled && currentModel.value?.mode === 'gamepad',
+      enabled: isEnabled,
     })
   }
 
-  watch([enabled, currentModel], ([isEnabled]) => {
+  watch(nativeDemand, (isEnabled) => {
     void syncGamepadListener(isEnabled)
   }, { immediate: true })
 
@@ -109,7 +109,7 @@ export function useGamepad(options: UseGamepadOptions = {}) {
     live2d.setParameterValue('CatParamStickShowRightHand', moved || pressed)
   }, { deep: true })
 
-  useTauriListen<GamepadEvent>(LISTEN_KEY.GAMEPAD_CHANGED, ({ payload }) => {
+  const handleInputEvent = (payload: GamepadInputEvent) => {
     if (!enabled.value) return
 
     const { name, value } = payload
@@ -142,9 +142,17 @@ export function useGamepad(options: UseGamepadOptions = {}) {
       default:
         return value > 0 ? handlePress(name) : handleRelease(name)
     }
-  })
+  }
+
+  if (options.listen !== false) {
+    useTauriListen<GamepadInputEvent>(LISTEN_KEY.GAMEPAD_CHANGED, ({ payload }) => {
+      handleInputEvent(payload)
+      options.onInputEvent?.(payload)
+    })
+  }
 
   return {
+    handleInputEvent,
     stickActive,
   }
 }

@@ -18,6 +18,8 @@ export const LISTEN_KEY = {
   SUB_MODEL_VISIBILITY_CHANGED: 'sub-model-visibility-changed',
   SUB_MODEL_WINDOW_CHANGED: 'sub-model-window-changed',
   UPDATE_SUB_MODEL: 'update-sub-model',
+  SUB_MODEL_RUNTIME_READY: 'sub-model-runtime-ready',
+  SUB_MODEL_INPUT_FRAME: 'sub-model-input-frame',
 }
 
 export const INVOKE_KEY = {

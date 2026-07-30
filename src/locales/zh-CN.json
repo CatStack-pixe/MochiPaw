@@ -173,7 +173,8 @@
         "hints": {
           "createTitle": "创建更多子模型？",
           "createWarning": "更多可见模型会占用额外的 CPU、GPU 和内存。",
-          "delete": "这将删除子模型及其窗口设置。"
+          "delete": "这将删除子模型及其窗口设置。",
+          "resourceLimit": "无法启动此猫咪，因为活动模型将超过内存预算。请隐藏或删除其他子模型，或选择更轻量的模型。"
         },
         "sections": {
           "basic": "基础",

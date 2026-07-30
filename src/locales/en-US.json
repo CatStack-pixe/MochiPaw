@@ -173,7 +173,8 @@
         "hints": {
           "createTitle": "Create another sub model?",
           "createWarning": "More visible models require additional CPU, GPU, and memory.",
-          "delete": "This removes the sub model and its window settings."
+          "delete": "This removes the sub model and its window settings.",
+          "resourceLimit": "This pet cannot be started because the active model memory budget would be exceeded. Hide or remove another sub model, or choose a lighter model."
         },
         "sections": {
           "basic": "Basic",

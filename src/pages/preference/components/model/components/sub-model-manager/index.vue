@@ -13,6 +13,7 @@ import type { SubModelInstance } from '@/stores/model'
 import { useTauriListen } from '@/composables/useTauriListen'
 import { LISTEN_KEY } from '@/constants'
 import { getModelDisplayName, getSubModelDisplayName, useModelStore } from '@/stores/model'
+import { getSubModelRuntimeCapacity } from '@/utils/subModelRuntime'
 import {
   destroySubModelWindow,
   hideSubModelWindow,
@@ -137,10 +138,28 @@ async function saveInstanceText(instance: SubModelInstance, field: 'customName' 
   await notifyInstance(instance)
 }
 
+async function hasRuntimeCapacity() {
+  const capacity = await getSubModelRuntimeCapacity(
+    modelStore.subModels,
+    modelStore.models,
+    modelStore.currentModel,
+  )
+
+  if (capacity.allowed) return true
+
+  message.error(t('pages.preference.subModel.hints.resourceLimit'))
+  return false
+}
+
 async function createInstance() {
   if (!selectedModelId.value) return
 
   const instance = modelStore.createSubModel(selectedModelId.value)
+
+  if (!await hasRuntimeCapacity()) {
+    modelStore.removeSubModel(instance.id)
+    return
+  }
 
   try {
     await openSubModelWindow(instance)
@@ -165,6 +184,11 @@ function handleCreate() {
 
 async function setVisible(instance: SubModelInstance, visible: boolean) {
   instance.visible = visible
+
+  if (visible && !await hasRuntimeCapacity()) {
+    instance.visible = false
+    return
+  }
 
   try {
     if (visible) {

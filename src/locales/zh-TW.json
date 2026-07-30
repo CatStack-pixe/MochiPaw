@@ -173,7 +173,8 @@
         "hints": {
           "createTitle": "要建立更多子模型嗎？",
           "createWarning": "更多可見模型會使用額外的 CPU、GPU 與記憶體。",
-          "delete": "這會刪除子模型及其視窗設定。"
+          "delete": "這會刪除子模型及其視窗設定。",
+          "resourceLimit": "無法啟動此貓咪，因為活動模型將超過記憶體預算。請隱藏或刪除其他子模型，或選擇更輕量的模型。"
         },
         "sections": {
           "basic": "基礎",

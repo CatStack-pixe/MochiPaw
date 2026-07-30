@@ -48,7 +48,7 @@ pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Res
         .name("device-event-emitter".into())
         .spawn(move || {
             while let Ok(device_event) = event_receiver.recv() {
-                let _ = app_handle.emit("device-changed", device_event);
+                let _ = app_handle.emit_to("main", "device-changed", device_event);
             }
         })
         .map_err(|err| {

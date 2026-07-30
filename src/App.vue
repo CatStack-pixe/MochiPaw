@@ -26,6 +26,7 @@ import { useCatStore } from './stores/cat'
 import { useGeneralStore } from './stores/general'
 import { useModelStore } from './stores/model'
 import { useShortcutStore } from './stores/shortcut.ts'
+import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
 import { openSubModelWindow } from './utils/subModelWindow'
 
 const appStore = useAppStore()
@@ -34,7 +35,8 @@ const catStore = useCatStore()
 const generalStore = useGeneralStore()
 const shortcutStore = useShortcutStore()
 const appWindow = getCurrentWebviewWindow()
-const { isRestored, restoreState } = useWindowState()
+const isSubModelWindow = appWindow.label.startsWith('sub-model-')
+const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
 const { locale } = useI18n()
 
@@ -50,23 +52,48 @@ function formatError(reason: unknown) {
 }
 
 onMounted(async () => {
+  if (isSubModelWindow) {
+    await modelStore.$tauri.start()
+    await modelStore.init()
+    await catStore.$tauri.start()
+    catStore.init()
+    await generalStore.$tauri.start()
+    await generalStore.init()
+    await restoreState()
+    return
+  }
+
   await appStore.$tauri.start()
   await appStore.init()
   await modelStore.$tauri.start()
   await modelStore.init()
-
-  if (appWindow.label === 'main') {
-    await Promise.all(modelStore.subModels
-      .filter(instance => instance.visible && instance.showOnLaunch)
-      .map(openSubModelWindow))
-  }
-
   await catStore.$tauri.start()
   catStore.init()
   await generalStore.$tauri.start()
   await generalStore.init()
   await shortcutStore.$tauri.start()
   await restoreState()
+
+  for (const instance of modelStore.subModels.filter(item => item.visible && item.showOnLaunch)) {
+    const capacity = await getSubModelRuntimeCapacity(
+      modelStore.subModels,
+      modelStore.models,
+      modelStore.currentModel,
+    )
+
+    if (!capacity.allowed) {
+      instance.visible = false
+      error(`[sub-model] skipped ${instance.id}: runtime resource budget exceeded`)
+      continue
+    }
+
+    try {
+      await openSubModelWindow(instance)
+    } catch (reason) {
+      instance.visible = false
+      error(`[sub-model] failed to restore ${instance.id}: ${formatError(reason)}`)
+    }
+  }
 })
 
 watch(() => generalStore.appearance.language, (value) => {

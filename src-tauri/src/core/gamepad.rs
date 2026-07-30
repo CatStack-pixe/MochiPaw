@@ -89,7 +89,7 @@ fn listen_for_gamepad_events<R: Runtime>(app_handle: AppHandle<R>, mut gilrs: Gi
                 _ => continue,
             };
 
-            let _ = app_handle.emit("gamepad-changed", gamepad_event);
+            let _ = app_handle.emit_to("main", "gamepad-changed", gamepad_event);
         }
 
         if !received_event {

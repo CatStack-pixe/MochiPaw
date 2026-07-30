@@ -45,11 +45,14 @@ export async function returnMainWindowToScreen() {
   await mainWindow.setPosition(new PhysicalPosition(nextPosition.x, nextPosition.y))
 }
 
-export function useWindowState() {
+export function useWindowState(options: { enabled?: boolean } = {}) {
   const appStore = useAppStore()
   const isRestored = ref(false)
+  const enabled = options.enabled ?? true
 
   onMounted(() => {
+    if (!enabled) return
+
     appWindow.onMoved(onChange)
 
     appWindow.onResized(onChange)
@@ -66,6 +69,11 @@ export function useWindowState() {
   }
 
   const restoreState = async () => {
+    if (!enabled) {
+      isRestored.value = true
+      return
+    }
+
     const { x, y, width, height } = appStore.windowState[label] ?? {}
 
     if (isNumber(x) && isNumber(y)) {
