@@ -69,7 +69,8 @@
           "packaging/linux/com.catstack.mochipaw.inputd.policy": "/usr/share/polkit-1/actions/com.catstack.mochipaw.inputd.policy"
         },
         "postInstallScript": "packaging/linux/postinstall.sh",
-        "preRemoveScript": "packaging/linux/preremove.sh"
+        "preRemoveScript": "packaging/linux/preremove.sh",
+        "postRemoveScript": "packaging/linux/postremove.sh"
       },
       "rpm": {
         "files": {
@@ -78,7 +79,8 @@
           "packaging/linux/com.catstack.mochipaw.inputd.policy": "/usr/share/polkit-1/actions/com.catstack.mochipaw.inputd.policy"
         },
         "postInstallScript": "packaging/linux/postinstall.sh",
-        "preRemoveScript": "packaging/linux/preremove.sh"
+        "preRemoveScript": "packaging/linux/preremove.sh",
+        "postRemoveScript": "packaging/linux/postremove.sh"
       }
     }
   },
