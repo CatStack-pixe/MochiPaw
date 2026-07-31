@@ -60,7 +60,8 @@
           "autoCheckUpdate": "Auto Check for Updates",
           "permissionsSettings": "Permissions Settings",
           "inputMonitoringPermission": "Input Monitoring Permission",
-          "administratorPermission": "Administrator"
+          "administratorPermission": "Administrator",
+          "waylandInput": "Wayland Input Service"
         },
         "options": {
           "auto": "System",
@@ -74,13 +75,18 @@
           "inputMonitoringPermissionGuide": "Input Monitoring permission is required for the app to receive keyboard and mouse events from the system.\n\nSteps:\n1. Open System Settings → Privacy & Security → Input Monitoring.\n2. If MochiPaw already appears in the list, select it and click the \"-\" button to remove it.\n3. Click the \"+\" button to find and add MochiPaw.\n4. Restart the app for the permission to take effect.",
           "administratorPermission": "Running the app as administrator helps capture some system-level keys and input events more reliably.",
           "administratorPermissionGuide": "To capture some system-level keys and input events more reliably, it is recommended to run the app as administrator.\n\nHow to do it:\n1. Exit the app first.\n2. Find the app exe or its shortcut in File Explorer.\n3. Choose how to launch:\n   • One-time: Right-click and choose \"Run as administrator\".\n   • Always (default): Right-click → Properties → Compatibility tab → check \"Run this program as an administrator\" → OK.",
-          "administratorRelaunchFailed": "Unable to restart as administrator. Please right-click the app and choose \"Run as administrator\"."
+          "administratorRelaunchFailed": "Unable to restart as administrator. Please right-click the app and choose \"Run as administrator\".",
+          "waylandReady": "The installed system service sends normalized keyboard, mouse button, and relative mouse movement only. It does not record, inject, or transmit input.",
+          "waylandUnavailable": "The Wayland input service is unavailable or was not authorized during package installation. Install the DEB or RPM package, then check the system service. X11 continues to use the built-in input backend.",
+          "waylandAppImage": "AppImage does not install a privileged input service, so global input is unavailable on Wayland. No authorization is requested.",
+          "hideOnHoverWayland": "Unavailable on Wayland because global absolute cursor coordinates are not exposed."
         },
         "status": {
           "authorized": "Authorized",
           "adminEnabled": "Enabled",
           "authorize": "Go to Enable",
-          "viewGuide": "View Instructions"
+          "viewGuide": "View Instructions",
+          "unavailable": "Unavailable"
         },
         "buttons": {
           "openNow": "Open Now",

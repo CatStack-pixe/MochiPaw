@@ -60,7 +60,27 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["assets/tray.png", "assets/models"]
+    "resources": ["assets/tray.png", "assets/models"],
+    "linux": {
+      "deb": {
+        "files": {
+          "../target/release/mochi-paw-inputd": "/usr/lib/mochi-paw/mochi-paw-inputd",
+          "packaging/linux/mochi-paw-inputd.service": "/usr/lib/systemd/system/mochi-paw-inputd.service",
+          "packaging/linux/com.catstack.mochipaw.inputd.policy": "/usr/share/polkit-1/actions/com.catstack.mochipaw.inputd.policy"
+        },
+        "postInstallScript": "packaging/linux/postinstall.sh",
+        "preRemoveScript": "packaging/linux/preremove.sh"
+      },
+      "rpm": {
+        "files": {
+          "../target/release/mochi-paw-inputd": "/usr/lib/mochi-paw/mochi-paw-inputd",
+          "packaging/linux/mochi-paw-inputd.service": "/usr/lib/systemd/system/mochi-paw-inputd.service",
+          "packaging/linux/com.catstack.mochipaw.inputd.policy": "/usr/share/polkit-1/actions/com.catstack.mochipaw.inputd.policy"
+        },
+        "postInstallScript": "packaging/linux/postinstall.sh",
+        "preRemoveScript": "packaging/linux/preremove.sh"
+      }
+    }
   },
   "plugins": {
     "updater": {

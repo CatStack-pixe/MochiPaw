@@ -27,6 +27,7 @@
     "generate:contributors": "tsx scripts/generateContributors.ts",
     "build:portable": "node scripts/packagePortable.mjs",
     "package:portable": "node scripts/packagePortable.mjs",
+    "bundle:linux": "cargo build --manifest-path src-tauri/Cargo.toml --release --features inputd --bin mochi-paw-inputd && tauri build --bundles deb,rpm,appimage",
     "lint": "eslint --fix src",
     "preinstall": "npx only-allow pnpm",
     "prepare": "simple-git-hooks",

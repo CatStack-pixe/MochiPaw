@@ -25,6 +25,7 @@ import { useModel } from './useModel'
 import { useTauriListen } from './useTauriListen'
 
 type CursorPoint = Extract<DeviceInputEvent, { kind: 'MouseMove' }>['value']
+type RelativeMouseMove = Extract<DeviceInputEvent, { kind: 'MouseRelativeMove' }>['value']
 
 export interface DeviceListenerOptions {
   keyboard: boolean
@@ -51,16 +52,18 @@ export function useDevice(options: UseDeviceOptions = {}) {
   const catStore = useCatStore()
   const latestCursorPoint = ref<CursorPoint>()
   const smoothedCursorPoint = ref<CursorPoint>()
+  const relativeMouseMove = ref<RelativeMouseMove>()
   const scaleFactor = ref(1)
   const listeners = options.listeners ?? computed<DeviceListenerOptions>(() => ({
     keyboard: true,
     mouse: true,
     typingBehavior: true,
   }))
-  const { handlePress, handleRelease, handleMouseChange, handleMouseMove, handleDestroy } = useModel(options)
+  const { handlePress, handleRelease, handleMouseChange, handleMouseMove, handleRelativeMouseMove, handleDestroy } = useModel(options)
   let lastRuntimeUsedReportAt = 0
   let cursorSmoothingFrame = 0
   let lastCursorSmoothingAt = 0
+  let relativeMouseFrame = 0
 
   const reportRuntimeUsed = () => {
     const now = Date.now()
@@ -78,6 +81,12 @@ export function useDevice(options: UseDeviceOptions = {}) {
     lastCursorSmoothingAt = 0
     latestCursorPoint.value = undefined
     smoothedCursorPoint.value = undefined
+    relativeMouseMove.value = undefined
+
+    if (relativeMouseFrame) {
+      cancelAnimationFrame(relativeMouseFrame)
+      relativeMouseFrame = 0
+    }
   }
 
   const scheduleCursorSmoothing = () => {
@@ -169,7 +178,7 @@ export function useDevice(options: UseDeviceOptions = {}) {
   }, { immediate: true })
 
   const startListening = () => {
-    invoke(INVOKE_KEY.START_DEVICE_LISTENING)
+    void invoke(INVOKE_KEY.START_DEVICE_LISTENING).catch(() => undefined)
   }
 
   const getSupportedKeys = (key: string) => {
@@ -258,6 +267,19 @@ export function useDevice(options: UseDeviceOptions = {}) {
     onHideOnHover(x, y)
   }
 
+  const scheduleRelativeMouseMove = () => {
+    if (catStore.model.ignoreMouse || !listeners.value.mouse || relativeMouseFrame || !relativeMouseMove.value) return
+
+    relativeMouseFrame = requestAnimationFrame(() => {
+      relativeMouseFrame = 0
+
+      const movement = relativeMouseMove.value
+      relativeMouseMove.value = undefined
+
+      if (movement) handleRelativeMouseMove(movement.dx, movement.dy)
+    })
+  }
+
   const handleAutoRelease = (key: string, delay = 100) => {
     if (releaseTimers.has(key)) {
       clearTimeout(releaseTimers.get(key))
@@ -341,6 +363,13 @@ export function useDevice(options: UseDeviceOptions = {}) {
         if (!listeners.value.mouse) return
         latestCursorPoint.value = value
         return scheduleCursorSmoothing()
+      case 'MouseRelativeMove':
+        if (!listeners.value.mouse) return
+        relativeMouseMove.value = {
+          dx: (relativeMouseMove.value?.dx ?? 0) + value.dx,
+          dy: (relativeMouseMove.value?.dy ?? 0) + value.dy,
+        }
+        return scheduleRelativeMouseMove()
     }
   }
 

@@ -60,7 +60,8 @@
           "autoCheckUpdate": "自动检查更新",
           "permissionsSettings": "权限设置",
           "inputMonitoringPermission": "输入监控权限",
-          "administratorPermission": "管理员身份"
+          "administratorPermission": "管理员身份",
+          "waylandInput": "Wayland 输入服务"
         },
         "options": {
           "auto": "跟随系统",
@@ -74,13 +75,18 @@
           "inputMonitoringPermissionGuide": "开启输入监控权限后，应用才能接收系统的键盘和鼠标事件，从而响应你的操作。\n\n操作方式：\n1. 打开「系统设置」→「隐私与安全性」→「输入监控」。\n2. 若列表中已存在 MochiPaw，请先选中它，点击「-」按钮将其删除。\n3. 点击「+」按钮，找到并添加 MochiPaw 应用。\n4. 重启应用，以确保权限正式生效。",
           "administratorPermission": "以管理员身份运行应用，可以更稳定地捕获部分系统级按键与输入事件。",
           "administratorPermissionGuide": "为了能更稳定地捕获部分系统级按键与输入事件，建议以管理员身份运行应用。\n\n操作方式：\n1. 先退出应用。\n2. 在资源管理器中找到应用的 exe 或快捷方式。\n3. 根据需要选择启动方式：\n   • 仅本次：右键并选择「以管理员身份运行」。\n   • 永久默认：右键 → 属性 → 兼容性选项卡 → 勾选「以管理员身份运行此程序」→ 确定。",
-          "administratorRelaunchFailed": "无法以管理员身份重启应用，请手动右键选择「以管理员身份运行」。"
+          "administratorRelaunchFailed": "无法以管理员身份重启应用，请手动右键选择「以管理员身份运行」。",
+          "waylandReady": "已安装的系统服务只发送标准化键盘、鼠标按键和相对鼠标移动事件。它不会记录、注入或传输输入内容。",
+          "waylandUnavailable": "Wayland 输入服务不可用，或安装软件包时未获授权。请安装 DEB 或 RPM 软件包后检查系统服务。X11 会继续使用内置输入后端。",
+          "waylandAppImage": "AppImage 不安装特权输入服务，因此在 Wayland 上无法使用全局输入，也不会请求授权。",
+          "hideOnHoverWayland": "Wayland 不提供全局绝对鼠标坐标，因此此功能不可用。"
         },
         "status": {
           "authorized": "已授权",
           "adminEnabled": "已启用",
           "authorize": "去授权",
-          "viewGuide": "查看操作说明"
+          "viewGuide": "查看操作说明",
+          "unavailable": "不可用"
         },
         "buttons": {
           "openNow": "前往开启",

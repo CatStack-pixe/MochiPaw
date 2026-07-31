@@ -1,0 +1,23 @@
+[Unit]
+Description=MochiPaw Wayland input relay
+After=systemd-logind.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/mochi-paw/mochi-paw-inputd
+Restart=on-failure
+RestartSec=2
+User=root
+Group=root
+PrivateTmp=yes
+PrivateNetwork=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run/user
+PrivateDevices=no
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
