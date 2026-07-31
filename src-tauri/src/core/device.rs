@@ -61,6 +61,7 @@ pub fn get_device_input_status() -> DeviceInputStatus {
             hover_supported: false,
             error: None,
         },
+        #[cfg(target_os = "linux")]
         InputBackend::WaylandService => match probe_wayland_service() {
             Ok(_) => DeviceInputStatus {
                 backend: "wayland-service".into(),
