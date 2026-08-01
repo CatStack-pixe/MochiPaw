@@ -23,6 +23,12 @@ import type {
 
 import { INVOKE_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
+import {
+  collectCubismResourceReferences,
+  createCubismFingerprint,
+  resolveCubismFingerprint,
+} from '@/utils/modelFingerprint'
+import { extractTemporaryImportSource, useImportSource } from '@/utils/modelImportSource'
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import { join } from '@/utils/path'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
@@ -61,6 +67,10 @@ interface CubismModelJSON {
     Textures?: string[]
     Physics?: string
     DisplayInfo?: string
+    Expressions?: Array<{ File?: string }>
+    Motions?: Record<string, Array<{ File?: string, Sound?: string }>>
+    Pose?: string
+    UserData?: string
   }
 }
 
@@ -290,7 +300,17 @@ watch(selectPaths, async (paths) => {
 })
 
 async function importFromPath(fromPath: string) {
-  const sourcePath = await prepareImportSource(fromPath)
+  const source = await prepareImportSource(fromPath)
+
+  return await useImportSource(
+    source,
+    importFromSource,
+    path => remove(path, { recursive: true }),
+    error => console.warn('[mochi-paw] failed to clean temporary model import:', error),
+  )
+}
+
+async function importFromSource(sourcePath: string) {
   const variants = await discoverImportVariants(sourcePath)
 
   if (!variants.length) {
@@ -368,20 +388,21 @@ function createImportedModel(model: {
 async function prepareImportSource(fromPath: string) {
   const info = await stat(fromPath)
 
-  if (info.isDirectory) return fromPath
+  if (info.isDirectory) return { path: fromPath }
 
   if (!fromPath.toLowerCase().endsWith('.zip')) {
-    return await getModelDirectoryFromFile(fromPath)
+    return { path: await getModelDirectoryFromFile(fromPath) }
   }
 
   const importPath = join(await appDataDir(), 'model-imports', nanoid())
 
-  await invoke(INVOKE_KEY.EXTRACT_ZIP, {
+  return await extractTemporaryImportSource(
     fromPath,
-    toPath: importPath,
-  })
-
-  return importPath
+    importPath,
+    async (source, target) => invoke(INVOKE_KEY.EXTRACT_ZIP, { fromPath: source, toPath: target }),
+    path => remove(path, { recursive: true }),
+    error => console.warn('[mochi-paw] failed to clean failed model extraction:', error),
+  )
 }
 
 async function getModelDirectoryFromFile(filePath: string) {
@@ -597,7 +618,10 @@ async function getImportedFingerprints() {
   const fingerprints = new Set<string>()
 
   for (const model of modelStore.models) {
-    const fingerprint = model.fingerprint ?? await getModelFingerprint(model.path, model.mode).catch(() => undefined)
+    const fingerprint = await resolveCubismFingerprint(
+      model.fingerprint,
+      () => getModelFingerprint(model.path, model.mode),
+    ).catch(() => undefined)
 
     if (!fingerprint) continue
 
@@ -611,54 +635,17 @@ async function getImportedFingerprints() {
 async function getModelFingerprint(modelPath: string, mode: ModelMode) {
   const modelFile = await findModelFile(modelPath)
   const modelJSON = await readCubismModelJSON(modelFile)
-  const references = modelJSON.FileReferences
-  const files = [
-    { key: modelFile.split(/[\\/]/).at(-1) ?? 'model3.json', path: modelFile },
-    references?.Moc ? { key: references.Moc, path: join(modelPath, references.Moc) } : undefined,
-    references?.Physics ? { key: references.Physics, path: join(modelPath, references.Physics) } : undefined,
-    references?.DisplayInfo ? { key: references.DisplayInfo, path: join(modelPath, references.DisplayInfo) } : undefined,
-    ...references?.Textures?.map(texture => ({ key: texture, path: join(modelPath, texture) })) ?? [],
-  ].filter(file => file !== undefined)
-  const encoder = new TextEncoder()
-  const chunks: Uint8Array[] = []
-  let totalLength = 0
+  const files = collectCubismResourceReferences(modelFile, modelJSON)
 
-  for (const file of files) {
-    const keyBytes = encoder.encode(file.key)
+  return await createCubismFingerprint(mode, files, async (path) => {
+    if (!await exists(path)) return
 
-    chunks.push(keyBytes)
-    totalLength += keyBytes.length
-
-    if (!await exists(file.path)) continue
-
-    const fileBytes = await readFile(file.path)
-
-    chunks.push(fileBytes)
-    totalLength += fileBytes.length
-  }
-
-  const digest = await crypto.subtle.digest('SHA-256', concatBytes(chunks, totalLength))
-  const hash = [...new Uint8Array(digest)]
-    .map(value => value.toString(16).padStart(2, '0'))
-    .join('')
-
-  return `${mode}:${hash}`
+    return await readFile(path)
+  })
 }
 
 async function readCubismModelJSON(modelFile: string) {
   return JSON5.parse(await readTextFile(modelFile)) as CubismModelJSON
-}
-
-function concatBytes(chunks: Uint8Array[], totalLength: number) {
-  const bytes = new Uint8Array(totalLength)
-  let offset = 0
-
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.length
-  }
-
-  return bytes
 }
 
 async function findModelFile(modelPath: string) {
