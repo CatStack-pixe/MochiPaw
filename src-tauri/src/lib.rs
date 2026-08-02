@@ -25,6 +25,13 @@ use utils::fs_extra::{copy_dir, extract_zip};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        // This must run before other plugins can open shared resources. It is
+        // especially important when a second instance has a different integrity level.
+        .plugin(tauri_plugin_single_instance::init(
+            |app_handle, _argv, _cwd| {
+                show_preference_window(app_handle);
+            },
+        ))
         .setup(|app| {
             let app_handle = app.handle();
 
@@ -67,11 +74,6 @@ pub fn run() {
         .plugin(tauri_plugin_pinia::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(prevent_default::init())
-        .plugin(tauri_plugin_single_instance::init(
-            |app_handle, _argv, _cwd| {
-                show_preference_window(app_handle);
-            },
-        ))
         .plugin(
             tauri_plugin_log::Builder::new()
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
