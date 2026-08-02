@@ -6,6 +6,7 @@ const COMMANDS: &[&str] = &[
     "hide_window",
     "set_always_on_top",
     "set_taskbar_visibility",
+    "set_webview_memory_target",
 ];
 
 fn main() {

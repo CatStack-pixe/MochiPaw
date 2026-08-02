@@ -12,12 +12,14 @@ import type { WINDOW_LABEL } from '../constants'
 import { LISTEN_KEY } from '../constants'
 
 export type WindowLabel = typeof WINDOW_LABEL[keyof typeof WINDOW_LABEL]
+export type WebviewMemoryTarget = 'normal' | 'low'
 
 const COMMAND = {
   SHOW_WINDOW: 'plugin:custom-window|show_window',
   HIDE_WINDOW: 'plugin:custom-window|hide_window',
   SET_ALWAYS_ON_TOP: 'plugin:custom-window|set_always_on_top',
   SET_TASKBAR_VISIBILITY: 'plugin:custom-window|set_taskbar_visibility',
+  SET_WEBVIEW_MEMORY_TARGET: 'plugin:custom-window|set_webview_memory_target',
 }
 
 function formatWindowError(error: unknown) {
@@ -72,4 +74,13 @@ export async function toggleWindowVisible(label?: WindowLabel) {
 
 export async function setTaskbarVisibility(visible: boolean) {
   return invoke(COMMAND.SET_TASKBAR_VISIBILITY, { visible }).catch(catchWindowError('taskbar'))
+}
+
+export async function setWebviewMemoryTarget(target: WebviewMemoryTarget): Promise<boolean> {
+  try {
+    return await invoke<boolean>(COMMAND.SET_WEBVIEW_MEMORY_TARGET, { target })
+  } catch (reason) {
+    catchWindowError('webview-memory-target')(reason)
+    return false
+  }
 }

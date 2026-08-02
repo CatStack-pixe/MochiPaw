@@ -6,6 +6,8 @@ use crate::MAIN_WINDOW_LABEL;
 use tauri::{AppHandle, Runtime, WebviewWindow, command};
 use tauri_nspanel::{CollectionBehavior, ManagerExt, PanelLevel};
 
+use super::WebviewMemoryTarget;
+
 enum MacOSPanelStatus {
     Show,
     Hide,
@@ -108,4 +110,18 @@ pub async fn set_always_on_top<R: Runtime>(
 #[command]
 pub async fn set_taskbar_visibility<R: Runtime>(app_handle: AppHandle<R>, visible: bool) {
     let _ = app_handle.set_dock_visibility(visible);
+}
+
+#[command]
+pub async fn set_webview_memory_target<R: Runtime>(
+    _window: WebviewWindow<R>,
+    _target: WebviewMemoryTarget,
+) -> bool {
+    false
+}
+
+pub fn request_webview_memory_target<R: Runtime>(
+    _window: &WebviewWindow<R>,
+    _target: WebviewMemoryTarget,
+) {
 }

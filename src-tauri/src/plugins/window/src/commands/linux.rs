@@ -3,6 +3,8 @@
 
 use tauri::{AppHandle, Runtime, WebviewWindow, command};
 
+use super::WebviewMemoryTarget;
+
 #[command]
 pub async fn show_window<R: Runtime>(_app_handle: AppHandle<R>, window: WebviewWindow<R>) {
     let _ = window.show();
@@ -33,4 +35,18 @@ pub async fn set_always_on_top<R: Runtime>(
 #[command]
 pub async fn set_taskbar_visibility<R: Runtime>(window: WebviewWindow<R>, visible: bool) {
     let _ = window.set_skip_taskbar(!visible);
+}
+
+#[command]
+pub async fn set_webview_memory_target<R: Runtime>(
+    _window: WebviewWindow<R>,
+    _target: WebviewMemoryTarget,
+) -> bool {
+    false
+}
+
+pub fn request_webview_memory_target<R: Runtime>(
+    _window: &WebviewWindow<R>,
+    _target: WebviewMemoryTarget,
+) {
 }

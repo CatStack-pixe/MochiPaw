@@ -12,15 +12,17 @@ import { useEventListener } from '@vueuse/core'
 import { ConfigProvider, theme } from 'antdv-next'
 import { isString } from 'es-toolkit'
 import isURL from 'is-url'
-import { onMounted, watch } from 'vue'
+import { onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterView } from 'vue-router'
+
+import type { DeviceInputEvent, SubModelInputFrame } from './utils/subModelRuntime'
 
 import { useTauriListen } from './composables/useTauriListen'
 import { useWindowState } from './composables/useWindowState'
 import { LANGUAGE, LISTEN_KEY } from './constants'
 import { getAntdLocale } from './locales/index.ts'
-import { hideWindow, showWindow } from './plugins/window'
+import { hideWindow, setWebviewMemoryTarget, showWindow } from './plugins/window'
 import { useAppStore } from './stores/app'
 import { useCatStore } from './stores/cat'
 import { useGeneralStore } from './stores/general'
@@ -28,6 +30,7 @@ import { useModelStore } from './stores/model'
 import { useShortcutStore } from './stores/shortcut.ts'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
 import { openSubModelWindow } from './utils/subModelWindow'
+import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
 
 const appStore = useAppStore()
 const modelStore = useModelStore()
@@ -36,6 +39,7 @@ const generalStore = useGeneralStore()
 const shortcutStore = useShortcutStore()
 const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
+const idleMemory = new WebviewIdleMemoryController({ setTarget: setWebviewMemoryTarget })
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
 const { locale } = useI18n()
@@ -50,6 +54,65 @@ function formatError(reason: unknown) {
 
   return JSON.stringify(reason, Object.getOwnPropertyNames(reason)) ?? String(reason)
 }
+
+function handleInputFrame(frame: SubModelInputFrame) {
+  const onlyMouseMoves = frame.deviceEvents.length > 0
+    && frame.gamepadEvents.length === 0
+    && frame.deviceEvents.every(event => event.kind === 'MouseMove')
+
+  if (onlyMouseMoves) {
+    idleMemory.mouseMove()
+  } else if (frame.deviceEvents.length || frame.gamepadEvents.length) {
+    idleMemory.activity()
+  }
+}
+
+let unlistenFocus: (() => void) | undefined
+let idleMemoryDisposed = false
+
+onMounted(async () => {
+  idleMemory.start(document.hidden)
+
+  const unlisten = await appWindow.onFocusChanged(({ payload: focused }) => {
+    if (focused) idleMemory.activate()
+  })
+
+  if (idleMemoryDisposed) {
+    unlisten()
+  } else {
+    unlistenFocus = unlisten
+  }
+})
+
+onUnmounted(() => {
+  idleMemoryDisposed = true
+  unlistenFocus?.()
+  idleMemory.dispose()
+})
+
+useEventListener(document, 'visibilitychange', () => {
+  idleMemory.setHidden(document.hidden)
+})
+
+useEventListener(window, 'keydown', () => idleMemory.activity())
+useEventListener(window, 'pointerdown', () => idleMemory.activity())
+useEventListener(window, 'pointermove', () => idleMemory.mouseMove())
+useEventListener(window, 'touchstart', () => idleMemory.activity(), { passive: true })
+useEventListener(window, 'wheel', () => idleMemory.activity(), { passive: true })
+
+useTauriListen<DeviceInputEvent>(LISTEN_KEY.DEVICE_CHANGED, ({ payload }) => {
+  if (payload.kind === 'MouseMove') {
+    idleMemory.mouseMove()
+  } else {
+    idleMemory.activity()
+  }
+})
+
+useTauriListen(LISTEN_KEY.GAMEPAD_CHANGED, () => idleMemory.activity())
+
+useTauriListen<SubModelInputFrame>(LISTEN_KEY.SUB_MODEL_INPUT_FRAME, ({ payload }) => {
+  handleInputFrame(payload)
+})
 
 onMounted(async () => {
   if (isSubModelWindow) {
@@ -103,12 +166,14 @@ watch(() => generalStore.appearance.language, (value) => {
 useTauriListen(LISTEN_KEY.SHOW_WINDOW, ({ payload }) => {
   if (appWindow.label !== payload) return
 
+  idleMemory.activate()
   showWindow()
 })
 
 useTauriListen(LISTEN_KEY.HIDE_WINDOW, ({ payload }) => {
   if (appWindow.label !== payload) return
 
+  idleMemory.setHidden(true)
   hideWindow()
 })
 
