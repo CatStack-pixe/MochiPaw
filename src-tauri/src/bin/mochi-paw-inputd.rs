@@ -113,6 +113,7 @@ mod linux {
                 .map_err(|error| format!("failed to inspect login session: {error}"))?;
             let fields = String::from_utf8_lossy(&output.stdout)
                 .lines()
+                .map(str::to_owned)
                 .collect::<Vec<_>>();
 
             if fields.len() < 3 || fields[0] != "yes" || !matches!(fields[1], "wayland" | "x11") {
