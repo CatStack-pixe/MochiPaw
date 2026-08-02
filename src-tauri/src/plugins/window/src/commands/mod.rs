@@ -1,10 +1,18 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+use serde::Deserialize;
 use tauri::{AppHandle, Manager, async_runtime::spawn};
 
 pub static MAIN_WINDOW_LABEL: &str = "main";
 pub static PREFERENCE_WINDOW_LABEL: &str = "preference";
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WebviewMemoryTarget {
+    Normal,
+    Low,
+}
 
 #[cfg(target_os = "macos")]
 mod macos;

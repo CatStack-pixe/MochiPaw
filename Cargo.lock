@@ -5644,10 +5644,12 @@ dependencies = [
 name = "tauri-plugin-custom-window"
 version = "0.1.0"
 dependencies = [
+ "futures-channel",
  "serde",
  "tauri",
  "tauri-nspanel",
  "tauri-plugin",
+ "webview2-com",
  "windows",
 ]
 

@@ -17,7 +17,8 @@ use core::{
 use tauri::{Manager, WindowEvent, generate_handler};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_custom_window::{
-    MAIN_WINDOW_LABEL, PREFERENCE_WINDOW_LABEL, show_preference_window,
+    MAIN_WINDOW_LABEL, PREFERENCE_WINDOW_LABEL, WebviewMemoryTarget, request_webview_memory_target,
+    show_preference_window,
 };
 use utils::fs_extra::{copy_dir, extract_zip};
 
@@ -40,6 +41,8 @@ pub fn run() {
             let main_window = app.get_webview_window(MAIN_WINDOW_LABEL).unwrap();
 
             let preference_window = app.get_webview_window(PREFERENCE_WINDOW_LABEL).unwrap();
+
+            request_webview_memory_target(&preference_window, WebviewMemoryTarget::Low);
 
             setup::default(&app_handle, main_window.clone(), preference_window.clone());
 
@@ -88,6 +91,11 @@ pub fn run() {
         .plugin(tauri_plugin_self_protect::init())
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => {
+                if let Some(webview_window) = window.app_handle().get_webview_window(window.label())
+                {
+                    request_webview_memory_target(&webview_window, WebviewMemoryTarget::Low);
+                }
+
                 let _ = window.hide();
 
                 api.prevent_close();

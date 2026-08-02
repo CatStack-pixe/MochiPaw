@@ -12,7 +12,7 @@ links = "tauri-plugin-custom-window"
 
 [dependencies]
 tauri.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["derive"] }
 
 [build-dependencies]
 tauri-plugin.workspace = true
@@ -21,4 +21,6 @@ tauri-plugin.workspace = true
 tauri-nspanel.workspace = true
 
 [target."cfg(target_os = \"windows\")".dependencies]
+futures-channel = "0.3"
+webview2-com = "0.38"
 windows.workspace = true
