@@ -64,9 +64,9 @@
     "linux": {
       "deb": {
         "files": {
-          "../target/release/mochi-paw-inputd": "/usr/lib/mochi-paw/mochi-paw-inputd",
-          "packaging/linux/mochi-paw-inputd.service": "/usr/lib/systemd/system/mochi-paw-inputd.service",
-          "packaging/linux/com.catstack.mochipaw.inputd.policy": "/usr/share/polkit-1/actions/com.catstack.mochipaw.inputd.policy"
+          "/usr/lib/mochi-paw/mochi-paw-inputd": "../target/release/mochi-paw-inputd",
+          "/usr/lib/systemd/system/mochi-paw-inputd.service": "packaging/linux/mochi-paw-inputd.service",
+          "/usr/share/polkit-1/actions/com.catstack.mochipaw.inputd.policy": "packaging/linux/com.catstack.mochipaw.inputd.policy"
         },
         "postInstallScript": "packaging/linux/postinstall.sh",
         "preRemoveScript": "packaging/linux/preremove.sh",
@@ -74,9 +74,9 @@
       },
       "rpm": {
         "files": {
-          "../target/release/mochi-paw-inputd": "/usr/lib/mochi-paw/mochi-paw-inputd",
-          "packaging/linux/mochi-paw-inputd.service": "/usr/lib/systemd/system/mochi-paw-inputd.service",
-          "packaging/linux/com.catstack.mochipaw.inputd.policy": "/usr/share/polkit-1/actions/com.catstack.mochipaw.inputd.policy"
+          "/usr/lib/mochi-paw/mochi-paw-inputd": "../target/release/mochi-paw-inputd",
+          "/usr/lib/systemd/system/mochi-paw-inputd.service": "packaging/linux/mochi-paw-inputd.service",
+          "/usr/share/polkit-1/actions/com.catstack.mochipaw.inputd.policy": "packaging/linux/com.catstack.mochipaw.inputd.policy"
         },
         "postInstallScript": "packaging/linux/postinstall.sh",
         "preRemoveScript": "packaging/linux/preremove.sh",
