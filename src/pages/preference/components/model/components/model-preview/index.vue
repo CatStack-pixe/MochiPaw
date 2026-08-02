@@ -6,7 +6,6 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { exists } from '@tauri-apps/plugin-fs'
 import { useElementSize } from '@vueuse/core'
-import { CubismSetting, Live2DSprite } from 'easy-live2d'
 import { Application } from 'pixi.js'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 
@@ -14,6 +13,7 @@ import type { Model } from '@/stores/model'
 
 import { detachLive2dSprite, readCubismModelJSON } from '@/utils/live2d'
 import { join } from '@/utils/path'
+import { CubismSetting, Live2DSprite } from '@/vendor/easy-live2d'
 
 const props = defineProps<{
   model: Model

@@ -16,6 +16,7 @@ export default defineConfig(async () => ({
   plugins: [vue(), UnoCSS(), vitePluginDayjs()],
   resolve: {
     alias: {
+      '@Framework': resolve(__dirname, 'src/vendor/easy-live2d/Framework'),
       '@': resolve(__dirname, 'src'),
     },
   },

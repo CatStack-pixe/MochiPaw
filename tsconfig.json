@@ -10,7 +10,8 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@Framework/*": ["src/vendor/easy-live2d/Framework/*"]
     },
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,

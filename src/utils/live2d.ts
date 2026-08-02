@@ -2,20 +2,20 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
-import type { ExpressionInfo, MotionInfo } from 'easy-live2d'
 import type { Ticker } from 'pixi.js'
 
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
-import { Config, CubismSetting, Live2DSprite, Priority } from 'easy-live2d'
 import { flatMap, groupBy } from 'es-toolkit/compat'
 import JSON5 from 'json5'
 import { Application } from 'pixi.js'
 
 import type { ModelSize } from '@/composables/useModel'
 import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
+import type { ExpressionInfo, MotionInfo } from '@/vendor/easy-live2d'
 
 import { i18n } from '@/locales'
+import { Config, CubismSetting, Live2DSprite, Priority } from '@/vendor/easy-live2d'
 
 import { join } from './path'
 
@@ -99,10 +99,7 @@ type RenderableLive2DSprite = Live2DSprite & {
 }
 
 type DraggableLive2DSprite = Live2DSprite & {
-  _model?: {
-    setDragging?: (x: number, y: number) => void
-  } | null
-  setDragging?: (x: number, y: number) => void
+  setDragging: (x: number, y: number) => void
 }
 
 export function destroyLive2dSprite(model: Live2DSprite | null | undefined, app?: Application | null) {
@@ -464,12 +461,7 @@ class Live2d {
     this.fallbackPhysicsAngles.y = targetY * 30
     this.fallbackPhysicsAngles.z = targetX * targetY * -30
 
-    if (model?._model?.setDragging) {
-      model._model.setDragging(targetX, targetY)
-      return
-    }
-
-    model?.setDragging?.(targetX, targetY)
+    model?.setDragging(targetX, targetY)
   }
 
   public setMotionSoundEnabled(enabled: boolean) {

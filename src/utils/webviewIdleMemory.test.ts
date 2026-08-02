@@ -140,7 +140,7 @@ test('uses browser timers with the global receiver', () => {
   globalThis.setTimeout = function (this: typeof globalThis) {
     assert.equal(this, globalThis)
     return timer
-  } as typeof setTimeout
+  } as unknown as typeof setTimeout
   globalThis.clearTimeout = function (this: typeof globalThis, receivedTimer) {
     assert.equal(this, globalThis)
     assert.equal(receivedTimer, timer)

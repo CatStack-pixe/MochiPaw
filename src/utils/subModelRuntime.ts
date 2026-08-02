@@ -68,7 +68,7 @@ export async function getSubModelRuntimeCapacity(
 
   if (primaryModel) activeModels.unshift(primaryModel)
 
-  const metrics = await Promise.all(activeModels.map(getModelResourceMetric))
+  const metrics = await Promise.all(activeModels.map(model => getModelResourceMetric(model)))
   const reservedBytes = metrics.reduce((total, metric) => {
     return total + getReservedModelBytes(metric.estimatedMemoryBytes)
   }, 0)
