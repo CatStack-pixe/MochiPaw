@@ -116,7 +116,10 @@ mod linux {
                 .map(str::to_owned)
                 .collect::<Vec<_>>();
 
-            if fields.len() < 3 || fields[0] != "yes" || !matches!(fields[1], "wayland" | "x11") {
+            if fields.len() < 3
+                || fields[0] != "yes"
+                || !matches!(fields[1].as_str(), "wayland" | "x11")
+            {
                 continue;
             }
 
