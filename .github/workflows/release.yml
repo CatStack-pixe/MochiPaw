@@ -58,6 +58,10 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Build Wayland input service
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: cargo build --manifest-path src-tauri/Cargo.toml --release --features inputd --bin mochi-paw-inputd
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
