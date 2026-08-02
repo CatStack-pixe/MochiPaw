@@ -58,10 +58,6 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build Wayland input service
-        if: startsWith(matrix.platform, 'ubuntu')
-        run: cargo build --manifest-path src-tauri/Cargo.toml --release --features inputd --bin mochi-paw-inputd
-
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
@@ -77,6 +73,14 @@ jobs:
         run: |
           pnpm config set registry https://registry.npmjs.org
           pnpm install --no-frozen-lockfile
+
+      - name: Generate Tauri icons
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: pnpm build:icon
+
+      - name: Build Wayland input service
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: cargo build --manifest-path src-tauri/Cargo.toml --release --features inputd --bin mochi-paw-inputd
 
       - name: Generate contributors manifest
         run: pnpm generate:contributors
