@@ -15,9 +15,15 @@ export interface CursorPoint {
   y: number
 }
 
+export interface RelativeMouseMove {
+  dx: number
+  dy: number
+}
+
 export type DeviceInputEvent
   = | { kind: 'MousePress' | 'MouseRelease' | 'KeyboardPress' | 'KeyboardRelease', value: string }
     | { kind: 'MouseMove', value: CursorPoint }
+    | { kind: 'MouseRelativeMove', value: RelativeMouseMove }
 
 export interface GamepadInputEvent {
   kind: 'ButtonChanged' | 'AxisChanged'
@@ -90,6 +96,22 @@ export class SubModelInputCoordinator {
 
       if (index !== -1) {
         this.deviceEvents[index] = event
+      } else {
+        this.deviceEvents.push(event)
+      }
+    } else if (event.kind === 'MouseRelativeMove') {
+      const index = this.findLastIndex(this.deviceEvents, item => item.kind === 'MouseRelativeMove')
+
+      if (index !== -1) {
+        const previous = this.deviceEvents[index] as Extract<DeviceInputEvent, { kind: 'MouseRelativeMove' }>
+
+        this.deviceEvents[index] = {
+          kind: 'MouseRelativeMove',
+          value: {
+            dx: previous.value.dx + event.value.dx,
+            dy: previous.value.dy + event.value.dy,
+          },
+        }
       } else {
         this.deviceEvents.push(event)
       }

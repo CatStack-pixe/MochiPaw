@@ -6,7 +6,7 @@ mod core;
 mod utils;
 
 use core::{
-    device::start_device_listening,
+    device::{get_device_input_status, start_device_listening},
     gamepad::{set_gamepad_listener_enabled, start_gamepad_listing, stop_gamepad_listing},
     prevent_default,
     runtime_security::{
@@ -59,6 +59,7 @@ pub fn run() {
             copy_dir,
             extract_zip,
             start_device_listening,
+            get_device_input_status,
             start_gamepad_listing,
             stop_gamepad_listing,
             set_gamepad_listener_enabled,

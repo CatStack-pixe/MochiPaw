@@ -5,10 +5,11 @@
 
 <script setup lang="ts">
 import { Button, Divider, Flex, InputNumber, Select, Slider, SpaceAddon, SpaceCompact, Switch } from 'antdv-next'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
+import { useDeviceInputStatus } from '@/composables/useDeviceInputStatus'
 import { returnMainWindowToScreen } from '@/composables/useWindowState'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
@@ -16,6 +17,13 @@ import { isWindows } from '@/utils/platform'
 
 const catStore = useCatStore()
 const modelStore = useModelStore()
+const { status: inputStatus } = useDeviceInputStatus()
+
+const hideOnHoverSupported = computed(() => inputStatus.value?.hoverSupported !== false)
+
+watch(hideOnHoverSupported, (supported) => {
+  if (!supported) catStore.window.hideOnHover = false
+}, { immediate: true })
 
 async function handleReturnToScreen() {
   await returnMainWindowToScreen()
@@ -163,11 +171,14 @@ const typingBehaviorGroupOptions = computed(() => {
     </ProListItem>
 
     <ProListItem
-      :description="$t('pages.preference.cat.hints.hideOnHover')"
+      :description="hideOnHoverSupported ? $t('pages.preference.cat.hints.hideOnHover') : $t('pages.preference.cat.hints.hideOnHoverWayland')"
       :title="$t('pages.preference.cat.labels.hideOnHover')"
     >
       <Flex align="center">
-        <Switch v-model:checked="catStore.window.hideOnHover" />
+        <Switch
+          v-model:checked="catStore.window.hideOnHover"
+          :disabled="!hideOnHoverSupported"
+        />
 
         <Flex
           align="center"

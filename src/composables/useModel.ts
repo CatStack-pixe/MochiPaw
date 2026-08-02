@@ -51,6 +51,7 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
   let nextTypingExpressionAt = 0
   let activeMotionBehaviorId: string | undefined
   let currentExpressionBehaviorId: string | undefined
+  let relativeLookPosition = { x: 0.5, y: 0.5 }
   let activeMotionResetTimer: ReturnType<typeof setTimeout> | undefined
 
   function getBehaviorShortcut(index: number) {
@@ -502,15 +503,7 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
     return (min + Math.random() * (max - min)) * 1000
   }
 
-  async function handleMouseMove(cursorPoint: PhysicalPosition) {
-    const monitor = await getCursorMonitor(cursorPoint)
-
-    if (!monitor) return
-
-    const { size, position } = monitor
-
-    const xRatio = (cursorPoint.x - position.x) / size.width
-    const yRatio = (cursorPoint.y - position.y) / size.height
+  function applyMouseLook(xRatio: number, yRatio: number) {
     const lookTargetX = (mouseMirror.value ? -1 : 1) * (1 - 2 * xRatio)
     const lookTargetY = 1 - 2 * yRatio
 
@@ -558,6 +551,30 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
     live2d.setLookTarget(lookTargetX, lookTargetY)
   }
 
+  async function handleMouseMove(cursorPoint: PhysicalPosition) {
+    const monitor = await getCursorMonitor(cursorPoint)
+
+    if (!monitor) return
+
+    const { size, position } = monitor
+
+    applyMouseLook(
+      (cursorPoint.x - position.x) / size.width,
+      (cursorPoint.y - position.y) / size.height,
+    )
+  }
+
+  function handleRelativeMouseMove(dx: number, dy: number) {
+    // Wayland intentionally does not expose global cursor coordinates. Keep a bounded
+    // virtual cursor so relative motion still drives the same Live2D look parameters.
+    relativeLookPosition = {
+      x: Math.min(1, Math.max(0, relativeLookPosition.x + dx / 240)),
+      y: Math.min(1, Math.max(0, relativeLookPosition.y + dy / 240)),
+    }
+
+    applyMouseLook(relativeLookPosition.x, relativeLookPosition.y)
+  }
+
   async function handleAxisChange(id: string, value: number) {
     const range = live2d.getParameterValueRange(id)
 
@@ -578,6 +595,7 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
     handleKeyChange,
     handleMouseChange,
     handleMouseMove,
+    handleRelativeMouseMove,
     handleAxisChange,
     playMotionBehavior,
     playExpressionBehavior,

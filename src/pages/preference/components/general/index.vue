@@ -11,9 +11,10 @@ import { watch } from 'vue'
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
 import { useGeneralStore } from '@/stores/general'
-import { isMac, isWindows } from '@/utils/platform'
+import { isLinux, isMac, isWindows } from '@/utils/platform'
 
 import Language from './components/language/index.vue'
+import LinuxInputStatus from './components/linux-input-status/index.vue'
 import MacosPermissions from './components/macos-permissions/index.vue'
 import ThemeMode from './components/theme-mode/index.vue'
 import WindowsPermissions from './components/windows-permissions/index.vue'
@@ -37,6 +38,13 @@ watch(() => generalStore.app.autostart, async (value) => {
   <MacosPermissions v-if="isMac" />
 
   <WindowsPermissions v-if="isWindows" />
+
+  <ProList
+    v-if="isLinux"
+    :title="$t('pages.preference.general.labels.permissionsSettings')"
+  >
+    <LinuxInputStatus />
+  </ProList>
 
   <ProList :title="$t('pages.preference.general.labels.appSettings')">
     <ProListItem :title="$t('pages.preference.general.labels.launchOnStartup')">

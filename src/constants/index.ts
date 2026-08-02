@@ -26,6 +26,7 @@ export const INVOKE_KEY = {
   COPY_DIR: 'copy_dir',
   EXTRACT_ZIP: 'extract_zip',
   START_DEVICE_LISTENING: 'start_device_listening',
+  GET_DEVICE_INPUT_STATUS: 'get_device_input_status',
   START_GAMEPAD_LISTING: 'start_gamepad_listing',
   STOP_GAMEPAD_LISTING: 'stop_gamepad_listing',
   SET_GAMEPAD_LISTENER_ENABLED: 'set_gamepad_listener_enabled',
