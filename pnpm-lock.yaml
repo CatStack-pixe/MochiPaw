@@ -14,6 +14,9 @@ importers:
       '@antdv-next/icons':
         specifier: ^1.0.8
         version: 1.0.8(vue@3.5.39(typescript@5.9.3))
+      '@pixi/sound':
+        specifier: ^6.0.1
+        version: 6.0.1(pixi.js@8.19.0)
       '@tauri-apps/api':
         specifier: ^2.11.1
         version: 2.11.1
@@ -59,9 +62,6 @@ importers:
       dayjs:
         specifier: ^1.11.21
         version: 1.11.21
-      easy-live2d:
-        specifier: ^0.4.4
-        version: 0.4.4(eslint@9.39.4(jiti@2.7.0))(pixi.js@8.19.0)
       es-toolkit:
         specifier: ^1.49.0
         version: 1.49.0
@@ -2707,10 +2707,6 @@ packages:
   earcut@3.0.2:
     resolution: {integrity: sha512-X7hshQbLyMJ/3RPhyObLARM2sNxxmRALLKx1+NVFFnQ9gKzmCrxm9+uLIAdBcvc8FNLpctqlQ2V6AE92Ol9UDQ==}
 
-  easy-live2d@0.4.4:
-    resolution: {integrity: sha512-3/PNWXng0vJcNm4y7pj6Rkux6KA6t/ZaSx50uVEDUpO9a50A+AGLRdG0E5vYKlFpWTOeZ/NxaL497CpXwJ20BQ==}
-    engines: {node: ^18.0.0 || >=20.0.0}
-
   electron-to-chromium@1.5.380:
     resolution: {integrity: sha512-W6d5AbuEoRayO447cqrg6lKJIlscgRnnxOZl/08kfV71BQDoEBC7Wwis68z87LjyK6f4kWyTaubuDbhHKrZkbA==}
 
@@ -2881,11 +2877,6 @@ packages:
 
   eslint-plugin-format@1.5.0:
     resolution: {integrity: sha512-jaeOKrxs79Nn6rMkLycPkLHvBVKcgsFG+RqNXb6W9iS9y2Q0NYGhFTLcDUdp5mf01X99wEkjtX2O8cumM7lNMQ==}
-    peerDependencies:
-      eslint: ^8.40.0 || ^9.0.0 || ^10.0.0
-
-  eslint-plugin-format@2.0.1:
-    resolution: {integrity: sha512-0BA65p5DAiuKtx5MmMJfPk9WaTjoHHbyVW7ZXRhaZoA1fdiMHhay9QRiDL2wr0hJWZxdF7CRThOK/70VUKVg2g==}
     peerDependencies:
       eslint: ^8.40.0 || ^9.0.0 || ^10.0.0
 
@@ -6474,8 +6465,8 @@ snapshots:
 
   '@typescript-eslint/project-service@8.58.2(typescript@5.9.3)':
     dependencies:
-      '@typescript-eslint/tsconfig-utils': 8.58.2(typescript@5.9.3)
-      '@typescript-eslint/types': 8.58.2
+      '@typescript-eslint/tsconfig-utils': 8.62.0(typescript@5.9.3)
+      '@typescript-eslint/types': 8.62.0
       debug: 4.4.3
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -7603,14 +7594,6 @@ snapshots:
 
   earcut@3.0.2: {}
 
-  easy-live2d@0.4.4(eslint@9.39.4(jiti@2.7.0))(pixi.js@8.19.0):
-    dependencies:
-      '@pixi/sound': 6.0.1(pixi.js@8.19.0)
-      eslint-plugin-format: 2.0.1(eslint@9.39.4(jiti@2.7.0))
-    transitivePeerDependencies:
-      - eslint
-      - pixi.js
-
   electron-to-chromium@1.5.380: {}
 
   emoji-regex@10.6.0: {}
@@ -7860,19 +7843,6 @@ snapshots:
       eslint-compat-utils: 0.5.1(eslint@9.39.4(jiti@2.7.0))
 
   eslint-plugin-format@1.5.0(eslint@9.39.4(jiti@2.7.0)):
-    dependencies:
-      '@dprint/formatter': 0.5.1
-      '@dprint/markdown': 0.21.1
-      '@dprint/toml': 0.7.0
-      eslint: 9.39.4(jiti@2.7.0)
-      eslint-formatting-reporter: 0.0.0(eslint@9.39.4(jiti@2.7.0))
-      eslint-parser-plain: 0.1.1
-      ohash: 2.0.11
-      oxfmt: 0.35.0
-      prettier: 3.9.0
-      synckit: 0.11.13
-
-  eslint-plugin-format@2.0.1(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       '@dprint/formatter': 0.5.1
       '@dprint/markdown': 0.21.1

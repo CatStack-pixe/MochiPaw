@@ -7,7 +7,6 @@ import type { Ref } from 'vue'
 import { LogicalSize } from '@tauri-apps/api/dpi'
 import { resolveResource } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { message } from 'antdv-next'
 import { isNil, round } from 'es-toolkit'
 import { computed, ref } from 'vue'
 
@@ -15,6 +14,7 @@ import type { Model, ModelBehaviorGroup, ModelBehaviorRef, ModelMotionInfo } fro
 
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
+import { logError, logStep, logTrace } from '@/utils/diagnostics'
 import { getCursorMonitor } from '@/utils/monitor'
 import { isMac } from '@/utils/platform'
 
@@ -169,23 +169,36 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
 
   async function handleLoad(view: HTMLCanvasElement) {
     try {
-      if (!currentModel.value) return
+      if (!currentModel.value) {
+        logTrace('[model-runtime] skipped load because current model is unavailable')
+        return
+      }
 
-      const { path } = currentModel.value
+      const { id: modelId, path } = currentModel.value
+      const context = { modelId, modelPath: path, windowLabel: appWindow.label }
+
+      logStep('model-runtime', 'resolve model resource', context)
 
       await resolveResource(path)
 
+      logStep('model-runtime', 'load Live2D model', context)
       const { width, height, motions, expressions } = await live2d.load(path, view)
+      logStep('model-runtime', 'Live2D model loaded', { ...context, width, height })
 
       const nextMotions = Object.entries(motions)
 
       modelSize.value = { width, height }
       modelStore.currentMotions = nextMotions
       modelStore.currentExpressions = expressions
+      logStep('model-runtime', 'store motions and expressions', {
+        ...context,
+        motionGroupCount: nextMotions.length,
+        expressionCount: expressions.length,
+      })
 
+      logStep('model-runtime', 'resize model window', context)
       await handleResize()
-
-      const modelId = currentModel.value.id
+      logStep('model-runtime', 'model window resized', context)
 
       const behaviorIds: string[] = []
 
@@ -219,10 +232,17 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
       }
 
       ensureDefaultBehaviorGroup(modelId, behaviorIds)
+      logStep('model-runtime', 'model behavior shortcuts prepared', {
+        ...context,
+        behaviorCount: behaviorIds.length,
+      })
     } catch (error) {
-      if (isLive2dLoadCancelledError(error)) return
+      if (isLive2dLoadCancelledError(error)) {
+        logTrace('[model-runtime] model load cancelled', { error })
+        return
+      }
 
-      message.error(String(error))
+      logError('[model-runtime] model load failed', { error })
       throw error
     }
   }

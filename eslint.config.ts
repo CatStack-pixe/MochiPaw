@@ -24,5 +24,5 @@ export default antfu({
       },
     ],
   },
-  ignores: ['**/*.toml'],
+  ignores: ['**/*.toml', 'src/vendor/easy-live2d/**'],
 })

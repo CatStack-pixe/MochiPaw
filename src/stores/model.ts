@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
-import type { ExpressionInfo, MotionInfo } from 'easy-live2d'
-
 import { resolveResource } from '@tauri-apps/api/path'
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
 import { filter, find } from 'es-toolkit/compat'
@@ -11,6 +9,8 @@ import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
+
+import type { ExpressionInfo, MotionInfo } from '@/vendor/easy-live2d'
 
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import { join } from '@/utils/path'

@@ -28,6 +28,7 @@ import { useCatStore } from './stores/cat'
 import { useGeneralStore } from './stores/general'
 import { useModelStore } from './stores/model'
 import { useShortcutStore } from './stores/shortcut.ts'
+import { logError, logInfo, logStartupDiagnostics, logStep } from './utils/diagnostics'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
 import { openSubModelWindow } from './utils/subModelWindow'
 import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
@@ -43,6 +44,10 @@ const idleMemory = new WebviewIdleMemoryController({ setTarget: setWebviewMemory
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
 const { locale } = useI18n()
+
+void logStartupDiagnostics(appWindow.label).catch((error) => {
+  logError('[startup] diagnostic collection failed', { windowLabel: appWindow.label, error })
+})
 
 function formatError(reason: unknown) {
   if (reason instanceof Error) {
@@ -115,27 +120,43 @@ useTauriListen<SubModelInputFrame>(LISTEN_KEY.SUB_MODEL_INPUT_FRAME, ({ payload 
 })
 
 onMounted(async () => {
+  logInfo('[app-init] started', { windowLabel: appWindow.label, isSubModelWindow })
   if (isSubModelWindow) {
+    logStep('app-init', 'start submodel persistence', { windowLabel: appWindow.label })
     await modelStore.$tauri.start()
+    logStep('app-init', 'initialize model store', { windowLabel: appWindow.label })
     await modelStore.init()
     await catStore.$tauri.start()
+    logStep('app-init', 'initialize cat store', { windowLabel: appWindow.label })
     catStore.init()
     await generalStore.$tauri.start()
+    logStep('app-init', 'initialize general store', { windowLabel: appWindow.label })
     await generalStore.init()
     await restoreState()
+    logInfo('[app-init] submodel initialization completed', { windowLabel: appWindow.label })
     return
   }
 
+  logStep('app-init', 'start app persistence', { windowLabel: appWindow.label })
   await appStore.$tauri.start()
+  logStep('app-init', 'initialize app store', { windowLabel: appWindow.label })
   await appStore.init()
+  logStep('app-init', 'start model persistence', { windowLabel: appWindow.label })
   await modelStore.$tauri.start()
+  logStep('app-init', 'initialize model store', { windowLabel: appWindow.label })
   await modelStore.init()
+  logStep('app-init', 'start cat persistence', { windowLabel: appWindow.label })
   await catStore.$tauri.start()
+  logStep('app-init', 'initialize cat store', { windowLabel: appWindow.label })
   catStore.init()
+  logStep('app-init', 'start general persistence', { windowLabel: appWindow.label })
   await generalStore.$tauri.start()
+  logStep('app-init', 'initialize general store', { windowLabel: appWindow.label })
   await generalStore.init()
+  logStep('app-init', 'start shortcut persistence', { windowLabel: appWindow.label })
   await shortcutStore.$tauri.start()
   await restoreState()
+  logStep('app-init', 'application state restored', { windowLabel: appWindow.label })
 
   for (const instance of modelStore.subModels.filter(item => item.visible && item.showOnLaunch)) {
     const capacity = await getSubModelRuntimeCapacity(
@@ -151,12 +172,16 @@ onMounted(async () => {
     }
 
     try {
+      logStep('app-init', 'restore submodel window', { instanceId: instance.id, modelId: instance.modelId })
       await openSubModelWindow(instance)
     } catch (reason) {
       instance.visible = false
       error(`[sub-model] failed to restore ${instance.id}: ${formatError(reason)}`)
+      logError('[app-init] failed to restore submodel window', { instanceId: instance.id, modelId: instance.modelId, error: reason })
     }
   }
+
+  logInfo('[app-init] completed', { windowLabel: appWindow.label })
 })
 
 watch(() => generalStore.appearance.language, (value) => {

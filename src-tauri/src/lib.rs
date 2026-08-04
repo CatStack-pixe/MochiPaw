@@ -78,6 +78,7 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .level(tauri_plugin_log::log::LevelFilter::Trace)
                 .filter(|metadata| !metadata.target().contains("gilrs"))
                 .build(),
         )

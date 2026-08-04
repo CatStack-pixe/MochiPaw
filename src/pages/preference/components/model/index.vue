@@ -15,6 +15,7 @@ import type { Model } from '@/stores/model'
 
 import { useCatStore } from '@/stores/cat'
 import { getModelDisplayName, useModelStore } from '@/stores/model'
+import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { destroySubModelWindow } from '@/utils/subModelWindow'
 
@@ -156,19 +157,42 @@ function showImportedModels() {
 }
 
 async function handleToggle(nextModel: Model) {
-  if (modelStore.currentModel?.id === nextModel.id) return
+  if (modelStore.currentModel?.id === nextModel.id) {
+    logTrace('[model-switch] ignored selection of current model', { modelId: nextModel.id })
+    return
+  }
+
+  const previousModel = modelStore.currentModel
+  logInfo('[model-switch] requested', {
+    previousModelId: previousModel?.id,
+    previousModelPath: previousModel?.path,
+    nextModelId: nextModel.id,
+    nextModelPath: nextModel.path,
+    nextModelMode: nextModel.mode,
+    nextModelImportKind: nextModel.importKind,
+    nextModelProofStatus: nextModel.proofStatus,
+  })
 
   try {
+    logStep('model-switch', 'prepare runtime lease', { modelId: nextModel.id, modelPath: nextModel.path })
     await ensureRuntimeLease(nextModel)
+    logStep('model-switch', 'runtime lease ready', { modelId: nextModel.id, modelPath: nextModel.path })
   } catch (error) {
+    logError('[model-switch] runtime preparation failed', { modelId: nextModel.id, modelPath: nextModel.path, error })
     message.error(String(error))
     return
   }
 
+  logStep('model-switch', 'set modelReady=false', { modelId: nextModel.id })
   modelStore.modelReady = false
 
+  logStep('model-switch', 'update current model', {
+    previousModelId: previousModel?.id,
+    nextModelId: nextModel.id,
+  })
   modelStore.currentModel = nextModel
   reportRuntimeEventQuietly(nextModel, 'opened')
+  logInfo('[model-switch] requested model is now current', { modelId: nextModel.id, modelPath: nextModel.path })
 }
 
 async function handleDelete(item: Model) {

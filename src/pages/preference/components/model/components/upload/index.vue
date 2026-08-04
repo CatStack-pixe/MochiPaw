@@ -23,6 +23,7 @@ import type {
 
 import { INVOKE_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
+import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import {
   collectCubismResourceReferences,
   createCubismFingerprint,
@@ -247,8 +248,12 @@ const importHint = computed(() => {
 })
 
 async function handleUpload() {
-  if (importing.value) return
+  if (importing.value) {
+    logTrace('[model-import] ignored upload request while another import is active')
+    return
+  }
 
+  logStep('model-import', 'open model file picker')
   const selected = await open({
     multiple: true,
     filters: [
@@ -259,24 +264,41 @@ async function handleUpload() {
     ],
   })
 
-  if (!selected) return
+  if (!selected) {
+    logStep('model-import', 'file picker cancelled')
+    return
+  }
 
-  selectPaths.value = Array.isArray(selected) ? selected : [selected]
+  const paths = Array.isArray(selected) ? selected : [selected]
+  logInfo('[model-import] file picker returned paths', { count: paths.length, paths })
+  selectPaths.value = paths
 }
 
 watch(selectPaths, async (paths) => {
-  if (!paths.length || importing.value) return
+  if (!paths.length || importing.value) {
+    if (paths.length && importing.value) {
+      logTrace('[model-import] ignored selection while another import is active', { count: paths.length })
+    }
+    return
+  }
 
+  logInfo('[model-import] batch started', { count: paths.length, paths })
   importing.value = true
   importProgress.value = { current: 1, total: paths.length }
 
   for (const [index, fromPath] of paths.entries()) {
     importProgress.value = { current: index + 1, total: paths.length }
+    logStep('model-import', 'process selected path', {
+      index: index + 1,
+      total: paths.length,
+      fromPath,
+    })
 
     try {
       const result = await importFromPath(fromPath)
 
       if (result.status === 'duplicate') {
+        logStep('model-import', 'selected path contains only duplicates', { fromPath })
         message.info(t('pages.preference.model.hints.alreadyImported'))
 
         continue
@@ -284,12 +306,22 @@ watch(selectPaths, async (paths) => {
 
       for (const model of result.models) {
         modelStore.models.push(model)
+        logStep('model-import', 'model added to store', {
+          fromPath,
+          modelId: model.id,
+          modelPath: model.path,
+          mode: model.mode,
+          importKind: model.importKind,
+          proofStatus: model.proofStatus,
+        })
         reportRuntimeEventQuietly(model, 'imported')
       }
 
       emit('imported')
+      logInfo('[model-import] selected path completed', { fromPath, modelCount: result.models.length })
       message.success(t('pages.preference.model.hints.importSuccess'))
     } catch (error) {
+      logError('[model-import] selected path failed', { fromPath, error })
       message.error(String(error))
     }
   }
@@ -297,40 +329,67 @@ watch(selectPaths, async (paths) => {
   importing.value = false
   importProgress.value = { current: 0, total: 0 }
   selectPaths.value = []
+  logInfo('[model-import] batch completed', { count: paths.length })
 })
 
 async function importFromPath(fromPath: string) {
+  logStep('model-import', 'prepare import source', { fromPath })
   const source = await prepareImportSource(fromPath)
+  logStep('model-import', 'import source prepared', { fromPath, sourcePath: source.path, temporary: Boolean(source.temporaryDirectory) })
 
   return await useImportSource(
     source,
     importFromSource,
     path => remove(path, { recursive: true }),
-    error => console.warn('[mochi-paw] failed to clean temporary model import:', error),
+    (error) => {
+      console.warn('[mochi-paw] failed to clean temporary model import:', error)
+      logError('[model-import] temporary source cleanup failed', { fromPath, sourcePath: source.path, error })
+    },
   )
 }
 
 async function importFromSource(sourcePath: string) {
+  logStep('model-import', 'discover model variants', { sourcePath })
   const variants = await discoverImportVariants(sourcePath)
+  logInfo('[model-import] model variants discovered', { sourcePath, count: variants.length })
 
   if (!variants.length) {
+    logError('[model-import] no model variants found', { sourcePath })
     throw new Error('No model3.json found')
   }
 
   const models = []
+  logStep('model-import', 'collect imported fingerprints', { sourcePath, existingModelCount: modelStore.models.length })
   const importedFingerprints = await getImportedFingerprints()
+  logStep('model-import', 'imported fingerprints collected', { sourcePath, fingerprintCount: importedFingerprints.size })
 
   for (const variant of variants) {
-    if (importedFingerprints.has(variant.fingerprint)) continue
+    if (importedFingerprints.has(variant.fingerprint)) {
+      logStep('model-import', 'skip duplicate variant', {
+        sourcePath,
+        modelPath: variant.modelPath,
+        mode: variant.mode,
+        fingerprint: variant.fingerprint,
+      })
+      continue
+    }
 
     const id = nanoid()
     const toPath = join(await appDataDir(), 'custom-models', id)
+    logStep('model-import', 'copy model files', {
+      sourcePath,
+      modelPath: variant.modelPath,
+      targetPath: toPath,
+      modelId: id,
+      mode: variant.mode,
+    })
 
     await invoke(INVOKE_KEY.COPY_DIR, {
       fromPath: variant.modelPath,
       toPath,
     })
 
+    logStep('model-import', 'copy model metadata', { modelId: id, targetPath: toPath })
     await copyMetadataDirectories(variant, toPath)
 
     const model = createImportedModel({
@@ -349,9 +408,12 @@ async function importFromSource(sourcePath: string) {
     })
 
     try {
+      logStep('model-import', 'prepare imported model runtime', { modelId: id, modelPath: toPath })
       await ensureRuntimeLease(model)
+      logStep('model-import', 'normalize imported resources', { modelId: id, modelPath: toPath, mode: variant.mode })
       await normalizeResources(variant, toPath)
     } catch (error) {
+      logError('[model-import] imported model preparation failed', { modelId: id, modelPath: toPath, error })
       await remove(toPath, { recursive: true }).catch(() => undefined)
       throw error
     }
@@ -359,12 +421,22 @@ async function importFromSource(sourcePath: string) {
     models.push(model)
 
     importedFingerprints.add(variant.fingerprint)
+    logInfo('[model-import] variant imported', {
+      sourcePath,
+      modelId: id,
+      modelPath: toPath,
+      mode: variant.mode,
+      importKind: variant.importKind,
+      proofStatus: variant.proofStatus,
+    })
   }
 
   if (!models.length) {
+    logStep('model-import', 'all variants were duplicates', { sourcePath })
     return { status: 'duplicate' } satisfies ImportFromPathResult
   }
 
+  logStep('model-import', 'source import completed', { sourcePath, modelCount: models.length })
   return { status: 'imported', models } satisfies ImportFromPathResult
 }
 
@@ -386,22 +458,35 @@ function createImportedModel(model: {
 }
 
 async function prepareImportSource(fromPath: string) {
+  logStep('model-import', 'stat selected path', { fromPath })
   const info = await stat(fromPath)
 
-  if (info.isDirectory) return { path: fromPath }
+  if (info.isDirectory) {
+    logStep('model-import', 'use selected directory as source', { fromPath })
+    return { path: fromPath }
+  }
 
   if (!fromPath.toLowerCase().endsWith('.zip')) {
-    return { path: await getModelDirectoryFromFile(fromPath) }
+    const sourcePath = await getModelDirectoryFromFile(fromPath)
+    logStep('model-import', 'use selected file parent as source', { fromPath, sourcePath })
+    return { path: sourcePath }
   }
 
   const importPath = join(await appDataDir(), 'model-imports', nanoid())
+  logStep('model-import', 'extract ZIP', { fromPath, importPath })
 
   return await extractTemporaryImportSource(
     fromPath,
     importPath,
-    async (source, target) => invoke(INVOKE_KEY.EXTRACT_ZIP, { fromPath: source, toPath: target }),
+    async (source, target) => {
+      await invoke(INVOKE_KEY.EXTRACT_ZIP, { fromPath: source, toPath: target })
+      logStep('model-import', 'ZIP extraction completed', { fromPath: source, importPath: target })
+    },
     path => remove(path, { recursive: true }),
-    error => console.warn('[mochi-paw] failed to clean failed model extraction:', error),
+    (error) => {
+      console.warn('[mochi-paw] failed to clean failed model extraction:', error)
+      logError('[model-import] failed extraction cleanup', { fromPath, importPath, error })
+    },
   )
 }
 
@@ -414,15 +499,21 @@ async function getModelDirectoryFromFile(filePath: string) {
 }
 
 async function discoverImportVariants(sourcePath: string) {
+  logStep('model-import', 'discover legacy variants', { sourcePath })
   const variants = await discoverLegacyVariants(sourcePath)
 
-  if (variants.length) return variants
+  if (variants.length) {
+    logStep('model-import', 'legacy variants discovered', { sourcePath, count: variants.length })
+    return variants
+  }
 
+  logStep('model-import', 'discover Cubism variants', { sourcePath })
   return await discoverCubismVariants(sourcePath)
 }
 
 async function discoverLegacyVariants(sourcePath: string) {
   const imgDirs = await findDirectoriesNamed(sourcePath, 'img')
+  logStep('model-import', 'legacy image directories discovered', { sourcePath, count: imgDirs.length, imgDirs })
   const variants: ImportVariant[] = []
 
   for (const imgDir of imgDirs) {
@@ -431,6 +522,8 @@ async function discoverLegacyVariants(sourcePath: string) {
       const modelPath = join(rootPath, 'cat_model')
 
       if (!await exists(join(modelPath, 'cat.model3.json'))) continue
+
+      logStep('model-import', 'legacy model config found', { sourcePath, modelPath, mode })
 
       const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
       const controlledRelease = await readNearestControlledRelease(modelPath, sourcePath)
@@ -459,20 +552,23 @@ async function discoverLegacyVariants(sourcePath: string) {
     }
   }
 
+  logStep('model-import', 'legacy variant scan completed', { sourcePath, count: variants.length })
   return variants
 }
 
 async function discoverCubismVariants(sourcePath: string) {
   const modelPaths = await findModelDirectories(sourcePath)
+  logStep('model-import', 'Cubism model directories discovered', { sourcePath, count: modelPaths.length, modelPaths })
 
   return await Promise.all(modelPaths.map(async (modelPath): Promise<ImportVariant> => {
     const mode = await inferMode(modelPath)
+    logStep('model-import', 'inspect Cubism model directory', { sourcePath, modelPath, mode })
     const proofManifest = await readNearestProofManifest(modelPath, sourcePath)
     const controlledRelease = await readNearestControlledRelease(modelPath, sourcePath)
     const proofDirectory = await findNearestManifestDirectory(modelPath, 'mochi-proof', 'manifest.json', sourcePath)
     const controlDirectory = await findNearestManifestDirectory(modelPath, 'mochi-control', 'release.json', sourcePath)
 
-    return {
+    const variant = {
       mode,
       rootPath: modelPath,
       modelPath,
@@ -491,17 +587,35 @@ async function discoverCubismVariants(sourcePath: string) {
       proofDirectory,
       controlDirectory,
     }
+
+    logStep('model-import', 'Cubism variant inspected', {
+      sourcePath,
+      modelPath,
+      mode,
+      fingerprint: variant.fingerprint,
+      importKind: variant.importKind,
+      proofStatus: variant.proofStatus,
+    })
+    return variant
   }))
 }
 
 async function copyMetadataDirectories(variant: ImportVariant, toPath: string) {
   if (variant.proofDirectory) {
+    logStep('model-import', 'copy proof metadata directory', {
+      sourcePath: variant.proofDirectory,
+      targetPath: join(toPath, 'mochi-proof'),
+    })
     await invoke(INVOKE_KEY.COPY_DIR, {
       fromPath: variant.proofDirectory,
       toPath: join(toPath, 'mochi-proof'),
     })
   }
   if (variant.controlDirectory) {
+    logStep('model-import', 'copy control metadata directory', {
+      sourcePath: variant.controlDirectory,
+      targetPath: join(toPath, 'mochi-control'),
+    })
     await invoke(INVOKE_KEY.COPY_DIR, {
       fromPath: variant.controlDirectory,
       toPath: join(toPath, 'mochi-control'),
@@ -510,12 +624,21 @@ async function copyMetadataDirectories(variant: ImportVariant, toPath: string) {
 }
 
 async function findNearestManifestDirectory(startPath: string, manifestDirectory: string, manifestFile: string, stopPath?: string) {
+  logTrace('[model-import] search metadata directory', {
+    startPath,
+    manifestDirectory,
+    manifestFile,
+    stopPath,
+  })
   let currentPath = startPath
   const normalizedStopPath = stopPath ? normalizePath(stopPath) : undefined
 
   while (currentPath) {
     const candidate = join(currentPath, manifestDirectory)
-    if (await exists(join(candidate, manifestFile))) return candidate
+    if (await exists(join(candidate, manifestFile))) {
+      logStep('model-import', 'metadata directory found', { candidate, manifestFile })
+      return candidate
+    }
 
     const normalizedCurrentPath = normalizePath(currentPath)
     if (normalizedStopPath && normalizedCurrentPath === normalizedStopPath) return undefined
@@ -559,18 +682,21 @@ async function inferImportDisplayName({
 async function findDirectoriesNamed(rootPath: string, name: string) {
   const results: string[] = []
 
+  logStep('model-import', 'walk for named directories', { rootPath, name })
   await walkDirectories(rootPath, async (path, entryName) => {
     if (entryName.toLowerCase() === name) {
       results.push(path)
     }
   })
 
+  logStep('model-import', 'named directory walk completed', { rootPath, name, count: results.length, results })
   return results
 }
 
 async function findModelDirectories(rootPath: string) {
   const results: string[] = []
 
+  logStep('model-import', 'walk for model directories', { rootPath })
   await walkDirectories(rootPath, async (path) => {
     const files = await readDir(path).catch(() => [])
     const hasModel = files.some(file => file.isFile && file.name.endsWith('.model3.json'))
@@ -580,6 +706,7 @@ async function findModelDirectories(rootPath: string) {
     }
   })
 
+  logStep('model-import', 'model directory walk completed', { rootPath, count: results.length, results })
   return results
 }
 
@@ -593,6 +720,7 @@ async function walkDirectories(
     const path = pending.shift()!
     const entries = await readDir(path).catch(() => [])
     const name = path.split(/[\\/]/).at(-1) ?? ''
+    logTrace('[model-import] inspect directory', { path, name, entryCount: entries.length, pendingCount: pending.length })
 
     await visit(path, name)
 
@@ -607,17 +735,29 @@ async function walkDirectories(
 async function inferMode(modelPath: string): Promise<ModelMode> {
   const files = await readDir(join(modelPath, 'resources', 'right-keys')).catch(() => [])
 
-  if (!files.length) return 'standard'
+  if (!files.length) {
+    logStep('model-import', 'inferred standard model mode', { modelPath })
+    return 'standard'
+  }
 
   const fileNames = files.map(file => file.name.split('.')[0])
 
-  return fileNames.includes('East') ? 'gamepad' : 'keyboard'
+  const mode = fileNames.includes('East') ? 'gamepad' : 'keyboard'
+  logStep('model-import', 'inferred model mode', { modelPath, mode, rightKeyFileCount: files.length })
+  return mode
 }
 
 async function getImportedFingerprints() {
   const fingerprints = new Set<string>()
+  logStep('model-import', 'scan existing model fingerprints', { modelCount: modelStore.models.length })
 
   for (const model of modelStore.models) {
+    logTrace('[model-import] resolve existing model fingerprint', {
+      modelId: model.id,
+      modelPath: model.path,
+      mode: model.mode,
+      hasFingerprint: Boolean(model.fingerprint),
+    })
     const fingerprint = await resolveCubismFingerprint(
       model.fingerprint,
       () => getModelFingerprint(model.path, model.mode),
@@ -629,19 +769,24 @@ async function getImportedFingerprints() {
     fingerprints.add(fingerprint)
   }
 
+  logStep('model-import', 'existing model fingerprint scan completed', { count: fingerprints.size })
   return fingerprints
 }
 
 async function getModelFingerprint(modelPath: string, mode: ModelMode) {
+  logStep('model-import', 'calculate model fingerprint', { modelPath, mode })
   const modelFile = await findModelFile(modelPath)
   const modelJSON = await readCubismModelJSON(modelFile)
   const files = collectCubismResourceReferences(modelFile, modelJSON)
 
-  return await createCubismFingerprint(mode, files, async (path) => {
+  const fingerprint = await createCubismFingerprint(mode, files, async (path) => {
     if (!await exists(path)) return
 
     return await readFile(path)
   })
+
+  logStep('model-import', 'model fingerprint calculated', { modelPath, mode, fingerprint, fileCount: files.length })
+  return fingerprint
 }
 
 async function readCubismModelJSON(modelFile: string) {
@@ -649,20 +794,25 @@ async function readCubismModelJSON(modelFile: string) {
 }
 
 async function findModelFile(modelPath: string) {
+  logTrace('[model-import] find model3.json', { modelPath })
   const files = await readDir(modelPath)
   const modelFile = files.find(file => file.isFile && file.name.endsWith('.model3.json'))
 
   if (!modelFile) {
+    logError('[model-import] model3.json not found', { modelPath, files: files.map(file => file.name) })
     throw new Error('No model3.json found')
   }
 
+  logTrace('[model-import] model3.json found', { modelPath, modelFile: modelFile.name })
   return join(modelPath, modelFile.name)
 }
 
 async function normalizeResources(variant: ImportVariant, modelPath: string) {
   const resourcesPath = join(modelPath, 'resources')
+  logStep('model-import', 'create normalized resources directory', { modelPath, resourcesPath })
 
   await mkdir(resourcesPath, { recursive: true })
+  logStep('model-import', 'copy cover and background resources', { resourcesPath, rootPath: variant.rootPath })
   await copyOptionalFile(join(variant.rootPath, 'cat.png'), join(resourcesPath, 'cover.png'))
   await copyFirstExistingFile([
     join(variant.rootPath, 'bg.png'),
@@ -672,9 +822,13 @@ async function normalizeResources(variant: ImportVariant, modelPath: string) {
 
   const config = await readLegacyConfig(variant.rootPath)
 
-  if (!config) return
+  if (!config) {
+    logTrace('[model-import] no legacy config found', { rootPath: variant.rootPath })
+    return
+  }
 
   const keyImages = getKeyImageRefs(variant, config)
+  logStep('model-import', 'normalize legacy key resources', { modelPath, keyImageCount: keyImages.length })
 
   for (const item of keyImages) {
     const source = join(variant.rootPath, item.sourceDir, `${item.sourceIndex}.png`)
@@ -684,24 +838,34 @@ async function normalizeResources(variant: ImportVariant, modelPath: string) {
 
     await mkdir(targetDir, { recursive: true })
     await copyFile(source, join(targetDir, `${item.shortcut}.png`))
+    logTrace('[model-import] normalized key resource', { source, targetDir, shortcut: item.shortcut, type: item.targetDir })
   }
+  logStep('model-import', 'resource normalization completed', { modelPath })
 }
 
 async function readLegacyConfig(rootPath: string) {
   const configPath = await findNearestConfig(rootPath)
 
-  if (!configPath) return
+  if (!configPath) {
+    logTrace('[model-import] legacy config not found', { rootPath })
+    return
+  }
 
+  logStep('model-import', 'read legacy config', { configPath })
   return JSON5.parse(await readTextFile(configPath)) as LegacyPetConfig
 }
 
 async function findNearestConfig(rootPath: string) {
+  logTrace('[model-import] search nearest legacy config', { rootPath })
   let currentPath = rootPath
 
   while (currentPath) {
     const configPath = join(currentPath, 'config.json')
 
-    if (await exists(configPath)) return configPath
+    if (await exists(configPath)) {
+      logTrace('[model-import] nearest legacy config found', { configPath })
+      return configPath
+    }
 
     const nextPath = getParentPath(currentPath)
 
@@ -805,9 +969,13 @@ function getKeyName(code: number, source: 'keyboard' | 'gamepad') {
 }
 
 async function copyOptionalFile(fromPath: string, toPath: string) {
-  if (!await exists(fromPath)) return
+  if (!await exists(fromPath)) {
+    logTrace('[model-import] optional resource absent', { fromPath, toPath })
+    return
+  }
 
   await copyFile(fromPath, toPath)
+  logTrace('[model-import] optional resource copied', { fromPath, toPath })
 }
 
 async function copyFirstExistingFile(fromPaths: string[], toPath: string) {
@@ -815,9 +983,12 @@ async function copyFirstExistingFile(fromPaths: string[], toPath: string) {
     if (!await exists(fromPath)) continue
 
     await copyFile(fromPath, toPath)
+    logTrace('[model-import] first matching resource copied', { fromPath, toPath })
 
     return
   }
+
+  logTrace('[model-import] no matching optional resource found', { fromPaths, toPath })
 }
 </script>
 

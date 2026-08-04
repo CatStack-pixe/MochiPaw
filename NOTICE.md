@@ -91,3 +91,20 @@ SOFTWARE.
 Third-party dependencies, bundled runtimes, generated binaries, icons, images,
 and assets not listed above remain subject to their own license terms. This
 repository makes no ownership claim over them.
+
+### Live2D Cubism 5.3 Runtime
+
+The following paths contain the official Live2D Cubism Web SDK `5-r.5` and its
+local Pixi compatibility layer:
+
+- `public/js/live2dcubismcore.min.js`
+- `public/js/cubism5/`
+- `src/vendor/easy-live2d/Framework/`
+- `src/vendor/easy-live2d/live2dcubismcore.d.ts`
+- `src/vendor/easy-live2d/`
+
+The Core is subject to the Live2D Proprietary Software License. The Framework
+is subject to the Live2D Open Software License. License and redistribution
+notices are preserved in `public/js/cubism5/` and
+`src/vendor/easy-live2d/Framework/LICENSE.md`. See
+`docs/live2d-cubism-5.3.md` for the pinned release and checksum.
