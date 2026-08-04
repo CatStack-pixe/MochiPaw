@@ -7,11 +7,16 @@ import { exists, readFile, readTextFile, writeFile, writeTextFile } from '@tauri
 import JSON5 from 'json5'
 
 import type { Model } from '@/stores/model'
+import type { LogContext } from '@/utils/diagnostics'
 
+import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { join } from '@/utils/path'
+import { withTimeout } from '@/utils/promise'
 
-const RUNTIME_API_BASE = (import.meta.env.VITE_MOCHI_RUNTIME_API_BASE || 'https://www.catpithos.top').replace(/\/$/, '')
+const RUNTIME_API_BASE = (import.meta.env?.VITE_MOCHI_RUNTIME_API_BASE || 'https://www.catpithos.top').replace(/\/$/, '')
 const LEASE_REFRESH_SKEW_SECONDS = 10 * 60
+const RUNTIME_REQUEST_TIMEOUT_MS = 15_000
+export const RUNTIME_PREPARATION_TIMEOUT_MS = 30_000
 const DECRYPTION_MARKER = 'decryption.json'
 
 type RuntimeEventType = 'imported' | 'opened' | 'used' | 'heartbeat' | 'failed'
@@ -57,20 +62,47 @@ function base64UrlBytes(value: string) {
 }
 
 async function postRuntimeJson<T>(path: string, body: Record<string, unknown>, token?: string): Promise<T> {
-  const response = await fetch(`${RUNTIME_API_BASE}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    const detail = typeof payload.detail === 'string' ? payload.detail : `runtime API returned HTTP ${response.status}`
-    throw new Error(detail)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), RUNTIME_REQUEST_TIMEOUT_MS)
+  const context = {
+    path,
+    authorized: Boolean(token),
+    bodyKeys: Object.keys(body),
+    timeoutMs: RUNTIME_REQUEST_TIMEOUT_MS,
   }
-  return payload as T
+
+  logStep('runtime-http', 'request started', context)
+
+  try {
+    const response = await fetch(`${RUNTIME_API_BASE}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    logStep('runtime-http', 'response received', { ...context, status: response.status, ok: response.ok })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      const detail = typeof payload.detail === 'string' ? payload.detail : `runtime API returned HTTP ${response.status}`
+      throw new Error(detail)
+    }
+    logStep('runtime-http', 'request completed', context)
+    return payload as T
+  } catch (error) {
+    if (controller.signal.aborted) {
+      logError('[runtime-http] request timed out', { ...context, error })
+      throw new Error(`Runtime API request timed out after ${RUNTIME_REQUEST_TIMEOUT_MS / 1000} seconds.`)
+    }
+
+    logError('[runtime-http] request failed', { ...context, error })
+    throw error
+  } finally {
+    clearTimeout(timeout)
+    logTrace('[runtime-http] request cleanup completed', context)
+  }
 }
 
 function proofPackageId(proof: AuthorProofEnvelope) {
@@ -78,11 +110,23 @@ function proofPackageId(proof: AuthorProofEnvelope) {
 }
 
 async function runtimeBody(model: Model, eventType?: RuntimeEventType) {
+  logStep('runtime', 'read author proof', {
+    modelId: model.id,
+    modelPath: model.path,
+    eventType,
+  })
   const proof = await readAuthorProof(model.path)
-  if (!proof) return null
+  if (!proof) {
+    logTrace('[runtime] author proof not found', { modelId: model.id, modelPath: model.path, eventType })
+    return null
+  }
   const packageId = model.packageId || proofPackageId(proof.parsed)
-  if (!packageId) return null
+  if (!packageId) {
+    logTrace('[runtime] author proof has no package id', { modelId: model.id, modelPath: model.path, eventType })
+    return null
+  }
   const identity = await installationIdentity()
+  logStep('runtime', 'runtime body prepared', { modelId: model.id, packageId, eventType })
   return {
     packageId,
     eventType,
@@ -121,10 +165,14 @@ async function decryptLegacyControlledPackage(model: Model, contentKey?: string)
   await writeTextFile(markerPath, JSON.stringify({ schemaVersion: 1, packageId: model.packageId, decryptedAt: new Date().toISOString() }, null, 2))
 }
 
-export async function ensureRuntimeLease(model: Model) {
-  if (model.importKind !== 'controlled' && model.proofStatus !== 'controlled-release') return
+async function prepareRuntimeLease(model: Model, context: LogContext) {
+  if (model.importKind !== 'controlled' && model.proofStatus !== 'controlled-release') {
+    logTrace('[runtime-lease] skipped for standard model', context)
+    return
+  }
   const activationToken = model.activationToken
   if (activationToken?.startsWith('mat_')) {
+    logStep('runtime-lease', 'prepare dedicated runtime', context)
     const body = await runtimeBody(model)
     if (!body) throw new Error('Controlled package is missing author proof.')
     const lease = await invoke<{ leaseId: string, expiresAt: number }>('prepare_dedicated_runtime', {
@@ -137,11 +185,16 @@ export async function ensureRuntimeLease(model: Model) {
       },
     })
     model.runtimeLease = lease
+    logInfo('[runtime-lease] dedicated runtime ready', { ...context, leaseId: lease.leaseId, expiresAt: lease.expiresAt })
     return
   }
-  if (isLeaseFresh(model)) return
+  if (isLeaseFresh(model)) {
+    logTrace('[runtime-lease] existing lease is fresh', { ...context, expiresAt: model.runtimeLease?.expiresAt })
+    return
+  }
   const dispatchToken = model.dispatchToken
   if (!dispatchToken) throw new Error('Controlled package is missing dispatch token.')
+  logStep('runtime-lease', 'request remote lease', context)
   const body = await runtimeBody(model)
   if (!body) throw new Error('Controlled package is missing author proof.')
   const lease = await postRuntimeJson<{ leaseToken: string, leaseId: string, expiresAt: number, contentKey?: string }>('/runtime/leases', {
@@ -155,11 +208,39 @@ export async function ensureRuntimeLease(model: Model) {
     leaseId: lease.leaseId,
     expiresAt: lease.expiresAt,
   }
+  logInfo('[runtime-lease] remote lease ready', { ...context, leaseId: lease.leaseId, expiresAt: lease.expiresAt })
+}
+
+export async function ensureRuntimeLease(model: Model) {
+  const context = {
+    modelId: model.id,
+    modelPath: model.path,
+    importKind: model.importKind,
+    proofStatus: model.proofStatus,
+    hasRuntimeLease: Boolean(model.runtimeLease),
+  }
+
+  logStep('runtime-lease', 'ensure lease started', context)
+
+  try {
+    await withTimeout(
+      prepareRuntimeLease(model, context),
+      RUNTIME_PREPARATION_TIMEOUT_MS,
+      `Runtime lease preparation timed out after ${RUNTIME_PREPARATION_TIMEOUT_MS / 1000} seconds.`,
+    )
+  } catch (error) {
+    logError('[runtime-lease] preparation failed', { ...context, error })
+    throw error
+  }
 }
 
 export async function reportRuntimeEvent(model: Model, eventType: RuntimeEventType) {
+  logStep('runtime-event', 'report event started', { modelId: model.id, modelPath: model.path, eventType })
   const body = await runtimeBody(model, eventType)
-  if (!body) return
+  if (!body) {
+    logTrace('[runtime-event] skipped because runtime body is unavailable', { modelId: model.id, eventType })
+    return
+  }
   if (model.importKind === 'controlled' || model.proofStatus === 'controlled-release') {
     await ensureRuntimeLease(model)
     if (model.activationToken?.startsWith('mat_')) {
@@ -171,19 +252,24 @@ export async function reportRuntimeEvent(model: Model, eventType: RuntimeEventTy
           platform: body.platform,
         },
       })
+      logStep('runtime-event', 'dedicated event reported', { modelId: model.id, eventType })
       return
     }
     const leaseToken = model.runtimeLease?.leaseToken
     if (!leaseToken) throw new Error('Controlled package runtime lease is missing.')
     await postRuntimeJson('/runtime/events', body, leaseToken)
+    logStep('runtime-event', 'controlled event reported', { modelId: model.id, eventType })
     return
   }
   await postRuntimeJson('/runtime/events', body)
+  logStep('runtime-event', 'standard event reported', { modelId: model.id, eventType })
 }
 
 export function reportRuntimeEventQuietly(model: Model | undefined, eventType: RuntimeEventType) {
   if (!model || model.isPreset) return
+  logTrace('[runtime-event] queued quiet event', { modelId: model.id, eventType })
   void reportRuntimeEvent(model, eventType).catch((error) => {
     console.warn('[mochi-paw] runtime telemetry failed:', error)
+    logError('[runtime-event] quiet event failed', { modelId: model.id, eventType, error })
   })
 }

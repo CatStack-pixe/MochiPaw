@@ -15,9 +15,11 @@ import type { ModelExpressionInfo, ModelMotionInfo } from '@/stores/model'
 import type { ExpressionInfo, MotionInfo } from '@/vendor/easy-live2d'
 
 import { i18n } from '@/locales'
+import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { Config, CubismSetting, Live2DSprite, Priority } from '@/vendor/easy-live2d'
 
 import { join } from './path'
+import { withTimeout } from './promise'
 
 Config.MouseFollow = false
 
@@ -74,6 +76,7 @@ const FALLBACK_PHYSICS_PARAMETER_STRENGTHS = {
 } as const
 
 const PHYSICS_INPUT_GAIN = 1.4
+const LIVE2D_READY_TIMEOUT_MS = 30_000
 
 type FallbackPhysicsParameter = keyof typeof FALLBACK_PHYSICS_PARAMETER_STRENGTHS
 type FallbackPhysicsParameters = Partial<Record<FallbackPhysicsParameter, true>>
@@ -119,17 +122,21 @@ export function detachLive2dSprite(model: Live2DSprite | null | undefined, app?:
 }
 
 export async function readCubismModelJSON(path: string) {
+  logStep('live2d-resource', 'read model directory', { path })
   const files = await readDir(path)
   const modelFile = files.find(file => file.name.endsWith('.model3.json'))
 
   if (!modelFile) {
+    logError('[live2d-resource] model config not found', { path, files: files.map(file => file.name) })
     throw new Error(i18n.global.t('utils.live2d.hints.notFound'))
   }
 
+  logStep('live2d-resource', 'read model config', { path, modelFile: modelFile.name })
   return JSON5.parse(await readTextFile(join(path, modelFile.name))) as CubismModelJson
 }
 
 export async function resolveModelMotions(path: string, motions: MotionInfo[]) {
+  logStep('live2d-resource', 'resolve motions', { path, motionCount: motions.length })
   const modelJSON = await readCubismModelJSON(path)
   const motionsFromJSON = readMotionsFromModelJSON(modelJSON)
 
@@ -148,6 +155,7 @@ export async function resolveModelMotions(path: string, motions: MotionInfo[]) {
 }
 
 export async function resolveModelExpressions(path: string, expressions: ExpressionInfo[]) {
+  logStep('live2d-resource', 'resolve expressions', { path, expressionCount: expressions.length })
   const modelJSON = await readCubismModelJSON(path)
   const parameterNames = await getParameterNames(path, modelJSON)
 
@@ -259,10 +267,17 @@ class Live2d {
 
   private async initApp(view: HTMLCanvasElement) {
     if (this.app) {
+      logStep('live2d', 'reuse Pixi application', { hasInitPromise: Boolean(this.appInitPromise) })
       await this.appInitPromise
       return
     }
 
+    logStep('live2d', 'create Pixi application', {
+      canvasWidth: view.width,
+      canvasHeight: view.height,
+      devicePixelRatio,
+      maxFPS: this.maxFPS,
+    })
     this.app = new Application()
 
     this.appInitPromise = this.app.init({
@@ -278,6 +293,7 @@ class Live2d {
       await this.appInitPromise
       this.app.ticker.maxFPS = this.maxFPS
       this.app.stop()
+      logStep('live2d', 'Pixi application initialized', { maxFPS: this.maxFPS })
     } finally {
       this.appInitPromise = null
     }
@@ -285,22 +301,40 @@ class Live2d {
 
   public async load(path: string, view: HTMLCanvasElement) {
     const version = ++this.loadVersion
+    const context = { path, loadVersion: version }
+
+    logInfo('[live2d] load started', context)
 
     await this.initApp(view)
+    logStep('live2d', 'Pixi application ready for model load', context)
 
     if (version !== this.loadVersion) {
+      logStep('live2d', 'load cancelled before model replacement', {
+        ...context,
+        currentLoadVersion: this.loadVersion,
+      })
       throw new Live2dLoadCancelledError()
     }
 
+    logStep('live2d', 'destroy current model before replacement', context)
     this.destroyCurrentModel()
 
     if (version !== this.loadVersion) {
+      logStep('live2d', 'load cancelled after model replacement', {
+        ...context,
+        currentLoadVersion: this.loadVersion,
+      })
       throw new Live2dLoadCancelledError()
     }
 
     const modelJSON = await readCubismModelJSON(path)
+    logStep('live2d', 'model config loaded', context)
 
     if (version !== this.loadVersion) {
+      logStep('live2d', 'load cancelled after config read', {
+        ...context,
+        currentLoadVersion: this.loadVersion,
+      })
       throw new Live2dLoadCancelledError()
     }
 
@@ -325,58 +359,107 @@ class Live2d {
 
     this.model = model
     app.stage.addChild(model)
+    logStep('live2d', 'model sprite created and attached', context)
     // Live2DSprite resolves `ready` from its render callback. The app ticker is
     // intentionally stopped while idle, so it must run before awaiting ready.
     app.start()
+    logStep('live2d', 'Pixi ticker started for model ready', context)
 
-    await model.ready
+    try {
+      logStep('live2d', 'wait for model ready', { ...context, timeoutMs: LIVE2D_READY_TIMEOUT_MS })
+      await withTimeout(
+        model.ready,
+        LIVE2D_READY_TIMEOUT_MS,
+        `Live2D model initialization timed out after ${LIVE2D_READY_TIMEOUT_MS / 1000} seconds.`,
+      )
 
-    if (!this.renderingEnabled) {
-      app.stop()
-    }
+      if (!this.renderingEnabled) {
+        app.stop()
+        logTrace('[live2d] stopped ticker because rendering is disabled', context)
+      }
 
-    if (version !== this.loadVersion || this.model !== model) {
+      if (version !== this.loadVersion || this.model !== model) {
+        if (this.model === model) {
+          this.destroyCurrentModel()
+        }
+
+        logStep('live2d', 'load cancelled after model ready', {
+          ...context,
+          currentLoadVersion: this.loadVersion,
+        })
+        throw new Live2dLoadCancelledError()
+      }
+
+      const { width, height } = model
+
+      const motions = groupBy(await resolveModelMotions(path, model.getMotions()), 'group')
+      logStep('live2d', 'motions resolved', {
+        ...context,
+        motionGroupCount: Object.keys(motions).length,
+        motionCount: Object.values(motions).flat().length,
+      })
+
+      if (version !== this.loadVersion || this.model !== model) {
+        if (this.model === model) {
+          this.destroyCurrentModel()
+        }
+
+        logStep('live2d', 'load cancelled after motion resolution', {
+          ...context,
+          currentLoadVersion: this.loadVersion,
+        })
+        throw new Live2dLoadCancelledError()
+      }
+
+      const expressions = await resolveModelExpressions(path, model.getExpressions())
+      logStep('live2d', 'expressions resolved', { ...context, expressionCount: expressions.length })
+
+      if (version !== this.loadVersion || this.model !== model) {
+        if (this.model === model) {
+          this.destroyCurrentModel()
+        }
+
+        logStep('live2d', 'load cancelled after expression resolution', {
+          ...context,
+          currentLoadVersion: this.loadVersion,
+        })
+        throw new Live2dLoadCancelledError()
+      }
+
+      this.setupFallbackPhysics(modelJSON)
+      logInfo('[live2d] load completed', {
+        ...context,
+        width,
+        height,
+        motionGroupCount: Object.keys(motions).length,
+        expressionCount: expressions.length,
+      })
+
+      return {
+        width,
+        height,
+        motions,
+        expressions,
+      }
+    } catch (error) {
       if (this.model === model) {
+        logStep('live2d', 'destroy failed or cancelled model', context)
         this.destroyCurrentModel()
       }
 
-      throw new Live2dLoadCancelledError()
-    }
-
-    const { width, height } = model
-
-    const motions = groupBy(await resolveModelMotions(path, model.getMotions()), 'group')
-
-    if (version !== this.loadVersion || this.model !== model) {
-      if (this.model === model) {
-        this.destroyCurrentModel()
+      if (isLive2dLoadCancelledError(error)) {
+        logTrace('[live2d] load cancelled', { ...context, error })
+      } else {
+        logError('[live2d] load failed', { ...context, error })
       }
 
-      throw new Live2dLoadCancelledError()
-    }
-
-    const expressions = await resolveModelExpressions(path, model.getExpressions())
-
-    if (version !== this.loadVersion || this.model !== model) {
-      if (this.model === model) {
-        this.destroyCurrentModel()
-      }
-
-      throw new Live2dLoadCancelledError()
-    }
-
-    this.setupFallbackPhysics(modelJSON)
-
-    return {
-      width,
-      height,
-      motions,
-      expressions,
+      throw error
     }
   }
 
   public destroy() {
     this.loadVersion += 1
+    logStep('live2d', 'destroy renderer', { loadVersion: this.loadVersion })
     this.destroyCurrentModel()
     this.app?.destroy(false)
     this.app = null
@@ -388,6 +471,8 @@ class Live2d {
 
     this.stopFallbackPhysics()
     this.model = null
+
+    logTrace('[live2d] destroy current model', { hadModel: Boolean(model) })
 
     this.destroySprite(model)
     this.app?.stop()

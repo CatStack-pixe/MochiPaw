@@ -11,6 +11,7 @@ import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
+import { message } from 'antdv-next'
 import { round } from 'es-toolkit'
 import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -28,6 +29,7 @@ import { hideWindow, setAlwaysOnTop, setTaskbarVisibility, showWindow } from '@/
 import { useCatStore } from '@/stores/cat'
 import { useGeneralStore } from '@/stores/general.ts'
 import { useModelStore } from '@/stores/model'
+import { logDebug, logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { isImage } from '@/utils/is'
 import live2d from '@/utils/live2d'
 import { join } from '@/utils/path'
@@ -198,6 +200,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  logStep('model-load', 'window unmounted', { windowLabel: appWindow.label })
   inputCoordinator?.dispose()
   currentModelLoadVersion += 1
   handleDestroy()
@@ -223,65 +226,143 @@ watch([() => {
   if (!model || !canvas) return
 
   const loadVersion = ++currentModelLoadVersion
+  const modelContext = {
+    windowLabel: appWindow.label,
+    loadVersion,
+    modelId: model.id,
+    modelPath: model.path,
+    modelMode: model.mode,
+    isPreset: model.isPreset,
+    importKind: model.importKind,
+    proofStatus: model.proofStatus,
+  }
+
+  logInfo('[model-load] started', modelContext)
+  logStep('model-load', 'set modelReady=false', modelContext)
 
   modelStore.modelReady = false
 
   try {
+    logStep('model-load', 'prepare runtime lease', modelContext)
     await ensureRuntimeLease(model)
+    logStep('model-load', 'runtime lease ready', modelContext)
 
-    if (loadVersion !== currentModelLoadVersion) return
+    if (loadVersion !== currentModelLoadVersion) {
+      logStep('model-load', 'cancelled after runtime lease preparation', {
+        ...modelContext,
+        currentLoadVersion: currentModelLoadVersion,
+      })
+      return
+    }
 
+    logStep('model-load', 'initialize Live2D', modelContext)
     await handleLoad(canvas)
+    logStep('model-load', 'Live2D initialized', modelContext)
 
-    if (loadVersion !== currentModelLoadVersion) return
+    if (loadVersion !== currentModelLoadVersion) {
+      logStep('model-load', 'cancelled after Live2D initialization', {
+        ...modelContext,
+        currentLoadVersion: currentModelLoadVersion,
+      })
+      return
+    }
 
+    logStep('model-load', 'report opened event', modelContext)
     reportRuntimeEventQuietly(model, 'opened')
+
+    const path = join(model.path, 'resources', 'background.png')
+    logStep('model-load', 'check background resource', { ...modelContext, path })
+    const existed = await exists(path)
+
+    if (loadVersion !== currentModelLoadVersion) {
+      logStep('model-load', 'cancelled after background resource check', {
+        ...modelContext,
+        currentLoadVersion: currentModelLoadVersion,
+      })
+      return
+    }
+
+    backgroundImagePath.value = existed ? convertFileSrc(path) : void 0
+    logTrace('[model-load] background resource applied', { ...modelContext, path, exists: existed })
+
+    clearObject([modelStore.supportKeys, modelStore.pressedKeys, modelStore.activeKeys])
+    logStep('model-load', 'cleared input resource state', modelContext)
+
+    const resourcePath = join(model.path, 'resources')
+    const groups = [
+      { name: 'keyboards', type: 'overlay' as const },
+      { name: 'faces', type: 'overlay' as const },
+      { name: 'left-keys', type: 'left' as const },
+      { name: 'right-keys', type: 'right' as const },
+    ]
+
+    for await (const group of groups) {
+      const groupDir = join(resourcePath, group.name)
+      logStep('model-load', 'scan input resource group', { ...modelContext, group: group.name, groupDir })
+      const files = await readDir(groupDir).catch(() => [])
+      const imageFiles = files.filter(file => isImage(file.name))
+      logDebug('[model-load] input resource group scanned', {
+        ...modelContext,
+        group: group.name,
+        fileCount: files.length,
+        imageCount: imageFiles.length,
+      })
+      logTrace('[model-load] input resource group files', {
+        ...modelContext,
+        group: group.name,
+        files: imageFiles.map(file => file.name),
+      })
+
+      for (const file of imageFiles) {
+        if (loadVersion !== currentModelLoadVersion) {
+          logStep('model-load', 'cancelled while scanning input resources', {
+            ...modelContext,
+            currentLoadVersion: currentModelLoadVersion,
+            group: group.name,
+          })
+          return
+        }
+
+        const fileName = file.name.split('.')[0]
+
+        modelStore.supportKeys[fileName] ??= []
+        modelStore.supportKeys[fileName].push({
+          path: join(groupDir, file.name),
+          type: group.type,
+        })
+        logTrace('[model-load] registered input resource', {
+          ...modelContext,
+          group: group.name,
+          file: file.name,
+          shortcut: fileName,
+          type: group.type,
+        })
+      }
+    }
+    logInfo('[model-load] completed', modelContext)
   } catch (error) {
-    if (loadVersion !== currentModelLoadVersion) return
+    if (loadVersion !== currentModelLoadVersion) {
+      logStep('model-load', 'ignored error from stale load', {
+        ...modelContext,
+        currentLoadVersion: currentModelLoadVersion,
+        error,
+      })
+      return
+    }
 
     console.warn('[mochi-paw] failed to load current model:', error)
-    modelStore.modelReady = true
-    return
-  }
-
-  const path = join(model.path, 'resources', 'background.png')
-
-  const existed = await exists(path)
-
-  if (loadVersion !== currentModelLoadVersion) return
-
-  backgroundImagePath.value = existed ? convertFileSrc(path) : void 0
-
-  clearObject([modelStore.supportKeys, modelStore.pressedKeys, modelStore.activeKeys])
-
-  const resourcePath = join(model.path, 'resources')
-  const groups = [
-    { name: 'keyboards', type: 'overlay' as const },
-    { name: 'faces', type: 'overlay' as const },
-    { name: 'left-keys', type: 'left' as const },
-    { name: 'right-keys', type: 'right' as const },
-  ]
-
-  for await (const group of groups) {
-    const groupDir = join(resourcePath, group.name)
-    const files = await readDir(groupDir).catch(() => [])
-    const imageFiles = files.filter(file => isImage(file.name))
-
-    for (const file of imageFiles) {
-      if (loadVersion !== currentModelLoadVersion) return
-
-      const fileName = file.name.split('.')[0]
-
-      modelStore.supportKeys[fileName] ??= []
-      modelStore.supportKeys[fileName].push({
-        path: join(groupDir, file.name),
-        type: group.type,
+    logError('[model-load] failed', { ...modelContext, error })
+    message.error(String(error))
+  } finally {
+    if (loadVersion === currentModelLoadVersion) {
+      modelStore.modelReady = true
+      logStep('model-load', 'set modelReady=true', modelContext)
+    } else {
+      logTrace('[model-load] left modelReady to newer load', {
+        ...modelContext,
+        currentLoadVersion: currentModelLoadVersion,
       })
     }
-  }
-
-  if (loadVersion === currentModelLoadVersion) {
-    modelStore.modelReady = true
   }
 }, { flush: 'post', immediate: true })
 
