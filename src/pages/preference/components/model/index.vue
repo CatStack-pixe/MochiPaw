@@ -316,31 +316,32 @@ async function handleToggle(nextModel: Model) {
 async function removeModel(item: Model) {
   const { id, path } = item
   const previousModels = modelStore.models.slice()
+  const previousSubModels = modelStore.subModels.slice()
   const previousCurrentModel = modelStore.currentModel
   const previousModelReady = modelStore.modelReady
   const nextModels = previousModels.filter(model => model.id !== id)
   const deletingCurrentModel = id === previousCurrentModel?.id
-
-  modelStore.models = nextModels
-
-  if (deletingCurrentModel) {
-    modelStore.modelReady = false
-    modelStore.currentModel = nextModels[0]
-  }
+  const subModels = previousSubModels.filter(instance => instance.modelId === id)
 
   try {
     await waitForFrames()
+
+    await Promise.all(subModels.map(instance => destroySubModelWindow(instance.id)))
+    modelStore.removeSubModelsByModelId(id)
 
     if (await exists(path)) {
       await remove(path, { recursive: true })
     }
 
-    const subModels = modelStore.subModels.filter(instance => instance.modelId === id)
+    modelStore.models = nextModels
 
-    await Promise.all(subModels.map(instance => destroySubModelWindow(instance.id)))
-    modelStore.removeSubModelsByModelId(id)
+    if (deletingCurrentModel) {
+      modelStore.modelReady = false
+      modelStore.currentModel = nextModels[0]
+    }
   } catch (error) {
     modelStore.models = previousModels
+    modelStore.subModels = previousSubModels
 
     if (deletingCurrentModel) {
       modelStore.currentModel = previousCurrentModel
