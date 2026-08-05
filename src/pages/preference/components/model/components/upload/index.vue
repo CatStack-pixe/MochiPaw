@@ -286,6 +286,7 @@ watch(selectPaths, async (paths) => {
   logInfo('[model-import] batch started', { count: paths.length, paths })
   importing.value = true
   importProgress.value = { current: 1, total: paths.length }
+  let importedModelCount = 0
 
   for (const [index, fromPath] of paths.entries()) {
     importProgress.value = { current: index + 1, total: paths.length }
@@ -306,7 +307,7 @@ watch(selectPaths, async (paths) => {
       }
 
       const previousModels = modelStore.models.slice()
-      modelStore.models.push(...result.models)
+      modelStore.models = [...modelStore.models, ...result.models]
 
       try {
         for (const model of result.models) {
@@ -344,7 +345,7 @@ watch(selectPaths, async (paths) => {
         throw error
       }
 
-      emit('imported')
+      importedModelCount += result.models.length
       logInfo('[model-import] selected path completed', { fromPath, modelCount: result.models.length })
       message.success(t('pages.preference.model.hints.importSuccess'))
     } catch (error) {
@@ -356,7 +357,13 @@ watch(selectPaths, async (paths) => {
   importing.value = false
   importProgress.value = { current: 0, total: 0 }
   selectPaths.value = []
-  logInfo('[model-import] batch completed', { count: paths.length })
+
+  if (importedModelCount > 0) {
+    await nextTick()
+    emit('imported')
+  }
+
+  logInfo('[model-import] batch completed', { count: paths.length, importedModelCount })
 })
 
 async function importFromPath(fromPath: string) {

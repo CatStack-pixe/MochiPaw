@@ -9,7 +9,7 @@ import { exists, remove } from '@tauri-apps/plugin-fs'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { useElementSize } from '@vueuse/core'
 import { Button, Card, Checkbox, Input, Masonry, message, Modal, Pagination, Popconfirm } from 'antdv-next'
-import { computed, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Model, ModelSwitchAcknowledgement, ModelSwitchRequest } from '@/stores/model'
@@ -39,6 +39,7 @@ const renameModelTarget = ref<Model>()
 const renameModelDraft = ref('')
 const selectedModelIds = ref(new Set<string>())
 const batchDeleting = ref(false)
+const masonryRefreshKey = ref(0)
 const pendingModelSwitches = new Map<string, (acknowledgement: ModelSwitchAcknowledgement) => void>()
 
 const PAGE_SIZE = 5
@@ -163,7 +164,7 @@ const currentPageModels = computed(() => {
 })
 
 const selectedModels = computed(() => {
-  return currentPageModels.value.filter(model => selectedModelIds.value.has(model.id))
+  return modelStore.models.filter(model => selectedModelIds.value.has(model.id))
 })
 
 const selectedModelCount = computed(() => selectedModels.value.length)
@@ -183,7 +184,6 @@ watch(pageCount, (count) => {
   currentPage.value = Math.min(currentPage.value, count)
 })
 
-watch(currentPage, clearSelection)
 watch(() => modelStore.currentModel?.id, deselectModel)
 
 function clearSelection() {
@@ -220,8 +220,10 @@ function toggleModelSelection(model: Model) {
   selectedModelIds.value = nextSelection
 }
 
-function showImportedModels() {
+async function showImportedModels() {
+  await nextTick()
   currentPage.value = pageCount.value
+  masonryRefreshKey.value += 1
   clearSelection()
 }
 
@@ -433,7 +435,7 @@ function confirmBatchDelete() {
       </div>
 
       <Masonry
-        :key="currentPage"
+        :key="`${currentPage}-${masonryRefreshKey}`"
         :columns="{ xs: 3, lg: 4, xxl: 6 }"
         :gutter="16"
         :items="masonryItems"
