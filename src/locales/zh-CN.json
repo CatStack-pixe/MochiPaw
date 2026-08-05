@@ -102,6 +102,7 @@
           "deleteModel": "删除模型",
           "customName": "自定义名称",
           "selectedCount": "已选择 {count} 个模型",
+          "cancelSelection": "取消选择",
           "deleteSelected": "删除所选模型"
         },
         "hints": {

@@ -422,6 +422,16 @@ function confirmBatchDelete() {
         </span>
 
         <Button
+          :disabled="selectedModelCount === 0 || batchDeleting"
+          @click="clearSelection"
+        >
+          <template #icon>
+            <i class="i-lucide:x" />
+          </template>
+          {{ $t('pages.preference.model.labels.cancelSelection') }}
+        </Button>
+
+        <Button
           danger
           :disabled="selectedModelCount === 0 || batchDeleting"
           :loading="batchDeleting"

@@ -96,6 +96,7 @@
           "deleteModel": "Excluir modelo",
           "customName": "Nome personalizado",
           "selectedCount": "{count} modelos selecionados",
+          "cancelSelection": "Limpar seleção",
           "deleteSelected": "Excluir modelos selecionados"
         },
         "hints": {

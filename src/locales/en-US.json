@@ -102,6 +102,7 @@
           "deleteModel": "Delete Model",
           "customName": "Custom name",
           "selectedCount": "{count} models selected",
+          "cancelSelection": "Clear selection",
           "deleteSelected": "Delete selected models"
         },
         "hints": {

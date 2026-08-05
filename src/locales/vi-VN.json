@@ -96,6 +96,7 @@
           "deleteModel": "Xóa mô hình",
           "customName": "Tên tùy chỉnh",
           "selectedCount": "Đã chọn {count} mô hình",
+          "cancelSelection": "Bỏ chọn",
           "deleteSelected": "Xóa các mô hình đã chọn"
         },
         "hints": {
