@@ -75,6 +75,20 @@ export interface Model {
   runtimeLease?: ModelRuntimeLease
 }
 
+export type ModelSwitchSnapshot = Pick<Model, 'id' | 'path' | 'mode' | 'isPreset' | 'importKind' | 'proofStatus'>
+
+export interface ModelSwitchRequest {
+  requestId: string
+  model: ModelSwitchSnapshot
+}
+
+export interface ModelSwitchAcknowledgement {
+  requestId: string
+  modelId: string
+  accepted: boolean
+  reason?: string
+}
+
 export interface ModelSupportKeyLayer {
   path: string
   type: 'left' | 'right' | 'overlay'

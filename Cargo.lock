@@ -3081,7 +3081,7 @@ dependencies = [
 
 [[package]]
 name = "mochi-paw"
-version = "1.1.6-2"
+version = "1.1.6-3"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",

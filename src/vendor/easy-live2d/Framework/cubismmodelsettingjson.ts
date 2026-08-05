@@ -22,6 +22,10 @@ export enum FrequestNode {
   FrequestNode_HitAreas // getRoot().getValueByString(HitAreas)
 }
 
+function isPresentValue(value: Value | null | undefined): boolean {
+  return Boolean(value && !value.isNull() && !value.isError())
+}
+
 /**
  * Model3Jsonパーサー
  *
@@ -529,7 +533,7 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistModelFile(): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Moc];
-    return !node.isNull() && !node.isError();
+    return isPresentValue(node);
   }
 
   /**
@@ -539,7 +543,7 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistTextureFiles(): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Textures];
-    return !node.isNull() && !node.isError();
+    return isPresentValue(node);
   }
 
   /**
@@ -549,7 +553,7 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistHitAreas(): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_HitAreas];
-    return !node.isNull() && !node.isError();
+    return isPresentValue(node);
   }
 
   /**
@@ -559,7 +563,7 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistPhysicsFile(): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Physics];
-    return !node.isNull() && !node.isError();
+    return isPresentValue(node);
   }
 
   /**
@@ -569,7 +573,7 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistPoseFile(): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Pose];
-    return !node.isNull() && !node.isError();
+    return isPresentValue(node);
   }
 
   /**
@@ -579,7 +583,7 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistExpressionFile(): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Expressions];
-    return !node.isNull() && !node.isError();
+    return isPresentValue(node);
   }
 
   /**
@@ -589,7 +593,7 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistMotionGroups(): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Motions];
-    return !node.isNull() && !node.isError();
+    return isPresentValue(node);
   }
 
   /**
@@ -599,11 +603,9 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    * @return false キーが存在しない
    */
   protected isExistMotionGroupName(groupName: string): boolean {
-    const node: Value =
-      this._jsonValue[FrequestNode.FrequestNode_Motions].getValueByString(
-        groupName
-      );
-    return !node.isNull() && !node.isError();
+    const node: Value = this._jsonValue[FrequestNode.FrequestNode_Motions]
+      ?.getValueByString(groupName);
+    return isPresentValue(node);
   }
 
   /**
@@ -615,10 +617,10 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistMotionSoundFile(groupName: string, index: number): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Motions]
-      .getValueByString(groupName)
-      .getValueByIndex(index)
-      .getValueByString(this.soundPath);
-    return !node.isNull() && !node.isError();
+      ?.getValueByString(groupName)
+      ?.getValueByIndex(index)
+      ?.getValueByString(this.soundPath);
+    return isPresentValue(node);
   }
 
   /**
@@ -630,10 +632,10 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistMotionFadeIn(groupName: string, index: number): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Motions]
-      .getValueByString(groupName)
-      .getValueByIndex(index)
-      .getValueByString(this.fadeInTime);
-    return !node.isNull() && !node.isError();
+      ?.getValueByString(groupName)
+      ?.getValueByIndex(index)
+      ?.getValueByString(this.fadeInTime);
+    return isPresentValue(node);
   }
 
   /**
@@ -645,10 +647,10 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    */
   protected isExistMotionFadeOut(groupName: string, index: number): boolean {
     const node: Value = this._jsonValue[FrequestNode.FrequestNode_Motions]
-      .getValueByString(groupName)
-      .getValueByIndex(index)
-      .getValueByString(this.fadeOutTime);
-    return !node.isNull() && !node.isError();
+      ?.getValueByString(groupName)
+      ?.getValueByIndex(index)
+      ?.getValueByString(this.fadeOutTime);
+    return isPresentValue(node);
   }
 
   /**
@@ -660,8 +662,8 @@ export class CubismModelSettingJson extends ICubismModelSetting {
     const node: Value = this.getJson()
       .getRoot()
       .getValueByString(this.fileReferences)
-      .getValueByString(this.userData);
-    return !node.isNull() && !node.isError();
+      ?.getValueByString(this.userData);
+    return isPresentValue(node);
   }
 
   /**
@@ -670,24 +672,19 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    * @return false キーが存在しない
    */
   protected isExistEyeBlinkParameters(): boolean {
-    if (
-      this._jsonValue[FrequestNode.FrequestNode_Groups].isNull() ||
-      this._jsonValue[FrequestNode.FrequestNode_Groups].isError()
-    ) {
+    const groups = this._jsonValue[FrequestNode.FrequestNode_Groups];
+    if (!isPresentValue(groups)) {
       return false;
     }
 
     for (
       let i = 0;
-      i < this._jsonValue[FrequestNode.FrequestNode_Groups].getSize();
+      i < groups.getSize();
       ++i
     ) {
-      if (
-        this._jsonValue[FrequestNode.FrequestNode_Groups]
-          .getValueByIndex(i)
-          .getValueByString(this.name)
-          .getRawString() == this.eyeBlink
-      ) {
+      const group = groups.getValueByIndex(i);
+      const name = group?.getValueByString(this.name);
+      if (isPresentValue(name) && name.getRawString() == this.eyeBlink) {
         return true;
       }
     }
@@ -701,23 +698,18 @@ export class CubismModelSettingJson extends ICubismModelSetting {
    * @return false キーが存在しない
    */
   protected isExistLipSyncParameters(): boolean {
-    if (
-      this._jsonValue[FrequestNode.FrequestNode_Groups].isNull() ||
-      this._jsonValue[FrequestNode.FrequestNode_Groups].isError()
-    ) {
+    const groups = this._jsonValue[FrequestNode.FrequestNode_Groups];
+    if (!isPresentValue(groups)) {
       return false;
     }
     for (
       let i = 0;
-      i < this._jsonValue[FrequestNode.FrequestNode_Groups].getSize();
+      i < groups.getSize();
       ++i
     ) {
-      if (
-        this._jsonValue[FrequestNode.FrequestNode_Groups]
-          .getValueByIndex(i)
-          .getValueByString(this.name)
-          .getRawString() == this.lipSync
-      ) {
+      const group = groups.getValueByIndex(i);
+      const name = group?.getValueByString(this.name);
+      if (isPresentValue(name) && name.getRawString() == this.lipSync) {
         return true;
       }
     }

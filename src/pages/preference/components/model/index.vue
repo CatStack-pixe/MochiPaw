@@ -4,6 +4,7 @@
  -->
 
 <script setup lang="ts">
+import { emitTo } from '@tauri-apps/api/event'
 import { exists, remove } from '@tauri-apps/plugin-fs'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { useElementSize } from '@vueuse/core'
@@ -11,12 +12,15 @@ import { Card, Input, Masonry, message, Modal, Pagination, Popconfirm } from 'an
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { Model } from '@/stores/model'
+import type { Model, ModelSwitchAcknowledgement, ModelSwitchRequest } from '@/stores/model'
 
+import { useTauriListen } from '@/composables/useTauriListen'
+import { LISTEN_KEY, WINDOW_LABEL } from '@/constants'
 import { useCatStore } from '@/stores/cat'
 import { getModelDisplayName, useModelStore } from '@/stores/model'
 import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
-import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
+import { withTimeout } from '@/utils/promise'
+import { ensureRuntimeLease } from '@/utils/runtimeTelemetry'
 import { destroySubModelWindow } from '@/utils/subModelWindow'
 
 import BehaviorModal from './components/behavior-modal/index.vue'
@@ -33,8 +37,23 @@ const currentPage = ref(1)
 const renameModelOpen = ref(false)
 const renameModelTarget = ref<Model>()
 const renameModelDraft = ref('')
+const pendingModelSwitches = new Map<string, (acknowledgement: ModelSwitchAcknowledgement) => void>()
 
 const PAGE_SIZE = 5
+const MODEL_SWITCH_ACK_TIMEOUT_MS = 5_000
+
+useTauriListen<ModelSwitchAcknowledgement>(LISTEN_KEY.MODEL_SWITCH_APPLIED, ({ payload }) => {
+  const resolve = pendingModelSwitches.get(payload.requestId)
+
+  if (!resolve) {
+    logTrace('[model-switch] received acknowledgement without pending request', payload)
+    return
+  }
+
+  pendingModelSwitches.delete(payload.requestId)
+  logStep('model-switch', 'received main window acknowledgement', payload)
+  resolve(payload)
+})
 
 function proofLabel(model: Model) {
   if (model.importKind === 'controlled') return t('pages.preference.model.proof.controlled')
@@ -156,6 +175,18 @@ function showImportedModels() {
   currentPage.value = pageCount.value
 }
 
+function waitForModelSwitchAcknowledgement(requestId: string) {
+  return withTimeout(
+    new Promise<ModelSwitchAcknowledgement>((resolve) => {
+      pendingModelSwitches.set(requestId, resolve)
+    }),
+    MODEL_SWITCH_ACK_TIMEOUT_MS,
+    `Main window did not acknowledge model switch within ${MODEL_SWITCH_ACK_TIMEOUT_MS / 1000} seconds.`,
+  ).finally(() => {
+    pendingModelSwitches.delete(requestId)
+  })
+}
+
 async function handleToggle(nextModel: Model) {
   if (modelStore.currentModel?.id === nextModel.id) {
     logTrace('[model-switch] ignored selection of current model', { modelId: nextModel.id })
@@ -163,6 +194,7 @@ async function handleToggle(nextModel: Model) {
   }
 
   const previousModel = modelStore.currentModel
+  const previousModelReady = modelStore.modelReady
   logInfo('[model-switch] requested', {
     previousModelId: previousModel?.id,
     previousModelPath: previousModel?.path,
@@ -183,15 +215,44 @@ async function handleToggle(nextModel: Model) {
     return
   }
 
-  logStep('model-switch', 'set modelReady=false', { modelId: nextModel.id })
-  modelStore.modelReady = false
-
   logStep('model-switch', 'update current model', {
     previousModelId: previousModel?.id,
     nextModelId: nextModel.id,
   })
   modelStore.currentModel = nextModel
-  reportRuntimeEventQuietly(nextModel, 'opened')
+
+  const request: ModelSwitchRequest = {
+    requestId: `${Date.now()}-${nextModel.id}`,
+    model: {
+      id: nextModel.id,
+      path: nextModel.path,
+      mode: nextModel.mode,
+      isPreset: nextModel.isPreset,
+      importKind: nextModel.importKind,
+      proofStatus: nextModel.proofStatus,
+    },
+  }
+
+  try {
+    const acknowledgement = waitForModelSwitchAcknowledgement(request.requestId)
+    logStep('model-switch', 'notify main window', request)
+    await emitTo(WINDOW_LABEL.MAIN, LISTEN_KEY.MODEL_SWITCH_REQUESTED, request)
+    logStep('model-switch', 'main window notification sent', request)
+    const result = await acknowledgement
+
+    if (!result.accepted) {
+      throw new Error(result.reason || 'Main window rejected the model switch.')
+    }
+
+    logStep('model-switch', 'main window accepted model switch', result)
+  } catch (error) {
+    modelStore.currentModel = previousModel
+    modelStore.modelReady = previousModelReady
+    logError('[model-switch] main window notification failed', { ...request, error })
+    message.error(String(error))
+    return
+  }
+
   logInfo('[model-switch] requested model is now current', { modelId: nextModel.id, modelPath: nextModel.path })
 }
 
