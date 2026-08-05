@@ -33,3 +33,24 @@ test('parses model resources used by 5.2 and 5.3 model3.json files', () => {
   assert.equal(setting.getPoseFileName(), 'model.pose3.json')
   assert.equal(setting.getUserDataFile(), 'model.userdata3.json')
 })
+
+test('treats optional model resources as absent without breaking path redirection', () => {
+  const setting = new CubismSetting({
+    modelJSON: {
+      Version: 3,
+      FileReferences: {
+        Moc: 'model.moc3',
+        Textures: ['texture.png'],
+        Motions: {
+          Idle: [{ File: 'idle.motion3.json' }],
+        },
+      },
+    },
+  })
+
+  assert.equal(setting.getPhysicsFileName(), '')
+  assert.equal(setting.getPoseFileName(), '')
+  assert.equal(setting.getUserDataFile(), '')
+  assert.equal(setting.getHitAreasCount(), 0)
+  assert.doesNotThrow(() => setting.redirectPath(({ file }) => `/models/${file}`))
+})

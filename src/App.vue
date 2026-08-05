@@ -12,7 +12,7 @@ import { useEventListener } from '@vueuse/core'
 import { ConfigProvider, theme } from 'antdv-next'
 import { isString } from 'es-toolkit'
 import isURL from 'is-url'
-import { onMounted, onUnmounted, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterView } from 'vue-router'
 
@@ -29,6 +29,7 @@ import { useGeneralStore } from './stores/general'
 import { useModelStore } from './stores/model'
 import { useShortcutStore } from './stores/shortcut.ts'
 import { logError, logInfo, logStartupDiagnostics, logStep } from './utils/diagnostics'
+import { requestModelStoreSave } from './utils/modelPersistence'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
 import { openSubModelWindow } from './utils/subModelWindow'
 import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
@@ -44,6 +45,41 @@ const idleMemory = new WebviewIdleMemoryController({ setTarget: setWebviewMemory
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
 const { locale } = useI18n()
+
+async function queueRecoveredModelCatalogPersistence(result: Awaited<ReturnType<typeof modelStore.init>>) {
+  logStep('model-persistence', 'queue recovered model catalog persistence', {
+    windowLabel: appWindow.label,
+    ...result,
+  })
+
+  try {
+    await nextTick()
+    await requestModelStoreSave()
+    logInfo('[model-persistence] recovered model catalog save queued', {
+      windowLabel: appWindow.label,
+      ...result,
+    })
+  } catch (error) {
+    logError('[model-persistence] failed to persist recovered model catalog', {
+      windowLabel: appWindow.label,
+      ...result,
+      error,
+    })
+  }
+}
+
+async function initializeModelStore() {
+  logStep('app-init', 'start model persistence', { windowLabel: appWindow.label })
+  await modelStore.$tauri.start()
+  logStep('app-init', 'initialize model store', { windowLabel: appWindow.label })
+  const result = await modelStore.init()
+
+  if (result.recoveredModelCount > 0) {
+    void queueRecoveredModelCatalogPersistence(result)
+  }
+
+  return result
+}
 
 void logStartupDiagnostics(appWindow.label).catch((error) => {
   logError('[startup] diagnostic collection failed', { windowLabel: appWindow.label, error })
@@ -122,10 +158,7 @@ useTauriListen<SubModelInputFrame>(LISTEN_KEY.SUB_MODEL_INPUT_FRAME, ({ payload 
 onMounted(async () => {
   logInfo('[app-init] started', { windowLabel: appWindow.label, isSubModelWindow })
   if (isSubModelWindow) {
-    logStep('app-init', 'start submodel persistence', { windowLabel: appWindow.label })
-    await modelStore.$tauri.start()
-    logStep('app-init', 'initialize model store', { windowLabel: appWindow.label })
-    await modelStore.init()
+    await initializeModelStore()
     await catStore.$tauri.start()
     logStep('app-init', 'initialize cat store', { windowLabel: appWindow.label })
     catStore.init()
@@ -141,10 +174,7 @@ onMounted(async () => {
   await appStore.$tauri.start()
   logStep('app-init', 'initialize app store', { windowLabel: appWindow.label })
   await appStore.init()
-  logStep('app-init', 'start model persistence', { windowLabel: appWindow.label })
-  await modelStore.$tauri.start()
-  logStep('app-init', 'initialize model store', { windowLabel: appWindow.label })
-  await modelStore.init()
+  await initializeModelStore()
   logStep('app-init', 'start cat persistence', { windowLabel: appWindow.label })
   await catStore.$tauri.start()
   logStep('app-init', 'initialize cat store', { windowLabel: appWindow.label })

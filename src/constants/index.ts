@@ -20,6 +20,8 @@ export const LISTEN_KEY = {
   UPDATE_SUB_MODEL: 'update-sub-model',
   SUB_MODEL_RUNTIME_READY: 'sub-model-runtime-ready',
   SUB_MODEL_INPUT_FRAME: 'sub-model-input-frame',
+  MODEL_SWITCH_REQUESTED: 'model-switch-requested',
+  MODEL_SWITCH_APPLIED: 'model-switch-applied',
 }
 
 export const INVOKE_KEY = {

@@ -100,11 +100,17 @@
         "title": "模型管理",
         "labels": {
           "deleteModel": "删除模型",
-          "customName": "自定义名称"
+          "customName": "自定义名称",
+          "selectedCount": "已选择 {count} 个模型",
+          "cancelSelection": "取消选择",
+          "deleteSelected": "删除所选模型"
         },
         "hints": {
           "deleteSuccess": "删除成功",
           "deleteModel": "你确定要删除此模型吗？",
+          "deleteSelectedModels": "确定要删除选中的 {count} 个模型吗？",
+          "batchDeleteSuccess": "成功删除 {successCount} 个模型",
+          "batchDeletePartial": "成功删除 {successCount} 个模型，以下模型删除失败：{failedModels}",
           "importSuccess": "导入成功",
           "clickOrDragToImport": "点击或拖动至此区域导入",
           "importing": "正在导入 {current}/{total}",

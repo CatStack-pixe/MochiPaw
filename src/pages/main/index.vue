@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { PhysicalSize } from '@tauri-apps/api/dpi'
-import { emit } from '@tauri-apps/api/event'
+import { emit, emitTo } from '@tauri-apps/api/event'
 import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
@@ -16,7 +16,7 @@ import { round } from 'es-toolkit'
 import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import type { ModelMotionInfo, SubModelInstance } from '@/stores/model'
+import type { Model, ModelMotionInfo, ModelSwitchAcknowledgement, ModelSwitchRequest, SubModelInstance } from '@/stores/model'
 import type { SubModelInputFrame } from '@/utils/subModelRuntime'
 
 import { useAppMenu } from '@/composables/useAppMenu'
@@ -24,12 +24,12 @@ import { useDevice } from '@/composables/useDevice'
 import { useGamepad } from '@/composables/useGamepad'
 import { useModel } from '@/composables/useModel'
 import { useTauriListen } from '@/composables/useTauriListen'
-import { LISTEN_KEY } from '@/constants'
+import { LISTEN_KEY, WINDOW_LABEL } from '@/constants'
 import { hideWindow, setAlwaysOnTop, setTaskbarVisibility, showWindow } from '@/plugins/window'
 import { useCatStore } from '@/stores/cat'
 import { useGeneralStore } from '@/stores/general.ts'
 import { useModelStore } from '@/stores/model'
-import { logDebug, logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
+import { logDebug, logError, logInfo, logStep, logTrace, logWarn } from '@/utils/diagnostics'
 import { isImage } from '@/utils/is'
 import live2d from '@/utils/live2d'
 import { join } from '@/utils/path'
@@ -134,6 +134,7 @@ let scalingWithShortcut = false
 let scaleSyncTimer: ReturnType<typeof setTimeout> | undefined
 let lastShortcutResizeAt = 0
 let currentModelLoadVersion = 0
+const modelLoadTrigger = ref(0)
 
 const SCALE_DRAG_SENSITIVITY = 0.12
 const SHORTCUT_RESIZE_INTERVAL = 33
@@ -172,6 +173,96 @@ function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
     }),
   )
 }
+
+function modelKey(model: Model | undefined) {
+  return model ? `${model.id}:${model.path}` : ''
+}
+
+function resolveModelSwitchTarget(request: ModelSwitchRequest) {
+  const storedModel = modelStore.models.find(model => model.id === request.model.id)
+
+  if (!storedModel) {
+    const fallbackModel: Model = { ...request.model }
+    logWarn('[model-switch] target missing from main model list; using event snapshot', {
+      requestId: request.requestId,
+      modelId: fallbackModel.id,
+      modelPath: fallbackModel.path,
+    })
+    return fallbackModel
+  }
+
+  if (storedModel.path === request.model.path) return storedModel
+
+  const mergedModel = { ...storedModel, ...request.model }
+  logWarn('[model-switch] main model path differed from event snapshot', {
+    requestId: request.requestId,
+    modelId: mergedModel.id,
+    storedPath: storedModel.path,
+    requestedPath: mergedModel.path,
+  })
+  return mergedModel
+}
+
+function acknowledgeModelSwitch(acknowledgement: ModelSwitchAcknowledgement) {
+  void emitTo(WINDOW_LABEL.PREFERENCE, LISTEN_KEY.MODEL_SWITCH_APPLIED, acknowledgement)
+    .then(() => logStep('model-switch', 'sent acknowledgement to preference window', acknowledgement))
+    .catch(error => logError('[model-switch] failed to send acknowledgement', { ...acknowledgement, error }))
+}
+
+function requestModelLoad(reason: string, context: Record<string, unknown> = {}) {
+  modelLoadTrigger.value += 1
+  logStep('model-load', 'explicit load requested', {
+    ...context,
+    reason,
+    loadTrigger: modelLoadTrigger.value,
+  })
+}
+
+useTauriListen<ModelSwitchRequest>(LISTEN_KEY.MODEL_SWITCH_REQUESTED, ({ payload }) => {
+  const context = {
+    requestId: payload.requestId,
+    modelId: payload.model.id,
+    modelPath: payload.model.path,
+    modelMode: payload.model.mode,
+    isPreset: payload.model.isPreset,
+  }
+  logInfo('[model-switch] main window received request', context)
+
+  try {
+    const targetModel = resolveModelSwitchTarget(payload)
+    const previousModel = modelStore.currentModel
+
+    modelStore.modelReady = false
+    logStep('model-switch', 'main window set modelReady=false', context)
+
+    if (modelKey(previousModel) !== modelKey(targetModel)) {
+      logStep('model-switch', 'main window applied requested model', {
+        ...context,
+        previousModelId: previousModel?.id,
+        previousModelPath: previousModel?.path,
+      })
+      modelStore.currentModel = targetModel
+    } else {
+      logStep('model-switch', 'main window model already matches request', context)
+      requestModelLoad('model-switch event matched current model', context)
+    }
+
+    acknowledgeModelSwitch({
+      requestId: payload.requestId,
+      modelId: targetModel.id,
+      accepted: true,
+    })
+  } catch (error) {
+    logError('[model-switch] main window failed to apply request', { ...context, error })
+    modelStore.modelReady = true
+    acknowledgeModelSwitch({
+      requestId: payload.requestId,
+      modelId: payload.model.id,
+      accepted: false,
+      reason: String(error),
+    })
+  }
+})
 
 onMounted(() => {
   if (!isSubModel) startListening()
@@ -218,12 +309,20 @@ watch([() => {
   const model = activeModel.value
 
   return model ? `${model.id}:${model.path}` : ''
-}, live2dCanvas], async ([, canvas]) => {
+}, live2dCanvas, modelLoadTrigger], async ([, canvas, loadTrigger]) => {
   const model = activeModel.value
 
   // An immediate watcher can run before the component's canvas is mounted.
   // Watching the template ref retries the current model as soon as it exists.
-  if (!model || !canvas) return
+  if (!model || !canvas) {
+    logTrace('[model-load] watcher skipped because model or canvas is unavailable', {
+      windowLabel: appWindow.label,
+      hasModel: Boolean(model),
+      hasCanvas: Boolean(canvas),
+      loadTrigger,
+    })
+    return
+  }
 
   const loadVersion = ++currentModelLoadVersion
   const modelContext = {
@@ -235,6 +334,7 @@ watch([() => {
     isPreset: model.isPreset,
     importKind: model.importKind,
     proofStatus: model.proofStatus,
+    loadTrigger,
   }
 
   logInfo('[model-load] started', modelContext)
