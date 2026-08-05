@@ -94,11 +94,16 @@
         "title": "Mô hình",
         "labels": {
           "deleteModel": "Xóa mô hình",
-          "customName": "Tên tùy chỉnh"
+          "customName": "Tên tùy chỉnh",
+          "selectedCount": "Đã chọn {count} mô hình",
+          "deleteSelected": "Xóa các mô hình đã chọn"
         },
         "hints": {
           "deleteSuccess": "Xóa thành công",
           "deleteModel": "Bạn chắc muốn xóa mô hình này?",
+          "deleteSelectedModels": "Bạn có chắc muốn xóa {count} mô hình đã chọn không?",
+          "batchDeleteSuccess": "Đã xóa thành công {successCount} mô hình",
+          "batchDeletePartial": "Đã xóa thành công {successCount} mô hình. Không thể xóa: {failedModels}",
           "importSuccess": "Nhập thành công",
           "clickOrDragToImport": "Nhấp hoặc kéo tệp vào đây",
           "importing": "Đang nhập {current}/{total}",

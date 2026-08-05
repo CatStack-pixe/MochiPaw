@@ -94,11 +94,16 @@
         "title": "Modelo",
         "labels": {
           "deleteModel": "Excluir modelo",
-          "customName": "Nome personalizado"
+          "customName": "Nome personalizado",
+          "selectedCount": "{count} modelos selecionados",
+          "deleteSelected": "Excluir modelos selecionados"
         },
         "hints": {
           "deleteSuccess": "Excluído com sucesso",
           "deleteModel": "Tem certeza de que deseja excluir este modelo?",
+          "deleteSelectedModels": "Tem certeza de que deseja excluir os {count} modelos selecionados?",
+          "batchDeleteSuccess": "{successCount} modelos excluídos com sucesso",
+          "batchDeletePartial": "{successCount} modelos excluídos com sucesso. Falha ao excluir: {failedModels}",
           "importSuccess": "Importação bem-sucedida",
           "clickOrDragToImport": "Clique ou arraste para importar",
           "importing": "Importando {current}/{total}",

@@ -8,7 +8,7 @@ import { emitTo } from '@tauri-apps/api/event'
 import { exists, remove } from '@tauri-apps/plugin-fs'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { useElementSize } from '@vueuse/core'
-import { Card, Input, Masonry, message, Modal, Pagination, Popconfirm } from 'antdv-next'
+import { Button, Card, Checkbox, Input, Masonry, message, Modal, Pagination, Popconfirm } from 'antdv-next'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -37,6 +37,8 @@ const currentPage = ref(1)
 const renameModelOpen = ref(false)
 const renameModelTarget = ref<Model>()
 const renameModelDraft = ref('')
+const selectedModelIds = ref(new Set<string>())
+const batchDeleting = ref(false)
 const pendingModelSwitches = new Map<string, (acknowledgement: ModelSwitchAcknowledgement) => void>()
 
 const PAGE_SIZE = 5
@@ -155,9 +157,19 @@ const pageCount = computed(() => {
   return Math.max(1, Math.ceil(modelStore.models.length / PAGE_SIZE))
 })
 
-const masonryItems = computed(() => {
+const currentPageModels = computed(() => {
   const start = (currentPage.value - 1) * PAGE_SIZE
-  const items = modelStore.models.slice(start, start + PAGE_SIZE).map((item) => {
+  return modelStore.models.slice(start, start + PAGE_SIZE)
+})
+
+const selectedModels = computed(() => {
+  return currentPageModels.value.filter(model => selectedModelIds.value.has(model.id))
+})
+
+const selectedModelCount = computed(() => selectedModels.value.length)
+
+const masonryItems = computed(() => {
+  const items = currentPageModels.value.map((item) => {
     return {
       key: item.id,
       data: item,
@@ -171,8 +183,46 @@ watch(pageCount, (count) => {
   currentPage.value = Math.min(currentPage.value, count)
 })
 
+watch(currentPage, clearSelection)
+watch(() => modelStore.currentModel?.id, deselectModel)
+
+function clearSelection() {
+  selectedModelIds.value = new Set()
+}
+
+function deselectModel(modelId?: string) {
+  if (!modelId || !selectedModelIds.value.has(modelId)) return
+
+  const nextSelection = new Set(selectedModelIds.value)
+  nextSelection.delete(modelId)
+  selectedModelIds.value = nextSelection
+}
+
+function isCurrentModel(model: Model) {
+  return model.id === modelStore.currentModel?.id
+}
+
+function isModelSelected(model: Model) {
+  return selectedModelIds.value.has(model.id)
+}
+
+function toggleModelSelection(model: Model) {
+  if (model.isPreset || isCurrentModel(model) || batchDeleting.value) return
+
+  const nextSelection = new Set(selectedModelIds.value)
+
+  if (nextSelection.has(model.id)) {
+    nextSelection.delete(model.id)
+  } else {
+    nextSelection.add(model.id)
+  }
+
+  selectedModelIds.value = nextSelection
+}
+
 function showImportedModels() {
   currentPage.value = pageCount.value
+  clearSelection()
 }
 
 function waitForModelSwitchAcknowledgement(requestId: string) {
@@ -188,6 +238,11 @@ function waitForModelSwitchAcknowledgement(requestId: string) {
 }
 
 async function handleToggle(nextModel: Model) {
+  if (batchDeleting.value) {
+    logTrace('[model-switch] ignored selection during batch deletion', { modelId: nextModel.id })
+    return
+  }
+
   if (modelStore.currentModel?.id === nextModel.id) {
     logTrace('[model-switch] ignored selection of current model', { modelId: nextModel.id })
     return
@@ -256,16 +311,17 @@ async function handleToggle(nextModel: Model) {
   logInfo('[model-switch] requested model is now current', { modelId: nextModel.id, modelPath: nextModel.path })
 }
 
-async function handleDelete(item: Model) {
+async function removeModel(item: Model) {
   const { id, path } = item
-  const previousModels = modelStore.models
+  const previousModels = modelStore.models.slice()
   const previousCurrentModel = modelStore.currentModel
+  const previousModelReady = modelStore.modelReady
   const nextModels = previousModels.filter(model => model.id !== id)
-  const isCurrentModel = id === previousCurrentModel?.id
+  const deletingCurrentModel = id === previousCurrentModel?.id
 
   modelStore.models = nextModels
 
-  if (isCurrentModel) {
+  if (deletingCurrentModel) {
     modelStore.modelReady = false
     modelStore.currentModel = nextModels[0]
   }
@@ -281,23 +337,101 @@ async function handleDelete(item: Model) {
 
     await Promise.all(subModels.map(instance => destroySubModelWindow(instance.id)))
     modelStore.removeSubModelsByModelId(id)
-
-    message.success(t('pages.preference.model.hints.deleteSuccess'))
   } catch (error) {
     modelStore.models = previousModels
 
-    if (isCurrentModel) {
+    if (deletingCurrentModel) {
       modelStore.currentModel = previousCurrentModel
+      modelStore.modelReady = previousModelReady
     }
 
-    message.error(String(error))
+    throw error
   }
+}
+
+async function handleDelete(item: Model) {
+  if (batchDeleting.value) return
+
+  try {
+    await removeModel(item)
+    message.success(t('pages.preference.model.hints.deleteSuccess'))
+  } catch (error) {
+    message.error(String(error))
+  } finally {
+    clearSelection()
+  }
+}
+
+async function executeBatchDelete(items: Model[]) {
+  batchDeleting.value = true
+  let successCount = 0
+  const failedModels: string[] = []
+
+  try {
+    for (const item of items) {
+      try {
+        await removeModel(item)
+        successCount += 1
+      } catch (error) {
+        failedModels.push(modelTitle(item))
+        logError('[model-delete] batch item failed', { modelId: item.id, modelPath: item.path, error })
+      }
+    }
+
+    if (failedModels.length) {
+      message.error(t('pages.preference.model.hints.batchDeletePartial', {
+        failedModels: failedModels.join(', '),
+        successCount,
+      }))
+      return
+    }
+
+    message.success(t('pages.preference.model.hints.batchDeleteSuccess', { successCount }))
+  } finally {
+    batchDeleting.value = false
+    clearSelection()
+  }
+}
+
+function confirmBatchDelete() {
+  const items = selectedModels.value.filter(model => !isCurrentModel(model)).slice()
+
+  if (!items.length || batchDeleting.value) return
+
+  Modal.confirm({
+    content: t('pages.preference.model.hints.deleteSelectedModels', { count: items.length }),
+    okText: t('pages.preference.model.labels.deleteSelected'),
+    okType: 'danger',
+    onOk: () => executeBatchDelete(items),
+    title: t('pages.preference.model.labels.deleteSelected'),
+  })
 }
 </script>
 
 <template>
   <section class="model-manager">
     <div class="model-grid">
+      <div class="model-batch-actions">
+        <span
+          aria-live="polite"
+          class="model-selection-count"
+        >
+          {{ $t('pages.preference.model.labels.selectedCount', { count: selectedModelCount }) }}
+        </span>
+
+        <Button
+          danger
+          :disabled="selectedModelCount === 0 || batchDeleting"
+          :loading="batchDeleting"
+          @click="confirmBatchDelete"
+        >
+          <template #icon>
+            <i class="i-lucide:trash-2" />
+          </template>
+          {{ $t('pages.preference.model.labels.deleteSelected') }}
+        </Button>
+      </div>
+
       <Masonry
         :key="currentPage"
         :columns="{ xs: 3, lg: 4, xxl: 6 }"
@@ -328,7 +462,20 @@ async function handleDelete(item: Model) {
 
             <template #title>
               <div class="model-card-title">
-                <span class="model-title-text">{{ modelTitle(data) }}</span>
+                <div class="model-card-title-main">
+                  <span
+                    v-if="!data.isPreset"
+                    class="model-select-control"
+                    @click.stop
+                  >
+                    <Checkbox
+                      :checked="isModelSelected(data)"
+                      :disabled="isCurrentModel(data) || batchDeleting"
+                      @change="toggleModelSelection(data)"
+                    />
+                  </span>
+                  <span class="model-title-text">{{ modelTitle(data) }}</span>
+                </div>
                 <span class="model-proof-pill">{{ proofLabel(data) }}</span>
               </div>
             </template>
@@ -467,6 +614,24 @@ async function handleDelete(item: Model) {
   isolation: isolate;
 }
 
+.model-batch-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-height: 40px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--ant-color-border);
+  border-radius: 6px;
+  background: var(--ant-color-fill-quaternary);
+}
+
+.model-selection-count {
+  color: var(--ant-color-text-secondary);
+  font-size: 13px;
+}
+
 .rename-model-field {
   display: flex;
   flex-direction: column;
@@ -492,6 +657,18 @@ async function handleDelete(item: Model) {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.model-card-title-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.model-select-control {
+  display: inline-flex;
+  flex-shrink: 0;
 }
 
 .model-title-text {
