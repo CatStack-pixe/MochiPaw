@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
-import { resolveResource } from '@tauri-apps/api/path'
+import { appDataDir, resolveResource } from '@tauri-apps/api/path'
 import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
 import { filter, find } from 'es-toolkit/compat'
 import JSON5 from 'json5'
@@ -12,6 +12,7 @@ import { reactive, ref } from 'vue'
 
 import type { ExpressionInfo, MotionInfo } from '@/vendor/easy-live2d'
 
+import { logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import { join } from '@/utils/path'
 
@@ -205,8 +206,20 @@ export const useModelStore = defineStore('model', () => {
   const init = async () => {
     const modelsPath = await resolveResource('assets/models')
 
-    const nextModels = filter(models.value, { isPreset: false })
+    const persistedCustomModels = filter(models.value, { isPreset: false })
     const presetModels = filter(models.value, { isPreset: true })
+    const customModelsPath = join(await appDataDir(), 'custom-models')
+    const discoveredCustomModels = await discoverStoredCustomModels(customModelsPath)
+    const nextModels = mergeModelCatalog(persistedCustomModels, discoveredCustomModels)
+    const persistedModelIds = new Set(persistedCustomModels.map(model => model.id))
+    const recoveredModelCount = discoveredCustomModels.filter(model => !persistedModelIds.has(model.id)).length
+
+    logStep('model-persistence', 'model catalog discovered', {
+      customModelsPath,
+      persistedCustomModelCount: persistedCustomModels.length,
+      discoveredCustomModelCount: discoveredCustomModels.length,
+      recoveredModelCount,
+    })
 
     await Promise.all(nextModels.map(fillModelMetadata))
 
@@ -232,6 +245,19 @@ export const useModelStore = defineStore('model', () => {
     currentModel.value = matched ?? nextModels[0]
 
     models.value = nextModels
+
+    logInfo('[model-persistence] model catalog initialized', {
+      modelCount: nextModels.length,
+      customModelCount: nextModels.filter(model => !model.isPreset).length,
+      recoveredModelCount,
+      currentModelId: currentModel.value?.id,
+    })
+
+    return {
+      modelCount: nextModels.length,
+      customModelCount: nextModels.filter(model => !model.isPreset).length,
+      recoveredModelCount,
+    }
   }
 
   const createSubModel = (modelId: string) => {
@@ -304,8 +330,75 @@ export const useModelStore = defineStore('model', () => {
 }, {
   tauri: {
     filterKeys: ['supportKeys', 'pressedKeys', 'activeKeys'],
+    saveInterval: 500,
+    saveStrategy: 'debounce',
   },
 })
+
+export function mergeModelCatalog(persistedModels: Model[], discoveredModels: Model[]) {
+  const discoveredById = new Map(discoveredModels.map(model => [model.id, model]))
+  const mergedModels = persistedModels.map((model) => {
+    const discoveredModel = discoveredById.get(model.id)
+
+    if (!discoveredModel) return model
+
+    return {
+      ...discoveredModel,
+      ...model,
+      path: discoveredModel.path,
+    }
+  })
+  const persistedIds = new Set(persistedModels.map(model => model.id))
+
+  return [
+    ...mergedModels,
+    ...discoveredModels.filter(model => !persistedIds.has(model.id)),
+  ]
+}
+
+async function discoverStoredCustomModels(customModelsPath: string) {
+  const entries = await readDir(customModelsPath).catch((error) => {
+    logTrace('[model-persistence] custom model directory unavailable', { customModelsPath, error })
+    return []
+  })
+  const discoveredModels: Model[] = []
+
+  for (const entry of entries) {
+    if (!entry.isDirectory || !entry.name) continue
+
+    const modelPath = join(customModelsPath, entry.name)
+    const modelFile = await findStoredModelFile(modelPath)
+
+    if (!modelFile) {
+      logTrace('[model-persistence] skipped custom model directory without model JSON', { modelPath })
+      continue
+    }
+
+    const model = {
+      id: entry.name,
+      displayName: await readStoredCubismModelName(modelFile),
+      path: modelPath,
+      mode: await inferStoredModelMode(modelPath),
+      isPreset: false,
+      importKind: 'standard' as const,
+      proofStatus: 'unsigned' as const,
+    }
+
+    discoveredModels.push(model)
+    logTrace('[model-persistence] discovered custom model directory', {
+      modelId: model.id,
+      modelPath,
+      mode: model.mode,
+    })
+  }
+
+  logInfo('[model-persistence] custom model directory scan completed', {
+    customModelsPath,
+    discoveredModelCount: discoveredModels.length,
+  })
+
+  return discoveredModels
+}
 
 async function fillModelMetadata(model: Model) {
   const proofManifest = await readNearestProofManifest(model.path)
@@ -352,6 +445,18 @@ async function findStoredModelFile(modelPath: string) {
   const modelFile = files.find(file => file.isFile && file.name.endsWith('.model3.json'))
 
   return modelFile ? join(modelPath, modelFile.name) : undefined
+}
+
+async function inferStoredModelMode(modelPath: string): Promise<ModelMode> {
+  const files = await readDir(join(modelPath, 'resources', 'right-keys')).catch((error) => {
+    logTrace('[model-persistence] failed to inspect model mode resources', { modelPath, error })
+    return []
+  })
+
+  if (!files.length) return 'standard'
+
+  const fileNames = files.map(file => file.name.split('.')[0])
+  return fileNames.includes('East') ? 'gamepad' : 'keyboard'
 }
 
 function normalizeDisplayName(value: unknown) {

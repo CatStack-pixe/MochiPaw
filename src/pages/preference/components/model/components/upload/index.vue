@@ -11,7 +11,7 @@ import { copyFile, exists, mkdir, readDir, readFile, readTextFile, remove, stat 
 import { message } from 'antdv-next'
 import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
-import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type {
@@ -31,6 +31,7 @@ import {
 } from '@/utils/modelFingerprint'
 import { extractTemporaryImportSource, useImportSource } from '@/utils/modelImportSource'
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
+import { requestModelStoreSave } from '@/utils/modelPersistence'
 import { join } from '@/utils/path'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 
@@ -304,17 +305,43 @@ watch(selectPaths, async (paths) => {
         continue
       }
 
-      for (const model of result.models) {
-        modelStore.models.push(model)
-        logStep('model-import', 'model added to store', {
+      const previousModels = modelStore.models.slice()
+      modelStore.models.push(...result.models)
+
+      try {
+        for (const model of result.models) {
+          logStep('model-import', 'model added to store', {
+            fromPath,
+            modelId: model.id,
+            modelPath: model.path,
+            mode: model.mode,
+            importKind: model.importKind,
+            proofStatus: model.proofStatus,
+          })
+          reportRuntimeEventQuietly(model, 'imported')
+        }
+
+        logStep('model-persistence', 'queue imported model catalog persistence', {
           fromPath,
-          modelId: model.id,
-          modelPath: model.path,
-          mode: model.mode,
-          importKind: model.importKind,
-          proofStatus: model.proofStatus,
+          modelIds: result.models.map(model => model.id),
+          modelCount: modelStore.models.length,
         })
-        reportRuntimeEventQuietly(model, 'imported')
+        await nextTick()
+        await requestModelStoreSave()
+        logInfo('[model-persistence] imported model catalog save queued', {
+          fromPath,
+          modelIds: result.models.map(model => model.id),
+          modelCount: modelStore.models.length,
+        })
+      } catch (error) {
+        modelStore.models = previousModels
+        logError('[model-persistence] failed to persist imported model catalog', {
+          fromPath,
+          modelIds: result.models.map(model => model.id),
+          error,
+        })
+
+        throw error
       }
 
       emit('imported')
