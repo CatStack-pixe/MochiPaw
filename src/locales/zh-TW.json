@@ -291,9 +291,14 @@
   },
   "components": {
     "shortcut": {
+      "labels": {
+        "shortcutRegistrationFailed": "快速鍵無法使用"
+      },
       "hints": {
         "pressRecordShortcut": "按下錄製快速鍵",
-        "clickRecordShortcut": "點擊錄製快速鍵"
+        "clickRecordShortcut": "點擊錄製快速鍵",
+        "shortcutConflict": "快速鍵 {shortcut} 已被其他項目使用，已恢復先前的快速鍵。",
+        "shortcutRegistrationFailed": "快速鍵註冊失敗，已恢復先前的快速鍵。"
       }
     },
     "updateApp": {

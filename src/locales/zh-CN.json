@@ -297,9 +297,14 @@
   },
   "components": {
     "shortcut": {
+      "labels": {
+        "shortcutRegistrationFailed": "快捷键不可用"
+      },
       "hints": {
         "pressRecordShortcut": "按下录制快捷键",
-        "clickRecordShortcut": "点击录制快捷键"
+        "clickRecordShortcut": "点击录制快捷键",
+        "shortcutConflict": "快捷键 {shortcut} 已被其他项目使用，已恢复之前的快捷键。",
+        "shortcutRegistrationFailed": "快捷键注册失败，已恢复之前的快捷键。"
       }
     },
     "updateApp": {

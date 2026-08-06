@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-use tauri::command;
+use tauri::{AppHandle, Runtime, command};
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,7 +54,7 @@ pub fn is_running_as_administrator() -> Result<bool, String> {
 }
 
 #[command]
-pub fn relaunch_as_administrator() -> Result<(), String> {
+pub fn relaunch_as_administrator<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         if is_running_as_administrator()? {
@@ -63,9 +63,12 @@ pub fn relaunch_as_administrator() -> Result<(), String> {
 
         schedule_windows_administrator_relaunch()?;
 
-        std::thread::spawn(|| {
+        // Give the elevated helper time to receive the UAC approval before
+        // asking Tauri to release the current instance and its plugins.
+        let app_handle = app.clone();
+        std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(100));
-            std::process::exit(0);
+            app_handle.exit(0);
         });
 
         Ok(())
@@ -73,6 +76,7 @@ pub fn relaunch_as_administrator() -> Result<(), String> {
 
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = app;
         Ok(())
     }
 }
