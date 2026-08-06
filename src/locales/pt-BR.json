@@ -291,9 +291,14 @@
   },
   "components": {
     "shortcut": {
+      "labels": {
+        "shortcutRegistrationFailed": "Atalho indisponível"
+      },
       "hints": {
         "pressRecordShortcut": "Pressione as teclas para gravar atalho",
-        "clickRecordShortcut": "Clique para gravar atalho"
+        "clickRecordShortcut": "Clique para gravar atalho",
+        "shortcutConflict": "O atalho {shortcut} já está atribuído. O atalho anterior foi restaurado.",
+        "shortcutRegistrationFailed": "Não foi possível registrar o atalho. O atalho anterior foi restaurado."
       }
     },
     "updateApp": {

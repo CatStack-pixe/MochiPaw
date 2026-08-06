@@ -291,9 +291,14 @@
   },
   "components": {
     "shortcut": {
+      "labels": {
+        "shortcutRegistrationFailed": "Phím tắt không khả dụng"
+      },
       "hints": {
         "pressRecordShortcut": "Nhấn phím/tổ hợp phím để ghi",
-        "clickRecordShortcut": "Click để ghi phím tắt"
+        "clickRecordShortcut": "Click để ghi phím tắt",
+        "shortcutConflict": "Phím tắt {shortcut} đã được gán. Phím tắt trước đó đã được khôi phục.",
+        "shortcutRegistrationFailed": "Không thể đăng ký phím tắt. Phím tắt trước đó đã được khôi phục."
       }
     },
     "updateApp": {
