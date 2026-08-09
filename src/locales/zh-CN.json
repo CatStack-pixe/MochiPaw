@@ -96,6 +96,35 @@
           "exitApp": "退出应用"
         }
       },
+      "typingStats": {
+        "title": "打字统计",
+        "labels": {
+          "overview": "概览",
+          "today": "今日按键数",
+          "presses": "次按键",
+          "last30Days": "最近 30 天",
+          "trend": "每日趋势",
+          "settings": "设置",
+          "enabled": "启用打字统计",
+          "history": "已保存的历史记录"
+        },
+        "status": {
+          "active": "统计中",
+          "paused": "已暂停"
+        },
+        "hints": {
+          "trendLabel": "最近 30 天的每日按键总数",
+          "dayCount": "{date}：{count} 次按键",
+          "privacy": "仅统计每日按键总数，不保存按键名称、输入内容或应用来源。",
+          "clearHistory": "永久删除所有已保存的每日统计。",
+          "clearConfirmation": "全部打字统计将被永久删除，且无法撤销。",
+          "saveFailed": "无法保存打字统计更改，请重试。"
+        },
+        "buttons": {
+          "clearHistory": "清空全部统计",
+          "confirmClear": "确认清空"
+        }
+      },
       "model": {
         "title": "模型管理",
         "labels": {

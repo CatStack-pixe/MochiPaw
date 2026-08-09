@@ -90,6 +90,35 @@
           "exitApp": "Thoát ứng dụng"
         }
       },
+      "typingStats": {
+        "title": "Thống kê",
+        "labels": {
+          "overview": "Tổng quan",
+          "today": "Số lần nhấn phím hôm nay",
+          "presses": "lần nhấn",
+          "last30Days": "30 ngày gần đây",
+          "trend": "Xu hướng hằng ngày",
+          "settings": "Cài đặt",
+          "enabled": "Bật thống kê gõ phím",
+          "history": "Lịch sử đã lưu"
+        },
+        "status": {
+          "active": "Đang thống kê",
+          "paused": "Đã tạm dừng"
+        },
+        "hints": {
+          "trendLabel": "Tổng số lần nhấn phím mỗi ngày trong 30 ngày gần đây",
+          "dayCount": "{date}: {count} lần nhấn",
+          "privacy": "Chỉ tổng số lần nhấn phím mỗi ngày được thống kê. Tên phím, nội dung đã nhập và ứng dụng nguồn không bao giờ được lưu.",
+          "clearHistory": "Xóa vĩnh viễn tất cả số liệu hằng ngày đã lưu.",
+          "clearConfirmation": "Toàn bộ thống kê gõ phím sẽ bị xóa vĩnh viễn và không thể hoàn tác.",
+          "saveFailed": "Không thể lưu thay đổi thống kê gõ phím. Vui lòng thử lại."
+        },
+        "buttons": {
+          "clearHistory": "Xóa toàn bộ thống kê",
+          "confirmClear": "Xác nhận xóa"
+        }
+      },
       "model": {
         "title": "Mô hình",
         "labels": {

@@ -12,7 +12,7 @@ import { useI18n } from 'vue-i18n'
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
 import { isRunningAsAdministrator, relaunchAsAdministrator } from '@/plugins/adminStatus'
-import { saveAllPersistentStoresNow } from '@/utils/persistence'
+import { runAfterSavingPersistentStores } from '@/utils/persistence'
 
 const authorized = ref(true)
 const restarting = ref(false)
@@ -41,8 +41,7 @@ async function showAdministratorGuide() {
   try {
     restarting.value = true
 
-    await saveAllPersistentStoresNow()
-    await relaunchAsAdministrator()
+    await runAfterSavingPersistentStores(relaunchAsAdministrator)
   } catch (error) {
     console.error(error)
     await message(t('pages.preference.general.hints.administratorRelaunchFailed'), {

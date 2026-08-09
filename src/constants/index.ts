@@ -22,6 +22,8 @@ export const LISTEN_KEY = {
   SUB_MODEL_INPUT_FRAME: 'sub-model-input-frame',
   MODEL_SWITCH_REQUESTED: 'model-switch-requested',
   MODEL_SWITCH_APPLIED: 'model-switch-applied',
+  TYPING_STATS_OPERATION_REQUESTED: 'typing-stats-operation-requested',
+  TYPING_STATS_OPERATION_APPLIED: 'typing-stats-operation-applied',
 }
 
 export const INVOKE_KEY = {

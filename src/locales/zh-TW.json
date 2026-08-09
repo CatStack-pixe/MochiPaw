@@ -90,6 +90,35 @@
           "exitApp": "退出應用"
         }
       },
+      "typingStats": {
+        "title": "打字統計",
+        "labels": {
+          "overview": "概覽",
+          "today": "今日按鍵數",
+          "presses": "次按鍵",
+          "last30Days": "最近 30 天",
+          "trend": "每日趨勢",
+          "settings": "設定",
+          "enabled": "啟用打字統計",
+          "history": "已儲存的歷史記錄"
+        },
+        "status": {
+          "active": "統計中",
+          "paused": "已暫停"
+        },
+        "hints": {
+          "trendLabel": "最近 30 天的每日按鍵總數",
+          "dayCount": "{date}：{count} 次按鍵",
+          "privacy": "僅統計每日按鍵總數，不儲存按鍵名稱、輸入內容或應用程式來源。",
+          "clearHistory": "永久刪除所有已儲存的每日統計。",
+          "clearConfirmation": "全部打字統計將被永久刪除，且無法復原。",
+          "saveFailed": "無法儲存打字統計變更，請再試一次。"
+        },
+        "buttons": {
+          "clearHistory": "清除全部統計",
+          "confirmClear": "確認清除"
+        }
+      },
       "model": {
         "title": "模型管理",
         "labels": {

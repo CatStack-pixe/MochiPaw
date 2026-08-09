@@ -32,7 +32,7 @@ mod linux {
 
     const SOCKET_NAME: &str = "mochi-paw-inputd.sock";
 
-    #[derive(Serialize)]
+    #[derive(Debug, PartialEq, Serialize)]
     #[serde(tag = "kind", content = "value")]
     enum Message {
         Ready,
@@ -286,7 +286,7 @@ mod linux {
 
     fn key_event(key: &str, value: i32) -> Option<Message> {
         match value {
-            1 => Some(Message::KeyboardPress(key.into())),
+            1 | 2 => Some(Message::KeyboardPress(key.into())),
             0 => Some(Message::KeyboardRelease(key.into())),
             _ => None,
         }
@@ -338,6 +338,24 @@ mod linux {
             87 => Some("F11"),
             88 => Some("F12"),
             _ => None,
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::{Message, key_event};
+
+        #[test]
+        fn normalizes_key_repeat_as_another_press() {
+            assert_eq!(
+                key_event("KeyA", 2),
+                Some(Message::KeyboardPress("KeyA".into()))
+            );
+        }
+
+        #[test]
+        fn ignores_invalid_key_values() {
+            assert_eq!(key_event("KeyA", 3), None);
         }
     }
 }

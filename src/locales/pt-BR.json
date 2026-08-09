@@ -90,6 +90,35 @@
           "exitApp": "Sair do App"
         }
       },
+      "typingStats": {
+        "title": "Digitação",
+        "labels": {
+          "overview": "Visão geral",
+          "today": "Teclas pressionadas hoje",
+          "presses": "pressionamentos",
+          "last30Days": "Últimos 30 dias",
+          "trend": "Atividade diária",
+          "settings": "Configurações",
+          "enabled": "Ativar estatísticas de digitação",
+          "history": "Histórico salvo"
+        },
+        "status": {
+          "active": "Registrando",
+          "paused": "Pausado"
+        },
+        "hints": {
+          "trendLabel": "Totais diários de teclas pressionadas nos últimos 30 dias",
+          "dayCount": "{date}: {count} pressionamentos",
+          "privacy": "Apenas o total diário de teclas pressionadas é contado. Nomes de teclas, conteúdo digitado e aplicativos de origem nunca são salvos.",
+          "clearHistory": "Exclui permanentemente todos os totais diários salvos.",
+          "clearConfirmation": "Todas as estatísticas de digitação serão excluídas permanentemente. Esta ação não pode ser desfeita.",
+          "saveFailed": "Não foi possível salvar a alteração nas estatísticas de digitação. Tente novamente."
+        },
+        "buttons": {
+          "clearHistory": "Limpar todas as estatísticas",
+          "confirmClear": "Limpar estatísticas"
+        }
+      },
       "model": {
         "title": "Modelo",
         "labels": {
