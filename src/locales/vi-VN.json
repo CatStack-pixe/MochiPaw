@@ -319,6 +319,28 @@
     }
   },
   "components": {
+    "persistenceRecovery": {
+      "title": "Đã khôi phục cài đặt",
+      "failureTitle": "Cần xử lý việc khôi phục cài đặt",
+      "successSummary": "MochiPaw phát hiện các tệp cài đặt không thể đọc được. Các tệp gốc đã được sao lưu và cài đặt bị ảnh hưởng đã được đặt lại để ứng dụng có thể tiếp tục chạy.",
+      "mixedSummary": "Một số cài đặt không thể đọc đã được sao lưu và đặt lại, nhưng MochiPaw không thể sao lưu an toàn tất cả các tệp bị ảnh hưởng.",
+      "failureSummary": "MochiPaw phát hiện cài đặt không thể đọc nhưng không thể sao lưu an toàn. Các tệp gốc vẫn được giữ nguyên.",
+      "consequence": "Tùy theo cài đặt bị ảnh hưởng, dữ liệu đặt lại có thể gồm tên mô hình tùy chỉnh, hành vi, thiết lập mô hình phụ hoặc thống kê gõ phím; các thư mục mô hình đã cài đặt vẫn có thể được phát hiện lại.",
+      "recoveredTitle": "Đã sao lưu và đặt lại",
+      "failedTitle": "Không thể sao lưu",
+      "backupLocation": "Vị trí sao lưu",
+      "fileLocation": "Tệp bị ảnh hưởng",
+      "technicalReason": "Chi tiết",
+      "acknowledge": "OK",
+      "stores": {
+        "app": "Trạng thái ứng dụng",
+        "cat": "Cài đặt mèo",
+        "general": "Cài đặt chung",
+        "model": "Cài đặt mô hình",
+        "shortcut": "Phím tắt",
+        "typingStats": "Thống kê gõ phím"
+      }
+    },
     "shortcut": {
       "labels": {
         "shortcutRegistrationFailed": "Phím tắt không khả dụng"

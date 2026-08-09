@@ -9,6 +9,7 @@ import { Flex, Spin } from 'antdv-next'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import PersistenceRecoveryAlert from '@/components/persistence-recovery-alert/index.vue'
 import UpdateApp from '@/components/update-app/index.vue'
 import { useTray } from '@/composables/useTray'
 import { useAppStore } from '@/stores/app'
@@ -138,6 +139,7 @@ const menus = computed(() => [
     </div>
   </Flex>
 
+  <PersistenceRecoveryAlert />
   <UpdateApp />
 </template>
 

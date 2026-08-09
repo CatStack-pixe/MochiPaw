@@ -325,6 +325,28 @@
     }
   },
   "components": {
+    "persistenceRecovery": {
+      "title": "设置恢复完成",
+      "failureTitle": "设置恢复需要处理",
+      "successSummary": "MochiPaw 检测到无法读取的设置文件。原文件已备份，受影响的设置已重置，应用可以继续运行。",
+      "mixedSummary": "部分无法读取的设置已备份并重置，但 MochiPaw 未能安全备份所有受影响的文件。",
+      "failureSummary": "MochiPaw 检测到无法读取的设置，但未能安全备份。原文件保持不变。",
+      "consequence": "根据受影响的设置，重置内容可能包括自定义模型名称、行为、子模型配置或打字统计；已安装的模型目录仍可重新发现。",
+      "recoveredTitle": "已备份并重置",
+      "failedTitle": "无法备份",
+      "backupLocation": "备份位置",
+      "fileLocation": "受影响的文件",
+      "technicalReason": "详细信息",
+      "acknowledge": "确定",
+      "stores": {
+        "app": "应用状态",
+        "cat": "猫咪设置",
+        "general": "通用设置",
+        "model": "模型设置",
+        "shortcut": "快捷键",
+        "typingStats": "打字统计"
+      }
+    },
     "shortcut": {
       "labels": {
         "shortcutRegistrationFailed": "快捷键不可用"

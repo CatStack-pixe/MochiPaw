@@ -325,6 +325,28 @@
     }
   },
   "components": {
+    "persistenceRecovery": {
+      "title": "Settings Recovery Completed",
+      "failureTitle": "Settings Recovery Needs Attention",
+      "successSummary": "MochiPaw found unreadable settings files. The original files were backed up and the affected settings were reset so the app could continue.",
+      "mixedSummary": "Some unreadable settings were backed up and reset, but MochiPaw could not safely back up every affected file.",
+      "failureSummary": "MochiPaw found unreadable settings but could not safely back them up. The original files were left unchanged.",
+      "consequence": "Depending on the affected settings, reset data may include custom model names, behaviors, submodel setup, or typing statistics; installed model folders remain available for rediscovery.",
+      "recoveredTitle": "Backed Up and Reset",
+      "failedTitle": "Could Not Back Up",
+      "backupLocation": "Backup location",
+      "fileLocation": "Affected file",
+      "technicalReason": "Details",
+      "acknowledge": "OK",
+      "stores": {
+        "app": "Application state",
+        "cat": "Cat settings",
+        "general": "General settings",
+        "model": "Model settings",
+        "shortcut": "Shortcuts",
+        "typingStats": "Typing statistics"
+      }
+    },
     "shortcut": {
       "labels": {
         "shortcutRegistrationFailed": "Shortcut unavailable"
