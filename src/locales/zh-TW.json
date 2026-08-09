@@ -319,6 +319,28 @@
     }
   },
   "components": {
+    "persistenceRecovery": {
+      "title": "設定復原完成",
+      "failureTitle": "設定復原需要處理",
+      "successSummary": "MochiPaw 偵測到無法讀取的設定檔。原始檔案已備份，受影響的設定已重設，應用程式可以繼續執行。",
+      "mixedSummary": "部分無法讀取的設定已備份並重設，但 MochiPaw 無法安全備份所有受影響的檔案。",
+      "failureSummary": "MochiPaw 偵測到無法讀取的設定，但無法安全備份。原始檔案維持不變。",
+      "consequence": "視受影響的設定而定，重設內容可能包括自訂模型名稱、行為、子模型設定或打字統計；已安裝的模型目錄仍可重新偵測。",
+      "recoveredTitle": "已備份並重設",
+      "failedTitle": "無法備份",
+      "backupLocation": "備份位置",
+      "fileLocation": "受影響的檔案",
+      "technicalReason": "詳細資訊",
+      "acknowledge": "確定",
+      "stores": {
+        "app": "應用程式狀態",
+        "cat": "貓咪設定",
+        "general": "一般設定",
+        "model": "模型設定",
+        "shortcut": "快速鍵",
+        "typingStats": "打字統計"
+      }
+    },
     "shortcut": {
       "labels": {
         "shortcutRegistrationFailed": "快速鍵無法使用"

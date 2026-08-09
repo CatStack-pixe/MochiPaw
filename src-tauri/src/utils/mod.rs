@@ -3,3 +3,4 @@
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
 pub mod fs_extra;
+pub mod persistence_recovery;

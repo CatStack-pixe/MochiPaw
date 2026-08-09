@@ -21,6 +21,9 @@ use tauri_plugin_custom_window::{
     show_preference_window,
 };
 use utils::fs_extra::{copy_dir, extract_zip};
+use utils::persistence_recovery::{
+    PersistenceRecoveryState, init as persistence_recovery_init, take_persistence_recovery_report,
+};
 
 const MODEL_STORE_SCHEMA_VERSION: u64 = 2;
 
@@ -113,6 +116,10 @@ pub fn run() {
 
             setup::default(&app_handle, main_window.clone(), preference_window.clone());
 
+            if app.state::<PersistenceRecoveryState>().requires_attention() {
+                show_preference_window(app_handle);
+            }
+
             Ok(())
         })
         .invoke_handler(generate_handler![
@@ -125,7 +132,8 @@ pub fn run() {
             set_gamepad_listener_enabled,
             runtime_installation_identity,
             prepare_dedicated_runtime,
-            record_dedicated_runtime_event
+            record_dedicated_runtime_event,
+            take_persistence_recovery_report
         ])
         .plugin(tauri_plugin_admin_status::init())
         .plugin(tauri_plugin_custom_window::init())
@@ -149,6 +157,7 @@ pub fn run() {
                 .filter(|metadata| !metadata.target().contains("gilrs"))
                 .build(),
         )
+        .plugin(persistence_recovery_init())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             None,

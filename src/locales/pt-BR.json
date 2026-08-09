@@ -319,6 +319,28 @@
     }
   },
   "components": {
+    "persistenceRecovery": {
+      "title": "Recuperação de configurações concluída",
+      "failureTitle": "A recuperação de configurações requer atenção",
+      "successSummary": "O MochiPaw encontrou arquivos de configuração ilegíveis. Os arquivos originais foram copiados e as configurações afetadas foram redefinidas para que o aplicativo pudesse continuar.",
+      "mixedSummary": "Algumas configurações ilegíveis foram copiadas e redefinidas, mas o MochiPaw não conseguiu criar cópias seguras de todos os arquivos afetados.",
+      "failureSummary": "O MochiPaw encontrou configurações ilegíveis, mas não conseguiu criar cópias seguras. Os arquivos originais não foram alterados.",
+      "consequence": "Dependendo das configurações afetadas, os dados redefinidos podem incluir nomes de modelos personalizados, comportamentos, configuração de submodelos ou estatísticas de digitação; as pastas de modelos instalados continuam disponíveis para nova detecção.",
+      "recoveredTitle": "Copiado e redefinido",
+      "failedTitle": "Não foi possível criar a cópia",
+      "backupLocation": "Local da cópia",
+      "fileLocation": "Arquivo afetado",
+      "technicalReason": "Detalhes",
+      "acknowledge": "OK",
+      "stores": {
+        "app": "Estado do aplicativo",
+        "cat": "Configurações do gato",
+        "general": "Configurações gerais",
+        "model": "Configurações do modelo",
+        "shortcut": "Atalhos",
+        "typingStats": "Estatísticas de digitação"
+      }
+    },
     "shortcut": {
       "labels": {
         "shortcutRegistrationFailed": "Atalho indisponível"
