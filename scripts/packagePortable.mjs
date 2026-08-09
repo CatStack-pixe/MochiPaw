@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
-import { arch, argv, pid, platform } from 'node:process'
+import { arch, argv, execPath, pid, platform } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -17,7 +17,7 @@ const targetDir = target ? resolve(rootDir, 'target', target) : resolve(rootDir,
 const releaseDir = resolve(targetDir, 'release')
 const bundleDir = resolve(releaseDir, 'bundle', 'portable')
 const portableConfigPath = resolve(rootDir, 'target', 'portable-tauri.conf.json')
-const tauriCliPath = resolve(rootDir, 'node_modules', '.bin', 'tauri.CMD')
+const tauriCliPath = resolve(rootDir, 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
 const sourceAssetsDir = resolve(rootDir, 'src-tauri', 'assets')
 const packageJson = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf-8'))
 const tauriConfig = JSON.parse(readFileSync(resolve(rootDir, 'src-tauri', 'tauri.conf.json'), 'utf-8'))
@@ -37,28 +37,6 @@ if (targetIndex !== -1 && !target) {
 
 function quotePowerShell(value) {
   return `'${value.replace(/'/g, '\'\'')}'`
-}
-
-function quoteCommand(value) {
-  return `"${value.replace(/"/g, '\\"')}"`
-}
-
-function run(command, options = {}) {
-  const result = spawnSync(command, {
-    cwd: rootDir,
-    shell: true,
-    stdio: 'inherit',
-  })
-
-  if (result.status && !options.allowFailure) {
-    throw new Error(`Command failed with exit code ${result.status}: ${command}`)
-  }
-
-  if (result.error && !options.allowFailure) {
-    throw result.error
-  }
-
-  return result
 }
 
 function runPowerShell(command) {
@@ -109,8 +87,12 @@ writeFileSync(portableConfigPath, JSON.stringify({
 if (!skipBuild) {
   rmSync(exePath, { force: true })
   rmSync(legacyExePath, { force: true })
-  const targetArg = target ? ` --target ${quoteCommand(target)}` : ''
-  run(`${quoteCommand(tauriCliPath)} build --no-bundle${targetArg} --config ${quoteCommand(portableConfigPath)}`)
+  const args = ['build', '--no-bundle']
+
+  if (target) args.push('--target', target)
+  args.push('--config', portableConfigPath)
+
+  runFile(execPath, [tauriCliPath, ...args])
 }
 
 const builtExePath = existsSync(exePath) ? exePath : legacyExePath

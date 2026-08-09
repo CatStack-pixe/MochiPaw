@@ -5969,6 +5969,7 @@ dependencies = [
  "dashmap",
  "futures",
  "itertools",
+ "semver",
  "serde",
  "serde_json",
  "tauri",
@@ -5996,6 +5997,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baed2bbdce143a0b6e8105a0c9c7d9bfaa9c5689c3632bff12085c7209365d3f"
 dependencies = [
  "bon",
+ "semver",
  "serde",
  "serde_json",
  "tauri",

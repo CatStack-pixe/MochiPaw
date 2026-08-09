@@ -105,8 +105,8 @@ pub fn get_process_metrics() -> Result<ProcessMetrics, String> {
 pub fn compact_process_memory() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        use windows::Win32::{
-            System::{ProcessStatus::EmptyWorkingSet, Threading::GetCurrentProcess},
+        use windows::Win32::System::{
+            ProcessStatus::EmptyWorkingSet, Threading::GetCurrentProcess,
         };
 
         unsafe {
@@ -119,6 +119,7 @@ pub fn compact_process_memory() -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 fn schedule_windows_administrator_relaunch() -> Result<(), String> {
+    use std::ffi::OsString;
     use windows::{
         Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_HIDE},
         core::PCWSTR,
@@ -133,21 +134,17 @@ fn schedule_windows_administrator_relaunch() -> Result<(), String> {
         .parent()
         .ok_or_else(|| "current executable has no parent directory".to_string())?;
     let parameters = [
-        quote_windows_argument(ADMIN_RELAUNCH_HELPER_ARG),
-        quote_windows_argument(&current_process_id.to_string()),
-        quote_windows_argument("--"),
+        OsString::from(ADMIN_RELAUNCH_HELPER_ARG),
+        OsString::from(current_process_id.to_string()),
+        OsString::from("--"),
     ]
     .into_iter()
-    .chain(
-        std::env::args_os()
-            .skip(1)
-            .map(|argument| quote_windows_argument(&argument.to_string_lossy())),
-    )
-    .collect::<Vec<_>>()
-    .join(" ");
+    .chain(std::env::args_os().skip(1))
+    .map(|argument| quote_windows_argument(&argument))
+    .collect::<Vec<_>>();
     let operation = to_wide_str("runas");
     let file = to_wide_os_str(exe_path.as_os_str());
-    let parameters = to_wide_str(&parameters);
+    let parameters = join_windows_arguments(&parameters);
     let directory = to_wide_os_str(working_directory.as_os_str());
     let result = unsafe {
         ShellExecuteW(
@@ -169,45 +166,68 @@ fn schedule_windows_administrator_relaunch() -> Result<(), String> {
         return Err("administrator relaunch was cancelled".to_string());
     }
 
-    Err(format!("ShellExecuteW runas failed with code {result_code}"))
+    Err(format!(
+        "ShellExecuteW runas failed with code {result_code}"
+    ))
 }
 
 #[cfg(target_os = "windows")]
-fn quote_windows_argument(argument: &str) -> String {
+fn quote_windows_argument(argument: &std::ffi::OsStr) -> std::ffi::OsString {
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+
+    let argument = argument.encode_wide().collect::<Vec<_>>();
+
     if argument.is_empty() {
-        return "\"\"".to_string();
+        return std::ffi::OsString::from("\"\"");
     }
 
     let needs_quotes = argument
-        .chars()
-        .any(|character| character.is_whitespace() || character == '"');
+        .iter()
+        .any(|character| matches!(character, 9..=13 | 32 | 34));
 
     if !needs_quotes {
-        return argument.to_string();
+        return std::ffi::OsString::from_wide(&argument);
     }
 
-    let mut quoted = String::from("\"");
+    let mut quoted = vec![u16::from(b'"')];
     let mut backslashes = 0;
 
-    for character in argument.chars() {
+    for character in argument {
         match character {
-            '\\' => backslashes += 1,
-            '"' => {
-                quoted.push_str(&"\\".repeat(backslashes * 2 + 1));
-                quoted.push('"');
+            value if value == u16::from(b'\\') => backslashes += 1,
+            value if value == u16::from(b'"') => {
+                quoted.extend(std::iter::repeat_n(u16::from(b'\\'), backslashes * 2 + 1));
+                quoted.push(value);
                 backslashes = 0;
             }
             _ => {
-                quoted.push_str(&"\\".repeat(backslashes));
+                quoted.extend(std::iter::repeat_n(u16::from(b'\\'), backslashes));
                 backslashes = 0;
                 quoted.push(character);
             }
         }
     }
 
-    quoted.push_str(&"\\".repeat(backslashes * 2));
-    quoted.push('"');
-    quoted
+    quoted.extend(std::iter::repeat_n(u16::from(b'\\'), backslashes * 2));
+    quoted.push(u16::from(b'"'));
+    std::ffi::OsString::from_wide(&quoted)
+}
+
+#[cfg(target_os = "windows")]
+fn join_windows_arguments(arguments: &[std::ffi::OsString]) -> Vec<u16> {
+    use std::os::windows::ffi::OsStrExt;
+
+    let mut joined = Vec::new();
+
+    for (index, argument) in arguments.iter().enumerate() {
+        if index > 0 {
+            joined.push(u16::from(b' '));
+        }
+        joined.extend(argument.encode_wide());
+    }
+
+    joined.push(0);
+    joined
 }
 
 #[cfg(target_os = "windows")]
@@ -286,7 +306,10 @@ fn windows_process_metrics() -> Result<ProcessMetrics, String> {
         memory_bytes: memory_counters.WorkingSetSize as u64,
         virtual_memory_bytes: memory_counters.PagefileUsage as u64,
         thread_count: current_process_thread_count().map_err(|_| unsafe {
-            format!("GetCurrentProcess thread snapshot failed: {:?}", GetLastError())
+            format!(
+                "GetCurrentProcess thread snapshot failed: {:?}",
+                GetLastError()
+            )
         })?,
         uptime_seconds,
     })
@@ -341,12 +364,53 @@ fn filetime_to_u64(filetime: windows::Win32::Foundation::FILETIME) -> u64 {
     (u64::from(filetime.dwHighDateTime) << 32) | u64::from(filetime.dwLowDateTime)
 }
 
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::{join_windows_arguments, quote_windows_argument};
+    use std::{
+        ffi::{OsStr, OsString},
+        os::windows::ffi::{OsStrExt, OsStringExt},
+    };
+
+    #[test]
+    fn quotes_unicode_paths_and_shell_metacharacters_as_native_windows_text() {
+        let path = OsStr::new("C:\\中文 目录#100%\\模型🐾\\");
+
+        assert_eq!(
+            quote_windows_argument(path),
+            OsString::from("\"C:\\中文 目录#100%\\模型🐾\\\\\"")
+        );
+    }
+
+    #[test]
+    fn quotes_embedded_double_quotes_and_backslashes() {
+        assert_eq!(
+            quote_windows_argument(OsStr::new("模型 \\\"测试\"")),
+            OsString::from("\"模型 \\\\\\\"测试\\\"\"")
+        );
+    }
+
+    #[test]
+    fn preserves_unpaired_utf16_units_without_lossy_conversion() {
+        let argument = OsString::from_wide(&[u16::from(b'a'), 0xd800, u16::from(b'b')]);
+        let quoted = quote_windows_argument(&argument);
+
+        assert_eq!(
+            quoted.encode_wide().collect::<Vec<_>>(),
+            vec![u16::from(b'a'), 0xd800, u16::from(b'b')]
+        );
+        assert_eq!(
+            join_windows_arguments(&[quoted]),
+            vec![u16::from(b'a'), 0xd800, u16::from(b'b'), 0]
+        );
+    }
+}
+
 #[cfg(target_os = "windows")]
 fn current_process_thread_count() -> Result<u32, windows::core::Error> {
     use windows::Win32::{
         System::Diagnostics::ToolHelp::{
-            CreateToolhelp32Snapshot, TH32CS_SNAPTHREAD, THREADENTRY32, Thread32First,
-            Thread32Next,
+            CreateToolhelp32Snapshot, TH32CS_SNAPTHREAD, THREADENTRY32, Thread32First, Thread32Next,
         },
         System::Threading::GetCurrentProcessId,
     };

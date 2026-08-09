@@ -40,7 +40,7 @@ tauri-plugin-self-protect = { path = "src/plugins/self-protect" }
 tauri-plugin-os = "2"
 tauri-plugin-process = "2"
 tauri-plugin-opener = "2"
-tauri-plugin-pinia = "3"
+tauri-plugin-pinia = { version = "3", features = ["unstable-migration"] }
 tauri-plugin-log = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-prevent-default = "1"
