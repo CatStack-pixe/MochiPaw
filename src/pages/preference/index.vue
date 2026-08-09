@@ -22,6 +22,7 @@ import General from './components/general/index.vue'
 import Model from './components/model/index.vue'
 import Shortcut from './components/shortcut/index.vue'
 import SubModel from './components/sub-model/index.vue'
+import TypingStats from './components/typing-stats/index.vue'
 
 useTray()
 const appStore = useAppStore()
@@ -47,6 +48,12 @@ const menus = computed(() => [
     label: t('pages.preference.general.title'),
     icon: 'i-solar:settings-minimalistic-bold',
     component: General,
+  },
+  {
+    key: 'typing-stats',
+    label: t('pages.preference.typingStats.title'),
+    icon: 'i-solar:chart-2-bold',
+    component: TypingStats,
   },
   {
     key: 'model',
@@ -115,7 +122,7 @@ const menus = computed(() => [
             :class="item.icon"
           />
 
-          <span>{{ item.label }}</span>
+          <span class="break-words text-center leading-tight">{{ item.label }}</span>
         </div>
       </div>
     </div>

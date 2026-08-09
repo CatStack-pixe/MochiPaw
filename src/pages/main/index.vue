@@ -17,7 +17,9 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRaw, watch } from 'v
 import { useRoute } from 'vue-router'
 
 import type { Model, ModelMotionInfo, ModelSwitchAcknowledgement, ModelSwitchRequest, SubModelInstance } from '@/stores/model'
-import type { SubModelInputFrame } from '@/utils/subModelRuntime'
+import type { DeviceInputEvent, SubModelInputFrame } from '@/utils/subModelRuntime'
+import type { TypingStatsState } from '@/utils/typingStatsPersistence'
+import type { TypingStatsOperationAcknowledgement, TypingStatsOperationRequest } from '@/utils/typingStatsRequest'
 
 import { useAppMenu } from '@/composables/useAppMenu'
 import { useDevice } from '@/composables/useDevice'
@@ -29,6 +31,11 @@ import { hideWindow, setAlwaysOnTop, setTaskbarVisibility, showWindow } from '@/
 import { useCatStore } from '@/stores/cat'
 import { useGeneralStore } from '@/stores/general.ts'
 import { useModelStore } from '@/stores/model'
+import {
+  isCountableTypingEvent,
+  useTypingStatsStore,
+  waitForTypingStatsPersistenceHydration,
+} from '@/stores/typingStats'
 import { logDebug, logError, logInfo, logStep, logTrace, logWarn } from '@/utils/diagnostics'
 import { isImage } from '@/utils/is'
 import live2d from '@/utils/live2d'
@@ -39,6 +46,8 @@ import { isWindows } from '@/utils/platform'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { clearObject } from '@/utils/shared'
 import { SubModelInputCoordinator } from '@/utils/subModelRuntime'
+import { TypingStatsOperationCoordinator } from '@/utils/typingStatsCoordinator'
+import { executeTypingStatsMutationTransaction, requestTypingStatsStoreSave } from '@/utils/typingStatsPersistence'
 
 const appWindow = getCurrentWebviewWindow()
 const route = useRoute()
@@ -47,6 +56,8 @@ const isSubModel = Boolean(subModelId)
 const modelStore = useModelStore()
 const catStore = useCatStore()
 const generalStore = useGeneralStore()
+const typingStatsStore = useTypingStatsStore()
+const typingStatsCoordinator = new TypingStatsOperationCoordinator<TimestampedTypingInput>()
 const inputCoordinator = isSubModel
   ? undefined
   : new SubModelInputCoordinator(() => modelStore.subModels.filter(instance => instance.visible))
@@ -103,7 +114,10 @@ const { startListening, handleInputEvent: handleDeviceInputEvent } = useDevice({
   listeners: listenerSettings,
   enableWindowHover: !isSubModel,
   listen: !isSubModel,
-  onInputEvent: event => inputCoordinator?.enqueueDevice(event),
+  onInputEvent: (event) => {
+    recordTypingStatsInput(event)
+    inputCoordinator?.enqueueDevice(event)
+  },
 })
 const { getBaseMenu, getExitMenu } = useAppMenu({
   windowSettings,
@@ -142,6 +156,21 @@ const modelLoadTrigger = ref(0)
 
 const SCALE_DRAG_SENSITIVITY = 0.12
 const SHORTCUT_RESIZE_INTERVAL = 33
+
+interface TimestampedTypingInput {
+  event: DeviceInputEvent
+  now: Date
+}
+
+function applyTypingInput(input: TimestampedTypingInput) {
+  typingStatsStore.recordInput(input.event, input.now)
+}
+
+function recordTypingStatsInput(event: DeviceInputEvent) {
+  if (!isCountableTypingEvent(event)) return
+
+  typingStatsCoordinator.record({ event, now: new Date() }, applyTypingInput)
+}
 
 function reportCurrentSubModelWindowChange() {
   const instance = subModel.value
@@ -291,10 +320,104 @@ useTauriListen<ModelSwitchRequest>(LISTEN_KEY.MODEL_SWITCH_REQUESTED, async ({ p
   }
 })
 
-onMounted(() => {
-  if (!isSubModel) startListening()
+function getTypingStatsState(): TypingStatsState {
+  return {
+    dailyCounts: { ...typingStatsStore.dailyCounts },
+    enabled: typingStatsStore.enabled,
+  }
+}
 
-  if (!isSubModel) return
+function applyTypingStatsState(state: TypingStatsState) {
+  typingStatsStore.dailyCounts = { ...state.dailyCounts }
+  typingStatsStore.enabled = state.enabled
+}
+
+function acknowledgeTypingStatsOperation(acknowledgement: TypingStatsOperationAcknowledgement) {
+  void emit(LISTEN_KEY.TYPING_STATS_OPERATION_APPLIED, acknowledgement)
+    .catch(error => logError('[typing-stats] failed to send acknowledgement', {
+      ...acknowledgement,
+      error,
+    }))
+}
+
+async function applyTypingStatsOperation(request: TypingStatsOperationRequest) {
+  await waitForTypingStatsPersistenceHydration()
+
+  const { operation } = request
+  let result: Pick<TypingStatsOperationAcknowledgement, 'accepted' | 'reason'>
+
+  if (operation.kind === 'resume') {
+    try {
+      const replayedInputCount = typingStatsCoordinator.resumeInputs(operation.pauseId, applyTypingInput)
+
+      if (replayedInputCount > 0) {
+        await requestTypingStatsStoreSave(getTypingStatsState())
+      }
+      result = { accepted: true }
+    } catch (error) {
+      result = {
+        accepted: false,
+        reason: error instanceof Error ? error.message : String(error),
+      }
+    }
+  } else if (operation.kind === 'flush') {
+    typingStatsCoordinator.pauseInputs(operation.pauseId)
+
+    try {
+      await requestTypingStatsStoreSave(getTypingStatsState())
+      result = { accepted: true }
+    } catch (error) {
+      typingStatsCoordinator.resumeInputs(operation.pauseId, applyTypingInput)
+      result = {
+        accepted: false,
+        reason: error instanceof Error ? error.message : String(error),
+      }
+    }
+  } else {
+    result = await executeTypingStatsMutationTransaction({
+      snapshot: getTypingStatsState,
+      apply: () => {
+        if (operation.kind === 'set-enabled') {
+          typingStatsStore.enabled = operation.enabled
+        } else {
+          typingStatsStore.clearHistory()
+        }
+      },
+      persist: () => requestTypingStatsStoreSave(getTypingStatsState()),
+      restore: async (snapshot) => {
+        applyTypingStatsState(snapshot)
+        await requestTypingStatsStoreSave(snapshot)
+      },
+    })
+  }
+
+  acknowledgeTypingStatsOperation({
+    requestId: request.requestId,
+    state: getTypingStatsState(),
+    ...result,
+  })
+}
+
+useTauriListen<TypingStatsOperationRequest>(LISTEN_KEY.TYPING_STATS_OPERATION_REQUESTED, ({ payload }) => {
+  if (isSubModel) return
+
+  void typingStatsCoordinator.run(() => applyTypingStatsOperation(payload))
+    .catch((error) => {
+      acknowledgeTypingStatsOperation({
+        accepted: false,
+        reason: error instanceof Error ? error.message : String(error),
+        requestId: payload.requestId,
+        state: getTypingStatsState(),
+      })
+    })
+})
+
+onMounted(async () => {
+  if (!isSubModel) {
+    await waitForTypingStatsPersistenceHydration()
+    startListening()
+    return
+  }
 
   appWindow.onMoved(({ payload }) => {
     const instance = subModel.value

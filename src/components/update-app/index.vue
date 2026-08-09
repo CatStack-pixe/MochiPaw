@@ -19,7 +19,7 @@ import { useTauriListen } from '@/composables/useTauriListen'
 import { GITHUB_LINK, LISTEN_KEY, UPGRADE_LINK_ACCESS_KEY } from '@/constants'
 import { showWindow } from '@/plugins/window'
 import { useGeneralStore } from '@/stores/general'
-import { saveAllPersistentStoresNow } from '@/utils/persistence'
+import { runAfterSavingPersistentStores } from '@/utils/persistence'
 
 dayjs.extend(utc)
 
@@ -130,8 +130,7 @@ async function handleOk() {
       }
     })
 
-    await saveAllPersistentStoresNow()
-    await relaunch()
+    await runAfterSavingPersistentStores(relaunch)
   } catch (error) {
     message.error(String(error))
   } finally {

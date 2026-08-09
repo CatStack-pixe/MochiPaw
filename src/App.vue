@@ -28,6 +28,11 @@ import { useCatStore } from './stores/cat'
 import { useGeneralStore } from './stores/general'
 import { useModelStore } from './stores/model'
 import { useShortcutStore } from './stores/shortcut.ts'
+import {
+  markTypingStatsPersistenceHydrated,
+  setTypingStatsPersistenceWritable,
+  useTypingStatsStore,
+} from './stores/typingStats'
 import { logError, logInfo, logStartupDiagnostics, logStep } from './utils/diagnostics'
 import { requestModelStoreSave } from './utils/modelPersistence'
 import { setCoreStoresPersistenceWritable } from './utils/persistence'
@@ -40,6 +45,7 @@ const modelStore = useModelStore()
 const catStore = useCatStore()
 const generalStore = useGeneralStore()
 const shortcutStore = useShortcutStore()
+const typingStatsStore = useTypingStatsStore()
 const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
 setCoreStoresPersistenceWritable(!isSubModelWindow)
@@ -189,6 +195,10 @@ onMounted(async () => {
   await generalStore.init()
   logStep('app-init', 'start shortcut persistence', { windowLabel: appWindow.label })
   await shortcutStore.$tauri.start()
+  logStep('app-init', 'start typing stats persistence', { windowLabel: appWindow.label })
+  setTypingStatsPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
+  await typingStatsStore.$tauri.start()
+  markTypingStatsPersistenceHydrated()
   await restoreState()
   logStep('app-init', 'application state restored', { windowLabel: appWindow.label })
 

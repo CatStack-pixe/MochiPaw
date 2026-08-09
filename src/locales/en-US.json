@@ -96,6 +96,35 @@
           "exitApp": "Exit App"
         }
       },
+      "typingStats": {
+        "title": "Typing Stats",
+        "labels": {
+          "overview": "Overview",
+          "today": "Key Presses Today",
+          "presses": "presses",
+          "last30Days": "Last 30 Days",
+          "trend": "Daily Activity",
+          "settings": "Settings",
+          "enabled": "Enable Typing Stats",
+          "history": "Stored History"
+        },
+        "status": {
+          "active": "Tracking",
+          "paused": "Paused"
+        },
+        "hints": {
+          "trendLabel": "Key press totals for the last 30 days",
+          "dayCount": "{date}: {count} presses",
+          "privacy": "Only the daily key press total is counted. Key names, typed content, and application sources are never saved.",
+          "clearHistory": "Permanently delete all saved daily totals.",
+          "clearConfirmation": "All typing statistics will be permanently deleted. This cannot be undone.",
+          "saveFailed": "Could not save the typing statistics change. Please try again."
+        },
+        "buttons": {
+          "clearHistory": "Clear All Statistics",
+          "confirmClear": "Clear Statistics"
+        }
+      },
       "model": {
         "title": "Model",
         "labels": {

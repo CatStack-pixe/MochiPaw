@@ -15,7 +15,7 @@ import type { CatStore } from '@/stores/cat'
 import { WINDOW_LABEL } from '@/constants'
 import { showWindow } from '@/plugins/window'
 import { useCatStore } from '@/stores/cat'
-import { saveAllPersistentStoresNow } from '@/utils/persistence'
+import { runAfterSavingPersistentStores } from '@/utils/persistence'
 import { isMac } from '@/utils/platform'
 
 type AppMenuWindowSettings = Pick<CatStore['window'], 'passThrough' | 'scale' | 'opacity'>
@@ -129,12 +129,10 @@ export function useAppMenu(options: AppMenuOptions = {}) {
 
   const getExitMenu = async () => {
     const restartApp = async () => {
-      await saveAllPersistentStoresNow()
-      await relaunch()
+      await runAfterSavingPersistentStores(relaunch)
     }
     const quitApp = async () => {
-      await saveAllPersistentStoresNow()
-      await exit(0)
+      await runAfterSavingPersistentStores(() => exit(0))
     }
 
     return await Promise.all([
