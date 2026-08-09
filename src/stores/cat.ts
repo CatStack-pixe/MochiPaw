@@ -5,6 +5,8 @@
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
+import { persistStateWhenWritable } from '@/utils/persistence'
+
 export interface CatStore {
   model: {
     mirror: boolean
@@ -101,4 +103,10 @@ export const useCatStore = defineStore('cat', () => {
     window,
     init,
   }
+}, {
+  tauri: {
+    hooks: {
+      beforeBackendSync: persistStateWhenWritable,
+    },
+  },
 })

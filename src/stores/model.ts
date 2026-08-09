@@ -3,18 +3,26 @@
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
 import { appDataDir, resolveResource } from '@tauri-apps/api/path'
-import { readDir, readTextFile } from '@tauri-apps/plugin-fs'
+import { exists, mkdir, readDir, readFile, readTextFile } from '@tauri-apps/plugin-fs'
 import { filter, find } from 'es-toolkit/compat'
 import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 
 import type { ExpressionInfo, MotionInfo } from '@/vendor/easy-live2d'
 
 import { logInfo, logStep, logTrace } from '@/utils/diagnostics'
+import { collectCubismResourceReferences, createCubismFingerprint } from '@/utils/modelFingerprint'
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
+import {
+  MODEL_STORE_SCHEMA_VERSION,
+  prepareModelStoreStateForBackend,
+  prepareModelStoreStateForFrontend,
+  resolvePersistedModelSelection,
+} from '@/utils/modelStorePersistence'
 import { join } from '@/utils/path'
+import { isCoreStoresPersistenceWritable } from '@/utils/persistence'
 
 export type ModelMode = 'standard' | 'keyboard' | 'gamepad'
 export type ModelImportKind = 'standard' | 'controlled'
@@ -86,6 +94,7 @@ export interface ModelSwitchRequest {
 export interface ModelSwitchAcknowledgement {
   requestId: string
   modelId: string
+  /** True only after the main window has loaded and persisted the model selection. */
   accepted: boolean
   reason?: string
 }
@@ -171,6 +180,8 @@ interface StoredCubismModelJSON {
   DisplayName?: string
 }
 
+let modelCatalogPersistenceWritable = true
+
 const PRESET_MODELS: PresetModel[] = [
   {
     id: 'preset-gamepad',
@@ -190,9 +201,14 @@ const PRESET_MODELS: PresetModel[] = [
 ]
 
 export const useModelStore = defineStore('model', () => {
+  const schemaVersion = ref(MODEL_STORE_SCHEMA_VERSION)
   const modelReady = ref(true)
   const models = ref<Model[]>([])
   const currentModel = ref<Model>()
+  const currentModelId = ref<string>()
+  const currentModelFingerprint = ref<string | null>()
+  const selectionMigrationPending = ref(false)
+  const customModelScanSucceeded = ref(true)
   const supportKeys = reactive<Record<string, ModelSupportKeyLayer[]>>({})
   const pressedKeys = reactive<Record<string, ModelSupportKeyLayer[]>>({})
   const activeKeys = reactive<Record<string, boolean>>({})
@@ -209,16 +225,25 @@ export const useModelStore = defineStore('model', () => {
     const persistedCustomModels = filter(models.value, { isPreset: false })
     const presetModels = filter(models.value, { isPreset: true })
     const customModelsPath = join(await appDataDir(), 'custom-models')
-    const discoveredCustomModels = await discoverStoredCustomModels(customModelsPath)
+    const discovery = await discoverStoredCustomModels(customModelsPath)
+    const discoveredCustomModels = discovery.models
+    modelCatalogPersistenceWritable = discovery.succeeded
+    customModelScanSucceeded.value = discovery.succeeded
     const nextModels = mergeModelCatalog(persistedCustomModels, discoveredCustomModels)
     const persistedModelIds = new Set(persistedCustomModels.map(model => model.id))
     const recoveredModelCount = discoveredCustomModels.filter(model => !persistedModelIds.has(model.id)).length
+    const catalogChanged = discovery.succeeded && (persistedCustomModels.length !== nextModels.length
+      || nextModels.some((model) => {
+        const persisted = persistedCustomModels.find(candidate => candidate.id === model.id)
+        return !persisted || persisted.path !== model.path
+      }))
 
     logStep('model-persistence', 'model catalog discovered', {
       customModelsPath,
       persistedCustomModelCount: persistedCustomModels.length,
       discoveredCustomModelCount: discoveredCustomModels.length,
       recoveredModelCount,
+      customModelScanSucceeded: discovery.succeeded,
     })
 
     await Promise.all(nextModels.map(fillModelMetadata))
@@ -240,25 +265,60 @@ export const useModelStore = defineStore('model', () => {
       })
     }
 
-    const matched = find(nextModels, { id: currentModel.value?.id })
-
-    currentModel.value = matched ?? nextModels[0]
-
     models.value = nextModels
+
+    const legacyCurrentModel = currentModel.value
+    const selectionFingerprint = currentModelFingerprint.value ?? legacyCurrentModel?.fingerprint
+    const fingerprintMigrationPending = selectionMigrationPending.value
+      || (!currentModelId.value && Boolean(legacyCurrentModel))
+
+    if (
+      (fingerprintMigrationPending || !currentModelId.value)
+      && selectionFingerprint
+      && !nextModels.some(model => model.id === currentModelId.value)
+    ) {
+      await fillMissingModelFingerprints(nextModels)
+    }
+
+    const selection = resolvePersistedModelSelection(nextModels, currentModelId.value, {
+      id: legacyCurrentModel?.id ?? currentModelId.value ?? '',
+      fingerprint: selectionFingerprint,
+    }, fingerprintMigrationPending || !currentModelId.value)
+
+    currentModel.value = selection.model
+    currentModelId.value = selection.currentModelId
+    currentModelFingerprint.value = selection.currentModelFingerprint ?? null
+    selectionMigrationPending.value = fingerprintMigrationPending && selection.usedRuntimeFallback
 
     logInfo('[model-persistence] model catalog initialized', {
       modelCount: nextModels.length,
       customModelCount: nextModels.filter(model => !model.isPreset).length,
       recoveredModelCount,
       currentModelId: currentModel.value?.id,
+      persistedCurrentModelId: currentModelId.value,
+      selectionMigrated: selection.selectionMigrated,
+      usedRuntimeFallback: selection.usedRuntimeFallback,
+      persistenceChanged: catalogChanged || selection.selectionMigrated,
+      customModelScanSucceeded: discovery.succeeded,
     })
 
     return {
       modelCount: nextModels.length,
       customModelCount: nextModels.filter(model => !model.isPreset).length,
       recoveredModelCount,
+      selectionMigrated: selection.selectionMigrated,
+      usedRuntimeFallback: selection.usedRuntimeFallback,
+      persistenceChanged: catalogChanged || selection.selectionMigrated,
+      customModelScanSucceeded: discovery.succeeded,
     }
   }
+
+  watch(currentModelId, (modelId) => {
+    if (!modelId) return
+
+    const resolved = models.value.find(model => model.id === modelId)
+    if (resolved) currentModel.value = resolved
+  })
 
   const createSubModel = (modelId: string) => {
     const instance: SubModelInstance = {
@@ -309,9 +369,14 @@ export const useModelStore = defineStore('model', () => {
   }
 
   return {
+    schemaVersion,
     modelReady,
     models,
     currentModel,
+    currentModelId,
+    currentModelFingerprint,
+    selectionMigrationPending,
+    customModelScanSucceeded,
     supportKeys,
     pressedKeys,
     activeKeys,
@@ -329,45 +394,62 @@ export const useModelStore = defineStore('model', () => {
   }
 }, {
   tauri: {
-    filterKeys: ['supportKeys', 'pressedKeys', 'activeKeys'],
+    hooks: {
+      beforeBackendSync: state => prepareModelStoreStateForBackend(
+        state,
+        isCoreStoresPersistenceWritable(),
+        modelCatalogPersistenceWritable,
+      ),
+      beforeFrontendSync: prepareModelStoreStateForFrontend,
+    },
     saveInterval: 500,
     saveStrategy: 'debounce',
   },
 })
 
 export function mergeModelCatalog(persistedModels: Model[], discoveredModels: Model[]) {
-  const discoveredById = new Map(discoveredModels.map(model => [model.id, model]))
-  const mergedModels = persistedModels.map((model) => {
-    const discoveredModel = discoveredById.get(model.id)
+  const persistedById = new Map(persistedModels.map(model => [model.id, model]))
 
-    if (!discoveredModel) return model
+  return discoveredModels.map((discoveredModel) => {
+    const model = persistedById.get(discoveredModel.id)
+
+    if (!model) return discoveredModel
 
     return {
       ...discoveredModel,
       ...model,
+      id: discoveredModel.id,
       path: discoveredModel.path,
     }
   })
-  const persistedIds = new Set(persistedModels.map(model => model.id))
-
-  return [
-    ...mergedModels,
-    ...discoveredModels.filter(model => !persistedIds.has(model.id)),
-  ]
 }
 
 async function discoverStoredCustomModels(customModelsPath: string) {
-  const entries = await readDir(customModelsPath).catch((error) => {
+  let entries
+
+  try {
+    await mkdir(customModelsPath, { recursive: true })
+    entries = await readDir(customModelsPath)
+  } catch (error) {
     logTrace('[model-persistence] custom model directory unavailable', { customModelsPath, error })
-    return []
-  })
+    return { models: [], succeeded: false }
+  }
   const discoveredModels: Model[] = []
+  let succeeded = true
 
   for (const entry of entries) {
     if (!entry.isDirectory || !entry.name) continue
 
     const modelPath = join(customModelsPath, entry.name)
-    const modelFile = await findStoredModelFile(modelPath)
+    const inspection = await inspectStoredModelDirectory(modelPath)
+
+    if (!inspection.succeeded) {
+      succeeded = false
+      logTrace('[model-persistence] custom model directory could not be inspected', { modelPath })
+      continue
+    }
+
+    const { modelFile } = inspection
 
     if (!modelFile) {
       logTrace('[model-persistence] skipped custom model directory without model JSON', { modelPath })
@@ -395,9 +477,10 @@ async function discoverStoredCustomModels(customModelsPath: string) {
   logInfo('[model-persistence] custom model directory scan completed', {
     customModelsPath,
     discoveredModelCount: discoveredModels.length,
+    succeeded,
   })
 
-  return discoveredModels
+  return { models: discoveredModels, succeeded }
 }
 
 async function fillModelMetadata(model: Model) {
@@ -441,10 +524,28 @@ async function readStoredCubismModelName(modelFile: string) {
 }
 
 async function findStoredModelFile(modelPath: string) {
-  const files = await readDir(modelPath).catch(() => [])
-  const modelFile = files.find(file => file.isFile && file.name.endsWith('.model3.json'))
+  return (await inspectStoredModelDirectory(modelPath)).modelFile
+}
 
-  return modelFile ? join(modelPath, modelFile.name) : undefined
+type StoredModelDirectoryReader = (
+  modelPath: string,
+) => Promise<Array<{ isFile: boolean, name: string }>>
+
+export async function inspectStoredModelDirectory(
+  modelPath: string,
+  reader: StoredModelDirectoryReader = readDir,
+) {
+  try {
+    const files = await reader(modelPath)
+    const modelFile = files.find(file => file.isFile && file.name.endsWith('.model3.json'))
+
+    return {
+      modelFile: modelFile ? join(modelPath, modelFile.name) : undefined,
+      succeeded: true,
+    }
+  } catch {
+    return { modelFile: undefined, succeeded: false }
+  }
 }
 
 async function inferStoredModelMode(modelPath: string): Promise<ModelMode> {
@@ -457,6 +558,28 @@ async function inferStoredModelMode(modelPath: string): Promise<ModelMode> {
 
   const fileNames = files.map(file => file.name.split('.')[0])
   return fileNames.includes('East') ? 'gamepad' : 'keyboard'
+}
+
+async function fillMissingModelFingerprints(models: Model[]) {
+  for (const model of models) {
+    if (model.fingerprint || model.isPreset) continue
+
+    model.fingerprint = await getStoredModelFingerprint(model).catch(() => undefined)
+  }
+}
+
+async function getStoredModelFingerprint(model: Model) {
+  const modelFile = await findStoredModelFile(model.path)
+  if (!modelFile) return undefined
+
+  const modelJSON = JSON5.parse(await readTextFile(modelFile))
+  const resources = collectCubismResourceReferences(modelFile, modelJSON)
+
+  return await createCubismFingerprint(model.mode, resources, async (path) => {
+    if (!await exists(path)) return undefined
+
+    return await readFile(path)
+  })
 }
 
 function normalizeDisplayName(value: unknown) {

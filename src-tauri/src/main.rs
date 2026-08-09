@@ -25,7 +25,8 @@ fn run_admin_relaunch_helper() -> bool {
 
     let parent_process_id = args
         .next()
-        .and_then(|value| value.to_string_lossy().parse::<u32>().ok())
+        .and_then(|value| value.into_string().ok())
+        .and_then(|value| value.parse::<u32>().ok())
         .unwrap_or(0);
 
     if args.next().as_deref() != Some(std::ffi::OsStr::new("--")) {

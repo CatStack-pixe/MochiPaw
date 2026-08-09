@@ -20,7 +20,7 @@ import type { DeviceInputEvent, SubModelInputFrame } from './utils/subModelRunti
 
 import { useTauriListen } from './composables/useTauriListen'
 import { useWindowState } from './composables/useWindowState'
-import { LANGUAGE, LISTEN_KEY } from './constants'
+import { LANGUAGE, LISTEN_KEY, WINDOW_LABEL } from './constants'
 import { getAntdLocale } from './locales/index.ts'
 import { hideWindow, setWebviewMemoryTarget, showWindow } from './plugins/window'
 import { useAppStore } from './stores/app'
@@ -30,6 +30,7 @@ import { useModelStore } from './stores/model'
 import { useShortcutStore } from './stores/shortcut.ts'
 import { logError, logInfo, logStartupDiagnostics, logStep } from './utils/diagnostics'
 import { requestModelStoreSave } from './utils/modelPersistence'
+import { setCoreStoresPersistenceWritable } from './utils/persistence'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
 import { openSubModelWindow } from './utils/subModelWindow'
 import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
@@ -41,26 +42,29 @@ const generalStore = useGeneralStore()
 const shortcutStore = useShortcutStore()
 const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
+setCoreStoresPersistenceWritable(!isSubModelWindow)
 const idleMemory = new WebviewIdleMemoryController({ setTarget: setWebviewMemoryTarget })
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
 const { locale } = useI18n()
 
-async function queueRecoveredModelCatalogPersistence(result: Awaited<ReturnType<typeof modelStore.init>>) {
-  logStep('model-persistence', 'queue recovered model catalog persistence', {
+async function persistInitializedModelState(result: Awaited<ReturnType<typeof modelStore.init>>) {
+  logStep('model-persistence', 'persist initialized model state', {
     windowLabel: appWindow.label,
     ...result,
   })
 
   try {
     await nextTick()
-    await requestModelStoreSave()
-    logInfo('[model-persistence] recovered model catalog save queued', {
+    await requestModelStoreSave(modelStore.$state, {
+      persistModelCatalog: result.customModelScanSucceeded,
+    })
+    logInfo('[model-persistence] initialized model state saved', {
       windowLabel: appWindow.label,
       ...result,
     })
   } catch (error) {
-    logError('[model-persistence] failed to persist recovered model catalog', {
+    logError('[model-persistence] failed to persist initialized model state', {
       windowLabel: appWindow.label,
       ...result,
       error,
@@ -74,8 +78,8 @@ async function initializeModelStore() {
   logStep('app-init', 'initialize model store', { windowLabel: appWindow.label })
   const result = await modelStore.init()
 
-  if (result.recoveredModelCount > 0) {
-    void queueRecoveredModelCatalogPersistence(result)
+  if (appWindow.label === WINDOW_LABEL.MAIN) {
+    void persistInitializedModelState(result)
   }
 
   return result

@@ -22,6 +22,66 @@ use tauri_plugin_custom_window::{
 };
 use utils::fs_extra::{copy_dir, extract_zip};
 
+const MODEL_STORE_SCHEMA_VERSION: u64 = 2;
+
+fn migrate_model_store_state(
+    state: &mut tauri_plugin_pinia::StoreState,
+) -> tauri_plugin_pinia::Result<()> {
+    let legacy_current_model = state.get("currentModel").cloned();
+    let mut selection_migration_pending = false;
+
+    if !state.has("currentModelId") {
+        if let Some(model_id) = legacy_current_model
+            .as_ref()
+            .and_then(|model| model.get("id"))
+            .and_then(serde_json::Value::as_str)
+        {
+            state.set("currentModelId", model_id);
+            selection_migration_pending = true;
+        }
+    }
+
+    if !state.has("currentModelFingerprint") {
+        if let Some(fingerprint) = legacy_current_model
+            .as_ref()
+            .and_then(|model| model.get("fingerprint"))
+            .and_then(serde_json::Value::as_str)
+        {
+            state.set("currentModelFingerprint", fingerprint);
+        }
+    }
+
+    if selection_migration_pending {
+        state.set("selectionMigrationPending", true);
+    }
+
+    if let Some(serde_json::Value::Array(models)) = state.get_mut("models") {
+        for model in models {
+            if let Some(model) = model.as_object_mut() {
+                model.remove("runtimeLease");
+            }
+        }
+    }
+
+    state.retain(|key, _| {
+        matches!(
+            key.as_str(),
+            "schemaVersion"
+                | "currentModelId"
+                | "currentModelFingerprint"
+                | "selectionMigrationPending"
+                | "models"
+                | "shortcuts"
+                | "behaviorNames"
+                | "behaviorGroups"
+                | "subModels"
+        )
+    });
+    state.set("schemaVersion", MODEL_STORE_SCHEMA_VERSION);
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
@@ -72,7 +132,14 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_pinia::init())
+        .plugin(
+            tauri_plugin_pinia::Builder::default()
+                .migration(
+                    "model",
+                    tauri_plugin_pinia::Migration::new("2.0.0", migrate_model_store_state),
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(prevent_default::init())
         .plugin(
@@ -118,4 +185,59 @@ pub fn run() {
             let _ = app_handle;
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MODEL_STORE_SCHEMA_VERSION, migrate_model_store_state};
+    use serde_json::json;
+    use tauri_plugin_pinia::StoreState;
+
+    #[test]
+    fn migrates_legacy_model_selection_and_removes_runtime_state() {
+        let mut state = StoreState::new();
+        state.set(
+            "currentModel",
+            json!({
+                "id": "中文-model",
+                "path": "C:\\用户 目录\\模型#100%",
+                "fingerprint": "v2:standard:abc"
+            }),
+        );
+        state.set(
+            "models",
+            json!([{ "id": "中文-model", "runtimeLease": { "expiresAt": 1 } }]),
+        );
+        state.set("modelReady", false);
+        state.set("currentMotions", json!([["Idle", []]]));
+
+        migrate_model_store_state(&mut state).unwrap();
+
+        assert_eq!(
+            state.get("schemaVersion"),
+            Some(&json!(MODEL_STORE_SCHEMA_VERSION))
+        );
+        assert_eq!(state.get("currentModelId"), Some(&json!("中文-model")));
+        assert_eq!(
+            state.get("currentModelFingerprint"),
+            Some(&json!("v2:standard:abc"))
+        );
+        assert_eq!(state.get("selectionMigrationPending"), Some(&json!(true)));
+        assert_eq!(state.get("models"), Some(&json!([{ "id": "中文-model" }])));
+        assert!(!state.has("currentModel"));
+        assert!(!state.has("modelReady"));
+        assert!(!state.has("currentMotions"));
+    }
+
+    #[test]
+    fn preserves_an_existing_stable_model_id() {
+        let mut state = StoreState::new();
+        state.set("currentModelId", "new-selection");
+        state.set("currentModel", json!({ "id": "legacy-selection" }));
+
+        migrate_model_store_state(&mut state).unwrap();
+
+        assert_eq!(state.get("currentModelId"), Some(&json!("new-selection")));
+        assert!(!state.has("currentModel"));
+    }
 }

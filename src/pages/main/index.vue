@@ -13,7 +13,7 @@ import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
 import { message } from 'antdv-next'
 import { round } from 'es-toolkit'
-import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import type { Model, ModelMotionInfo, ModelSwitchAcknowledgement, ModelSwitchRequest, SubModelInstance } from '@/stores/model'
@@ -32,6 +32,8 @@ import { useModelStore } from '@/stores/model'
 import { logDebug, logError, logInfo, logStep, logTrace, logWarn } from '@/utils/diagnostics'
 import { isImage } from '@/utils/is'
 import live2d from '@/utils/live2d'
+import { requestModelStoreSave } from '@/utils/modelPersistence'
+import { executeModelSwitchTransaction } from '@/utils/modelSwitch'
 import { join } from '@/utils/path'
 import { isWindows } from '@/utils/platform'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
@@ -134,6 +136,8 @@ let scalingWithShortcut = false
 let scaleSyncTimer: ReturnType<typeof setTimeout> | undefined
 let lastShortcutResizeAt = 0
 let currentModelLoadVersion = 0
+let explicitModelSwitchInProgress = false
+let modelSwitchRequestInProgress = false
 const modelLoadTrigger = ref(0)
 
 const SCALE_DRAG_SENSITIVITY = 0.12
@@ -174,33 +178,23 @@ function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
   )
 }
 
-function modelKey(model: Model | undefined) {
-  return model ? `${model.id}:${model.path}` : ''
-}
-
 function resolveModelSwitchTarget(request: ModelSwitchRequest) {
   const storedModel = modelStore.models.find(model => model.id === request.model.id)
 
   if (!storedModel) {
-    const fallbackModel: Model = { ...request.model }
-    logWarn('[model-switch] target missing from main model list; using event snapshot', {
-      requestId: request.requestId,
-      modelId: fallbackModel.id,
-      modelPath: fallbackModel.path,
-    })
-    return fallbackModel
+    throw new Error(`Model ${request.model.id} is not installed in the main window.`)
   }
 
-  if (storedModel.path === request.model.path) return storedModel
+  if (storedModel.path !== request.model.path) {
+    logWarn('[model-switch] ignored stale model path from event snapshot', {
+      requestId: request.requestId,
+      modelId: storedModel.id,
+      storedPath: storedModel.path,
+      requestedPath: request.model.path,
+    })
+  }
 
-  const mergedModel = { ...storedModel, ...request.model }
-  logWarn('[model-switch] main model path differed from event snapshot', {
-    requestId: request.requestId,
-    modelId: mergedModel.id,
-    storedPath: storedModel.path,
-    requestedPath: mergedModel.path,
-  })
-  return mergedModel
+  return storedModel
 }
 
 function acknowledgeModelSwitch(acknowledgement: ModelSwitchAcknowledgement) {
@@ -209,16 +203,7 @@ function acknowledgeModelSwitch(acknowledgement: ModelSwitchAcknowledgement) {
     .catch(error => logError('[model-switch] failed to send acknowledgement', { ...acknowledgement, error }))
 }
 
-function requestModelLoad(reason: string, context: Record<string, unknown> = {}) {
-  modelLoadTrigger.value += 1
-  logStep('model-load', 'explicit load requested', {
-    ...context,
-    reason,
-    loadTrigger: modelLoadTrigger.value,
-  })
-}
-
-useTauriListen<ModelSwitchRequest>(LISTEN_KEY.MODEL_SWITCH_REQUESTED, ({ payload }) => {
+useTauriListen<ModelSwitchRequest>(LISTEN_KEY.MODEL_SWITCH_REQUESTED, async ({ payload }) => {
   const context = {
     requestId: payload.requestId,
     modelId: payload.model.id,
@@ -228,29 +213,68 @@ useTauriListen<ModelSwitchRequest>(LISTEN_KEY.MODEL_SWITCH_REQUESTED, ({ payload
   }
   logInfo('[model-switch] main window received request', context)
 
+  if (modelSwitchRequestInProgress) {
+    acknowledgeModelSwitch({
+      requestId: payload.requestId,
+      modelId: payload.model.id,
+      accepted: false,
+      reason: 'Another model switch is already in progress.',
+    })
+    return
+  }
+
+  modelSwitchRequestInProgress = true
+
   try {
     const targetModel = resolveModelSwitchTarget(payload)
     const previousModel = modelStore.currentModel
+    const previousModelId = modelStore.currentModelId
+    const previousModelFingerprint = modelStore.currentModelFingerprint
+    const previousSelectionMigrationPending = modelStore.selectionMigrationPending
+    const canvas = live2dCanvas.value
 
-    modelStore.modelReady = false
-    logStep('model-switch', 'main window set modelReady=false', context)
+    if (!canvas) throw new Error('The main model canvas is not ready.')
 
-    if (modelKey(previousModel) !== modelKey(targetModel)) {
-      logStep('model-switch', 'main window applied requested model', {
-        ...context,
-        previousModelId: previousModel?.id,
-        previousModelPath: previousModel?.path,
-      })
-      modelStore.currentModel = targetModel
-    } else {
-      logStep('model-switch', 'main window model already matches request', context)
-      requestModelLoad('model-switch event matched current model', context)
-    }
+    explicitModelSwitchInProgress = true
+    modelStore.currentModel = targetModel
+    await nextTick()
+
+    const result = await executeModelSwitchTransaction({
+      loadTarget: async () => {
+        const loaded = await loadModel(targetModel, canvas, modelLoadTrigger.value)
+        if (!loaded) throw new Error('The model load was superseded before it completed.')
+      },
+      commitSelection: () => {
+        modelStore.currentModelId = targetModel.id
+        modelStore.currentModelFingerprint = targetModel.fingerprint ?? null
+        modelStore.selectionMigrationPending = false
+      },
+      persistSelection: () => requestModelStoreSave(modelStore.$state, {
+        persistModelCatalog: modelStore.customModelScanSucceeded,
+      }),
+      rollbackSelection: async (selectionCommitted) => {
+        modelStore.currentModel = previousModel
+        modelStore.currentModelId = previousModelId
+        modelStore.currentModelFingerprint = previousModelFingerprint
+        modelStore.selectionMigrationPending = previousSelectionMigrationPending
+
+        if (selectionCommitted) {
+          await requestModelStoreSave(modelStore.$state, {
+            persistModelCatalog: modelStore.customModelScanSucceeded,
+          })
+        }
+      },
+      restorePrevious: async () => {
+        if (!previousModel) return
+        await nextTick()
+        await loadModel(previousModel, canvas, modelLoadTrigger.value)
+      },
+    })
 
     acknowledgeModelSwitch({
       requestId: payload.requestId,
       modelId: targetModel.id,
-      accepted: true,
+      ...result,
     })
   } catch (error) {
     logError('[model-switch] main window failed to apply request', { ...context, error })
@@ -261,6 +285,9 @@ useTauriListen<ModelSwitchRequest>(LISTEN_KEY.MODEL_SWITCH_REQUESTED, ({ payload
       accepted: false,
       reason: String(error),
     })
+  } finally {
+    explicitModelSwitchInProgress = false
+    modelSwitchRequestInProgress = false
   }
 })
 
@@ -305,25 +332,7 @@ useEventListener('resize', () => {
   debouncedResize()
 })
 
-watch([() => {
-  const model = activeModel.value
-
-  return model ? `${model.id}:${model.path}` : ''
-}, live2dCanvas, modelLoadTrigger], async ([, canvas, loadTrigger]) => {
-  const model = activeModel.value
-
-  // An immediate watcher can run before the component's canvas is mounted.
-  // Watching the template ref retries the current model as soon as it exists.
-  if (!model || !canvas) {
-    logTrace('[model-load] watcher skipped because model or canvas is unavailable', {
-      windowLabel: appWindow.label,
-      hasModel: Boolean(model),
-      hasCanvas: Boolean(canvas),
-      loadTrigger,
-    })
-    return
-  }
-
+async function loadModel(model: Model, canvas: HTMLCanvasElement, loadTrigger: number) {
   const loadVersion = ++currentModelLoadVersion
   const modelContext = {
     windowLabel: appWindow.label,
@@ -352,7 +361,7 @@ watch([() => {
         ...modelContext,
         currentLoadVersion: currentModelLoadVersion,
       })
-      return
+      return false
     }
 
     logStep('model-load', 'initialize Live2D', modelContext)
@@ -364,7 +373,7 @@ watch([() => {
         ...modelContext,
         currentLoadVersion: currentModelLoadVersion,
       })
-      return
+      return false
     }
 
     logStep('model-load', 'report opened event', modelContext)
@@ -379,7 +388,7 @@ watch([() => {
         ...modelContext,
         currentLoadVersion: currentModelLoadVersion,
       })
-      return
+      return false
     }
 
     backgroundImagePath.value = existed ? convertFileSrc(path) : void 0
@@ -420,7 +429,7 @@ watch([() => {
             currentLoadVersion: currentModelLoadVersion,
             group: group.name,
           })
-          return
+          return false
         }
 
         const fileName = file.name.split('.')[0]
@@ -447,12 +456,13 @@ watch([() => {
         currentLoadVersion: currentModelLoadVersion,
         error,
       })
-      return
+      return false
     }
 
     console.warn('[mochi-paw] failed to load current model:', error)
     logError('[model-load] failed', { ...modelContext, error })
     message.error(String(error))
+    throw error
   } finally {
     if (loadVersion === currentModelLoadVersion) {
       modelStore.modelReady = true
@@ -463,6 +473,43 @@ watch([() => {
         currentLoadVersion: currentModelLoadVersion,
       })
     }
+  }
+
+  return true
+}
+
+watch([() => {
+  const model = activeModel.value
+
+  return model ? `${model.id}:${model.path}` : ''
+}, live2dCanvas, modelLoadTrigger], async ([, canvas, loadTrigger]) => {
+  const model = activeModel.value
+
+  if (explicitModelSwitchInProgress) {
+    logTrace('[model-load] watcher deferred to explicit model switch', {
+      windowLabel: appWindow.label,
+      modelId: model?.id,
+      loadTrigger,
+    })
+    return
+  }
+
+  // An immediate watcher can run before the component's canvas is mounted.
+  // Watching the template ref retries the current model as soon as it exists.
+  if (!model || !canvas) {
+    logTrace('[model-load] watcher skipped because model or canvas is unavailable', {
+      windowLabel: appWindow.label,
+      hasModel: Boolean(model),
+      hasCanvas: Boolean(canvas),
+      loadTrigger,
+    })
+    return
+  }
+
+  try {
+    await loadModel(model, canvas, loadTrigger)
+  } catch {
+    // loadModel already reports user-visible and diagnostic errors.
   }
 }, { flush: 'post', immediate: true })
 

@@ -328,7 +328,9 @@ watch(selectPaths, async (paths) => {
           modelCount: modelStore.models.length,
         })
         await nextTick()
-        await requestModelStoreSave()
+        await requestModelStoreSave(modelStore.$state, {
+          persistModelCatalog: modelStore.customModelScanSucceeded,
+        })
         logInfo('[model-persistence] imported model catalog save queued', {
           fromPath,
           modelIds: result.models.map(model => model.id),

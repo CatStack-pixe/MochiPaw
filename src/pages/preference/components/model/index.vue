@@ -20,7 +20,6 @@ import { useCatStore } from '@/stores/cat'
 import { getModelDisplayName, useModelStore } from '@/stores/model'
 import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { withTimeout } from '@/utils/promise'
-import { ensureRuntimeLease } from '@/utils/runtimeTelemetry'
 import { destroySubModelWindow } from '@/utils/subModelWindow'
 
 import BehaviorModal from './components/behavior-modal/index.vue'
@@ -39,23 +38,27 @@ const renameModelTarget = ref<Model>()
 const renameModelDraft = ref('')
 const selectedModelIds = ref(new Set<string>())
 const batchDeleting = ref(false)
+const switchingModelId = ref<string>()
 const masonryRefreshKey = ref(0)
-const pendingModelSwitches = new Map<string, (acknowledgement: ModelSwitchAcknowledgement) => void>()
+const pendingModelSwitches = new Map<string, {
+  resolve: (acknowledgement: ModelSwitchAcknowledgement) => void
+  reject: (reason: unknown) => void
+}>()
 
 const PAGE_SIZE = 5
-const MODEL_SWITCH_ACK_TIMEOUT_MS = 5_000
+const MODEL_SWITCH_ACK_TIMEOUT_MS = 120_000
 
 useTauriListen<ModelSwitchAcknowledgement>(LISTEN_KEY.MODEL_SWITCH_APPLIED, ({ payload }) => {
-  const resolve = pendingModelSwitches.get(payload.requestId)
+  const pending = pendingModelSwitches.get(payload.requestId)
 
-  if (!resolve) {
+  if (!pending) {
     logTrace('[model-switch] received acknowledgement without pending request', payload)
     return
   }
 
   pendingModelSwitches.delete(payload.requestId)
   logStep('model-switch', 'received main window acknowledgement', payload)
-  resolve(payload)
+  pending.resolve(payload)
 })
 
 function proofLabel(model: Model) {
@@ -229,8 +232,8 @@ async function showImportedModels() {
 
 function waitForModelSwitchAcknowledgement(requestId: string) {
   return withTimeout(
-    new Promise<ModelSwitchAcknowledgement>((resolve) => {
-      pendingModelSwitches.set(requestId, resolve)
+    new Promise<ModelSwitchAcknowledgement>((resolve, reject) => {
+      pendingModelSwitches.set(requestId, { resolve, reject })
     }),
     MODEL_SWITCH_ACK_TIMEOUT_MS,
     `Main window did not acknowledge model switch within ${MODEL_SWITCH_ACK_TIMEOUT_MS / 1000} seconds.`,
@@ -240,14 +243,14 @@ function waitForModelSwitchAcknowledgement(requestId: string) {
 }
 
 async function handleToggle(nextModel: Model) {
-  if (batchDeleting.value) {
-    logTrace('[model-switch] ignored selection during batch deletion', { modelId: nextModel.id })
-    return
+  if (batchDeleting.value || switchingModelId.value) {
+    logTrace('[model-switch] ignored selection while model operations are locked', { modelId: nextModel.id })
+    return false
   }
 
-  if (modelStore.currentModel?.id === nextModel.id) {
+  if (modelStore.currentModelId === nextModel.id) {
     logTrace('[model-switch] ignored selection of current model', { modelId: nextModel.id })
-    return
+    return true
   }
 
   const previousModel = modelStore.currentModel
@@ -262,22 +265,6 @@ async function handleToggle(nextModel: Model) {
     nextModelProofStatus: nextModel.proofStatus,
   })
 
-  try {
-    logStep('model-switch', 'prepare runtime lease', { modelId: nextModel.id, modelPath: nextModel.path })
-    await ensureRuntimeLease(nextModel)
-    logStep('model-switch', 'runtime lease ready', { modelId: nextModel.id, modelPath: nextModel.path })
-  } catch (error) {
-    logError('[model-switch] runtime preparation failed', { modelId: nextModel.id, modelPath: nextModel.path, error })
-    message.error(String(error))
-    return
-  }
-
-  logStep('model-switch', 'update current model', {
-    previousModelId: previousModel?.id,
-    nextModelId: nextModel.id,
-  })
-  modelStore.currentModel = nextModel
-
   const request: ModelSwitchRequest = {
     requestId: `${Date.now()}-${nextModel.id}`,
     model: {
@@ -290,8 +277,12 @@ async function handleToggle(nextModel: Model) {
     },
   }
 
+  switchingModelId.value = nextModel.id
+  modelStore.modelReady = false
+  let acknowledgement: Promise<ModelSwitchAcknowledgement> | undefined
+
   try {
-    const acknowledgement = waitForModelSwitchAcknowledgement(request.requestId)
+    acknowledgement = waitForModelSwitchAcknowledgement(request.requestId)
     logStep('model-switch', 'notify main window', request)
     await emitTo(WINDOW_LABEL.MAIN, LISTEN_KEY.MODEL_SWITCH_REQUESTED, request)
     logStep('model-switch', 'main window notification sent', request)
@@ -302,15 +293,23 @@ async function handleToggle(nextModel: Model) {
     }
 
     logStep('model-switch', 'main window accepted model switch', result)
+    modelStore.currentModelId = result.modelId
+    modelStore.currentModel = modelStore.models.find(model => model.id === result.modelId) ?? nextModel
+    modelStore.currentModelFingerprint = modelStore.currentModel.fingerprint ?? null
+    modelStore.selectionMigrationPending = false
   } catch (error) {
-    modelStore.currentModel = previousModel
-    modelStore.modelReady = previousModelReady
+    pendingModelSwitches.get(request.requestId)?.reject(error)
+    await acknowledgement?.catch(() => undefined)
     logError('[model-switch] main window notification failed', { ...request, error })
     message.error(String(error))
-    return
+    return false
+  } finally {
+    switchingModelId.value = undefined
+    modelStore.modelReady = previousModelReady
   }
 
   logInfo('[model-switch] requested model is now current', { modelId: nextModel.id, modelPath: nextModel.path })
+  return true
 }
 
 async function removeModel(item: Model) {
@@ -322,8 +321,17 @@ async function removeModel(item: Model) {
   const nextModels = previousModels.filter(model => model.id !== id)
   const deletingCurrentModel = id === previousCurrentModel?.id
   const subModels = previousSubModels.filter(instance => instance.modelId === id)
+  let switchedAway = false
 
   try {
+    if (deletingCurrentModel) {
+      const fallbackModel = nextModels[0]
+      if (!fallbackModel) throw new Error('No fallback model is available.')
+
+      switchedAway = await handleToggle(fallbackModel)
+      if (!switchedAway) throw new Error('The current model could not be replaced before deletion.')
+    }
+
     await waitForFrames()
 
     await Promise.all(subModels.map(instance => destroySubModelWindow(instance.id)))
@@ -334,18 +342,23 @@ async function removeModel(item: Model) {
     }
 
     modelStore.models = nextModels
-
-    if (deletingCurrentModel) {
-      modelStore.modelReady = false
-      modelStore.currentModel = nextModels[0]
-    }
   } catch (error) {
     modelStore.models = previousModels
     modelStore.subModels = previousSubModels
 
     if (deletingCurrentModel) {
-      modelStore.currentModel = previousCurrentModel
-      modelStore.modelReady = previousModelReady
+      if (switchedAway && previousCurrentModel) {
+        const restored = await handleToggle(previousCurrentModel)
+
+        if (!restored) {
+          logError('[model-delete] failed to restore selection after deletion error', {
+            modelId: previousCurrentModel.id,
+          })
+        }
+      } else {
+        modelStore.currentModel = previousCurrentModel
+        modelStore.modelReady = previousModelReady
+      }
     }
 
     throw error
@@ -353,7 +366,7 @@ async function removeModel(item: Model) {
 }
 
 async function handleDelete(item: Model) {
-  if (batchDeleting.value) return
+  if (batchDeleting.value || switchingModelId.value) return
 
   try {
     await removeModel(item)
@@ -399,7 +412,7 @@ async function executeBatchDelete(items: Model[]) {
 function confirmBatchDelete() {
   const items = selectedModels.value.filter(model => !isCurrentModel(model)).slice()
 
-  if (!items.length || batchDeleting.value) return
+  if (!items.length || batchDeleting.value || switchingModelId.value) return
 
   Modal.confirm({
     content: t('pages.preference.model.hints.deleteSelectedModels', { count: items.length }),
@@ -423,7 +436,7 @@ function confirmBatchDelete() {
         </span>
 
         <Button
-          :disabled="selectedModelCount === 0 || batchDeleting"
+          :disabled="selectedModelCount === 0 || batchDeleting || Boolean(switchingModelId)"
           @click="clearSelection"
         >
           <template #icon>
@@ -434,7 +447,7 @@ function confirmBatchDelete() {
 
         <Button
           danger
-          :disabled="selectedModelCount === 0 || batchDeleting"
+          :disabled="selectedModelCount === 0 || batchDeleting || Boolean(switchingModelId)"
           :loading="batchDeleting"
           @click="confirmBatchDelete"
         >
@@ -447,6 +460,7 @@ function confirmBatchDelete() {
 
       <Masonry
         :key="`${currentPage}-${masonryRefreshKey}`"
+        :class="{ 'pointer-events-none opacity-70': Boolean(switchingModelId) }"
         :columns="{ xs: 3, lg: 4, xxl: 6 }"
         :gutter="16"
         :items="masonryItems"
@@ -483,7 +497,7 @@ function confirmBatchDelete() {
                   >
                     <Checkbox
                       :checked="isModelSelected(data)"
-                      :disabled="isCurrentModel(data) || batchDeleting"
+                      :disabled="isCurrentModel(data) || batchDeleting || Boolean(switchingModelId)"
                       @change="toggleModelSelection(data)"
                     />
                   </span>

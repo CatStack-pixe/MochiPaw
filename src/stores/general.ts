@@ -7,6 +7,7 @@ import { getLocale } from 'tauri-plugin-locale-api'
 import { reactive, ref } from 'vue'
 
 import { LANGUAGE } from '@/constants'
+import { persistStateWhenWritable } from '@/utils/persistence'
 
 export type Theme = 'auto' | 'light' | 'dark'
 export type Language = typeof LANGUAGE[keyof typeof LANGUAGE]
@@ -96,4 +97,10 @@ export const useGeneralStore = defineStore('general', () => {
     update,
     init,
   }
+}, {
+  tauri: {
+    hooks: {
+      beforeBackendSync: persistStateWhenWritable,
+    },
+  },
 })
