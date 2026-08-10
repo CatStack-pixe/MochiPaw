@@ -90,6 +90,37 @@ jobs:
       - name: Generate contributors manifest
         run: pnpm generate:contributors
 
+      - name: Validate updater signing secrets
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          node <<'NODE'
+          const requiredSecrets = [
+            'TAURI_SIGNING_PRIVATE_KEY',
+            'TAURI_SIGNING_PRIVATE_KEY_PASSWORD',
+          ];
+
+          for (const name of requiredSecrets) {
+            const value = process.env[name] ?? '';
+            if (!value) {
+              throw new Error(`${name} is empty`);
+            }
+            if (value.codePointAt(0) === 0xfeff) {
+              throw new Error(`${name} starts with a UTF-8 BOM`);
+            }
+          }
+
+          const decodedKey = Buffer.from(
+            process.env.TAURI_SIGNING_PRIVATE_KEY,
+            'base64',
+          ).toString('utf8');
+          if (!decodedKey.startsWith('untrusted comment: rsign encrypted secret key\n')) {
+            throw new Error('TAURI_SIGNING_PRIVATE_KEY is not a Tauri updater private key');
+          }
+          NODE
+
       - name: Build the app
         uses: tauri-apps/tauri-action@v1
         env:
