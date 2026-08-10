@@ -367,10 +367,14 @@
       },
       "hints": {
         "checkingUpdates": "Checking for updates...",
-        "alreadyLatest": "Already on the latest version 🎉"
+        "alreadyLatest": "Already on the latest version 🎉",
+        "manualInstall": "This package must be updated manually from GitHub Releases.",
+        "checkFailed": "Could not check for updates: {error}",
+        "updateFailed": "Could not apply the update: {error}"
       },
       "buttons": {
         "updateNow": "Update Now",
+        "downloadUpdate": "Download Update",
         "updateLater": "Update Later"
       }
     }

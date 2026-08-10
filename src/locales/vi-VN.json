@@ -361,10 +361,14 @@
       },
       "hints": {
         "checkingUpdates": "Đang kiểm tra cập nhật...",
-        "alreadyLatest": "Bạn đang dùng phiên bản mới nhất 🎉"
+        "alreadyLatest": "Bạn đang dùng phiên bản mới nhất 🎉",
+        "manualInstall": "Gói này phải được cập nhật thủ công từ GitHub Releases.",
+        "checkFailed": "Không thể kiểm tra cập nhật: {error}",
+        "updateFailed": "Không thể áp dụng bản cập nhật: {error}"
       },
       "buttons": {
         "updateNow": "Cập nhật ngay",
+        "downloadUpdate": "Tải bản cập nhật",
         "updateLater": "Để sau"
       }
     }
