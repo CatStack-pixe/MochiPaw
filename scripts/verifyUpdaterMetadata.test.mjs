@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import assert from 'node:assert/strict'
-import { describe, it } from 'vitest'
+// eslint-disable-next-line test/no-import-node-test -- Vitest is not installed; this test runs through tsx's Node test runner.
+import { describe, it } from 'node:test'
 
 import { mergeUpdaterMetadata, verifyUpdaterMetadata } from './verifyUpdaterMetadata.mjs'
 
