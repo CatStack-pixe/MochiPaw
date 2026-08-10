@@ -23,7 +23,13 @@ import { GITHUB_LINK, INVOKE_KEY, LISTEN_KEY } from '@/constants'
 import { showWindow } from '@/plugins/window'
 import { useGeneralStore } from '@/stores/general'
 import { runAfterSavingPersistentStores } from '@/utils/persistence'
-import { applyUpdate, disposeUpdate, getUpdateReleaseUrl, UpdateCheckCoordinator } from '@/utils/updateFlow'
+import {
+  applyUpdate,
+  disposeUpdate,
+  getUpdateReleaseUrl,
+  UpdateCheckCoordinator,
+  UpdateOperationGate,
+} from '@/utils/updateFlow'
 
 dayjs.extend(utc)
 
@@ -52,6 +58,7 @@ const updateChecker = new UpdateCheckCoordinator({
   check: () => check({ timeout: 5000 }),
   getCapability: () => invoke<UpdateCapability>(INVOKE_KEY.GET_UPDATE_CAPABILITY),
 })
+const updateOperationGate = new UpdateOperationGate()
 
 const { pause, resume } = useIntervalFn(checkUpdate, 1000 * 60 * 60 * 24)
 
@@ -96,8 +103,16 @@ const installManually = computed(() => state.capability?.installStrategy === 'ma
 async function checkUpdate(visibleMessage = false) {
   if (state.downloading) return
 
+  const operationGeneration = updateOperationGate.capture()
+
   try {
     const result = await updateChecker.check()
+
+    if (state.downloading || !updateOperationGate.isCurrent(operationGeneration)) {
+      if (result.status === 'available') await disposeUpdate(result.update)
+      if (visibleMessage) message.destroy(MESSAGE_KEY)
+      return
+    }
 
     if (result.status === 'available') {
       if (state.update && state.update !== result.update) await disposeUpdate(state.update)
@@ -136,6 +151,9 @@ function clearUpdateState() {
 }
 
 function handleCancel() {
+  updateOperationGate.invalidateChecks()
+  if (state.downloading) return
+
   const update = state.update
 
   clearUpdateState()
@@ -156,6 +174,7 @@ async function handleOk() {
   if (state.downloading || !state.update || !state.capability) return
 
   try {
+    updateOperationGate.invalidateChecks()
     state.downloading = true
 
     const result = await applyUpdate(state.update, state.capability, GITHUB_LINK, {

@@ -4,7 +4,13 @@ import test from 'node:test'
 
 import type { AvailableUpdate, UpdateCapability, UpdateDownloadEvent } from './updateFlow'
 
-import { applyUpdate, disposeUpdate, getUpdateReleaseUrl, UpdateCheckCoordinator } from './updateFlow'
+import {
+  applyUpdate,
+  disposeUpdate,
+  getUpdateReleaseUrl,
+  UpdateCheckCoordinator,
+  UpdateOperationGate,
+} from './updateFlow'
 
 const nativeCapability: UpdateCapability = {
   distribution: 'appimage',
@@ -90,6 +96,16 @@ test('closes the update resource when capability detection fails', async () => {
 
   await assert.rejects(coordinator.check(), /capability failed/)
   assert.equal(closed, true)
+})
+
+test('invalidates checks captured before an update operation starts', () => {
+  const gate = new UpdateOperationGate()
+  const pendingCheck = gate.capture()
+
+  assert.equal(gate.isCurrent(pendingCheck), true)
+  gate.invalidateChecks()
+  assert.equal(gate.isCurrent(pendingCheck), false)
+  assert.equal(gate.isCurrent(gate.capture()), true)
 })
 
 test('forwards download progress before persisting and installing', async () => {

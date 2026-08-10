@@ -63,6 +63,22 @@ export async function disposeUpdate(update: AvailableUpdate) {
   await closeUpdateResource(update)
 }
 
+export class UpdateOperationGate {
+  private generation = 0
+
+  capture() {
+    return this.generation
+  }
+
+  invalidateChecks() {
+    this.generation += 1
+  }
+
+  isCurrent(generation: number) {
+    return generation === this.generation
+  }
+}
+
 export class UpdateCheckCoordinator {
   private activeCheck?: Promise<UpdateCheckResult>
 
