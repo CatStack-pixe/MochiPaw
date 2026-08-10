@@ -86,7 +86,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUwMjgyOUNGRjkxODVGMUMKUldRY1h4ajV6eWtvVUcwVWo3WFZSNDc4OUtBR0ZGYmtiV1JBVjNHVXRmWFZCTXBDQStmbUMvSFUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERDMjRBREVEQzk5RTU4NzAKUldSd1dKN0o3YTBrM00rWlhZV1BWd25RSVY3dXFjb2I2K3NmMXgzLzNUZkl2Q0hmMk85cUVKMVIK",
       "endpoints": [
         "https://github.com/CatStack-pixe/MochiPaw/releases/latest/download/latest-v2.json"
       ],
