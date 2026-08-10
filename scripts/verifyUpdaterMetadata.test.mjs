@@ -103,13 +103,10 @@ describe('verifyUpdaterMetadata', () => {
     )
   })
 
-  it('rejects authenticated GitHub API asset URLs', () => {
+  it('accepts tauri-action GitHub API asset URLs', () => {
     const fixture = createFixture()
     fixture.metadata.platforms['darwin-aarch64-app'].url = fixture.assets[0].url
-    assert.throws(
-      () => verifyUpdaterMetadata(fixture.metadata, fixture.assets, expectedVersion),
-      /URL does not reference an asset in this release/,
-    )
+    assert.doesNotThrow(() => verifyUpdaterMetadata(fixture.metadata, fixture.assets, expectedVersion))
   })
 
   it('requires the legacy Windows entry to prefer NSIS', () => {

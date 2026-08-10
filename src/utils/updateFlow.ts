@@ -25,6 +25,7 @@ export interface AvailableUpdate {
   currentVersion: string
   date?: string
   version: string
+  close: () => Promise<void>
   download: (onEvent?: (event: UpdateDownloadEvent) => void) => Promise<void>
   install: () => Promise<void>
 }
@@ -43,6 +44,23 @@ export interface ApplyUpdateAdapter {
   openUrl: (url: string) => Promise<unknown>
   relaunch: () => Promise<void>
   runAfterPersisting: (action: () => Promise<void>) => Promise<void>
+}
+
+const downloadedUpdates = new WeakSet<AvailableUpdate>()
+const installedUpdates = new WeakSet<AvailableUpdate>()
+
+async function closeUpdateResource(update: AvailableUpdate) {
+  try {
+    await update.close()
+  } catch {
+    // The updater may already have consumed the resource during installation.
+  }
+}
+
+export async function disposeUpdate(update: AvailableUpdate) {
+  downloadedUpdates.delete(update)
+  installedUpdates.delete(update)
+  await closeUpdateResource(update)
 }
 
 export class UpdateCheckCoordinator {
@@ -67,7 +85,13 @@ export class UpdateCheckCoordinator {
 
     if (!update) return { status: 'latest' }
 
-    const capability = await this.adapter.getCapability()
+    let capability: UpdateCapability
+    try {
+      capability = await this.adapter.getCapability()
+    } catch (error) {
+      await disposeUpdate(update)
+      throw error
+    }
 
     return { status: 'available', capability, update }
   }
@@ -88,12 +112,22 @@ export async function applyUpdate(
 ) {
   if (capability.installStrategy === 'manual') {
     await adapter.openUrl(getUpdateReleaseUrl(repositoryUrl, update.version))
+    await disposeUpdate(update)
     return 'opened-download' as const
   }
 
-  await update.download(onDownloadEvent)
+  if (!installedUpdates.has(update) && !downloadedUpdates.has(update)) {
+    await update.download(onDownloadEvent)
+    downloadedUpdates.add(update)
+  }
+
   await adapter.runAfterPersisting(async () => {
-    await update.install()
+    if (!installedUpdates.has(update)) {
+      await update.install()
+      downloadedUpdates.delete(update)
+      installedUpdates.add(update)
+      await closeUpdateResource(update)
+    }
 
     if (!adapter.isWindows) await adapter.relaunch()
   })

@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import type { AvailableUpdate, UpdateCapability, UpdateDownloadEvent } from './updateFlow'
 
-import { applyUpdate, getUpdateReleaseUrl, UpdateCheckCoordinator } from './updateFlow'
+import { applyUpdate, disposeUpdate, getUpdateReleaseUrl, UpdateCheckCoordinator } from './updateFlow'
 
 const nativeCapability: UpdateCapability = {
   distribution: 'appimage',
@@ -15,6 +15,7 @@ function createUpdate(overrides: Partial<AvailableUpdate> = {}): AvailableUpdate
   return {
     currentVersion: '1.1.9',
     version: '1.1.10',
+    close: async () => {},
     download: async () => {},
     install: async () => {},
     ...overrides,
@@ -73,10 +74,31 @@ test('returns an available update with its install capability', async () => {
   assert.deepEqual(await coordinator.check(), { status: 'available', update, capability: nativeCapability })
 })
 
+test('closes the update resource when capability detection fails', async () => {
+  let closed = false
+  const update = createUpdate({
+    close: async () => {
+      closed = true
+    },
+  })
+  const coordinator = new UpdateCheckCoordinator({
+    check: async () => update,
+    getCapability: async () => {
+      throw new Error('capability failed')
+    },
+  })
+
+  await assert.rejects(coordinator.check(), /capability failed/)
+  assert.equal(closed, true)
+})
+
 test('forwards download progress before persisting and installing', async () => {
   const order: string[] = []
   const events: UpdateDownloadEvent[] = []
   const update = createUpdate({
+    close: async () => {
+      order.push('close')
+    },
     download: async (onEvent) => {
       order.push('download')
       onEvent?.({ event: 'Started', data: { contentLength: 20 } })
@@ -100,7 +122,7 @@ test('forwards download progress before persisting and installing', async () => 
     },
   }, event => events.push(event))
 
-  assert.deepEqual(order, ['download', 'persist', 'install', 'relaunch'])
+  assert.deepEqual(order, ['download', 'persist', 'install', 'close', 'relaunch'])
   assert.deepEqual(events, [
     { event: 'Started', data: { contentLength: 20 } },
     { event: 'Progress', data: { chunkLength: 8 } },
@@ -151,6 +173,36 @@ test('does not install when persistent store saving fails', async () => {
   assert.equal(installed, false)
 })
 
+test('reuses downloaded bytes when saving fails and the user retries', async () => {
+  let downloadCalls = 0
+  let persistCalls = 0
+  let installCalls = 0
+  const update = createUpdate({
+    download: async () => {
+      downloadCalls += 1
+    },
+    install: async () => {
+      installCalls += 1
+    },
+  })
+  const adapter = {
+    isWindows: true,
+    openUrl: async () => {},
+    relaunch: async () => {},
+    runAfterPersisting: async (action: () => Promise<void>) => {
+      persistCalls += 1
+      if (persistCalls === 1) throw new Error('save failed')
+      await action()
+    },
+  }
+
+  await assert.rejects(applyUpdate(update, nativeCapability, 'https://example.com/app', adapter), /save failed/)
+  await applyUpdate(update, nativeCapability, 'https://example.com/app', adapter)
+
+  assert.equal(downloadCalls, 1)
+  assert.equal(installCalls, 1)
+})
+
 test('allows the persistence guard to resume typing statistics after install failure', async () => {
   const order: string[] = []
   const update = createUpdate({
@@ -179,9 +231,38 @@ test('allows the persistence guard to resume typing statistics after install fai
   assert.deepEqual(order, ['persist', 'install', 'resume-typing-stats'])
 })
 
+test('reuses downloaded bytes when installation fails and the user retries', async () => {
+  let downloadCalls = 0
+  let installCalls = 0
+  const update = createUpdate({
+    download: async () => {
+      downloadCalls += 1
+    },
+    install: async () => {
+      installCalls += 1
+      if (installCalls === 1) throw new Error('install failed')
+    },
+  })
+  const adapter = {
+    isWindows: true,
+    openUrl: async () => {},
+    relaunch: async () => {},
+    runAfterPersisting: async (action: () => Promise<void>) => action(),
+  }
+
+  await assert.rejects(applyUpdate(update, nativeCapability, 'https://example.com/app', adapter), /install failed/)
+  await applyUpdate(update, nativeCapability, 'https://example.com/app', adapter)
+
+  assert.equal(downloadCalls, 1)
+  assert.equal(installCalls, 2)
+})
+
 test('opens the matching release for distributions that require manual installation', async () => {
   const order: string[] = []
   const update = createUpdate({
+    close: async () => {
+      order.push('close')
+    },
     download: async () => {
       order.push('download')
     },
@@ -205,13 +286,16 @@ test('opens the matching release for distributions that require manual installat
   })
 
   assert.equal(result, 'opened-download')
-  assert.deepEqual(order, ['open:https://example.com/app/releases/tag/v1.1.10'])
+  assert.deepEqual(order, ['open:https://example.com/app/releases/tag/v1.1.10', 'close'])
   assert.equal(getUpdateReleaseUrl('https://example.com/app', 'v1.1.10'), 'https://example.com/app/releases/tag/v1.1.10')
 })
 
 test('lets the Windows installer own process restart after state is saved', async () => {
   const order: string[] = []
   const update = createUpdate({
+    close: async () => {
+      order.push('close')
+    },
     download: async () => {
       order.push('download')
     },
@@ -235,5 +319,15 @@ test('lets the Windows installer own process restart after state is saved', asyn
     },
   })
 
-  assert.deepEqual(order, ['download', 'persist', 'install'])
+  assert.deepEqual(order, ['download', 'persist', 'install', 'close'])
+})
+
+test('disposal ignores close failures after clearing retry state', async () => {
+  const update = createUpdate({
+    close: async () => {
+      throw new Error('already closed')
+    },
+  })
+
+  await assert.doesNotReject(disposeUpdate(update))
 })

@@ -12,7 +12,7 @@ import { useIntervalFn } from '@vueuse/core'
 import { Flex, message, Modal } from 'antdv-next'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { computed, markRaw, reactive, watch } from 'vue'
+import { computed, markRaw, onUnmounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import VueMarkdown from 'vue-markdown-render'
 
@@ -23,7 +23,7 @@ import { GITHUB_LINK, INVOKE_KEY, LISTEN_KEY } from '@/constants'
 import { showWindow } from '@/plugins/window'
 import { useGeneralStore } from '@/stores/general'
 import { runAfterSavingPersistentStores } from '@/utils/persistence'
-import { applyUpdate, getUpdateReleaseUrl, UpdateCheckCoordinator } from '@/utils/updateFlow'
+import { applyUpdate, disposeUpdate, getUpdateReleaseUrl, UpdateCheckCoordinator } from '@/utils/updateFlow'
 
 dayjs.extend(utc)
 
@@ -66,6 +66,8 @@ watch(() => generalStore.update.autoCheck, (value) => {
 }, { immediate: true })
 
 useTauriListen<boolean>(LISTEN_KEY.UPDATE_APP, () => {
+  if (state.downloading) return
+
   message.loading({
     key: MESSAGE_KEY,
     duration: 0,
@@ -92,10 +94,14 @@ const releaseUrl = computed(() => state.update
 const installManually = computed(() => state.capability?.installStrategy === 'manual')
 
 async function checkUpdate(visibleMessage = false) {
+  if (state.downloading) return
+
   try {
     const result = await updateChecker.check()
 
     if (result.status === 'available') {
+      if (state.update && state.update !== result.update) await disposeUpdate(state.update)
+
       state.update = markRaw(result.update)
       state.capability = result.capability
       state.updateBody = replaceBody(result.update.body ?? '')
@@ -118,6 +124,25 @@ async function checkUpdate(visibleMessage = false) {
     })
   }
 }
+
+function clearUpdateState() {
+  Object.assign(state, {
+    open: false,
+    update: undefined,
+    capability: undefined,
+    updateBody: '',
+    updateDate: '',
+  })
+}
+
+function handleCancel() {
+  const update = state.update
+
+  clearUpdateState()
+  if (update) void disposeUpdate(update)
+}
+
+onUnmounted(handleCancel)
 
 function replaceBody(body: string) {
   return body
@@ -153,7 +178,7 @@ async function handleOk() {
       }
     })
 
-    if (result === 'opened-download') state.open = false
+    if (result === 'opened-download') clearUpdateState()
   } catch (error) {
     message.error(t('components.updateApp.hints.updateFailed', { error: String(error) }))
   } finally {
@@ -175,6 +200,7 @@ async function handleOk() {
     :closable="false"
     :mask-closable="false"
     :title="$t('components.updateApp.title')"
+    @cancel="handleCancel"
     @ok="handleOk"
   >
     <template #okText>

@@ -114,19 +114,20 @@ export function verifyUpdaterMetadata(metadata, assets, expectedVersion) {
     fail('release assets must be an array')
   }
 
-  const assetsByDownloadUrl = new Map()
+  const assetsByUrl = new Map()
   const assetsByName = new Map()
   for (const asset of assets) {
     if (!asset || typeof asset !== 'object' || typeof asset.name !== 'string') continue
     assetsByName.set(asset.name, asset)
+    if (typeof asset.url === 'string') assetsByUrl.set(asset.url, asset)
     if (typeof asset.browser_download_url === 'string') {
-      assetsByDownloadUrl.set(asset.browser_download_url, asset)
+      assetsByUrl.set(asset.browser_download_url, asset)
     }
   }
 
   for (const { key, extension } of requiredUpdaterAssets) {
     const platform = assertPlatform(metadata.platforms, key)
-    const asset = assetsByDownloadUrl.get(platform.url)
+    const asset = assetsByUrl.get(platform.url)
 
     if (!asset) {
       fail(`platform ${key} URL does not reference an asset in this release`)
