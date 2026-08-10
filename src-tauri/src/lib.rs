@@ -13,6 +13,7 @@ use core::{
         prepare_dedicated_runtime, record_dedicated_runtime_event, runtime_installation_identity,
     },
     setup,
+    update::get_update_capability,
 };
 use tauri::{Manager, WindowEvent, generate_handler};
 use tauri_plugin_autostart::MacosLauncher;
@@ -130,6 +131,7 @@ pub fn run() {
             start_gamepad_listing,
             stop_gamepad_listing,
             set_gamepad_listener_enabled,
+            get_update_capability,
             runtime_installation_identity,
             prepare_dedicated_runtime,
             record_dedicated_runtime_event,

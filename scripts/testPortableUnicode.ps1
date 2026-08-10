@@ -94,10 +94,24 @@ writeFileSync(resolve(releaseDirectory, 'mochi-paw.exe'), Buffer.from([0x4d, 0x5
   $packagedRoot = Join-Path $extractedDirectory 'MochiPaw'
   $sourceExecutable = Join-Path $testRoot 'target\release\mochi-paw.exe'
   $packagedExecutable = Join-Path $packagedRoot 'MochiPaw.exe'
+  $portableMarker = Join-Path $packagedRoot '.mochipaw-portable'
+  $unpackagedMarker = Join-Path $testRoot 'target\release\.mochipaw-portable'
   $packagedAsset = Join-Path $packagedRoot "assets\models\$chinese $model #100%\$texture\$image %.bin"
 
   Assert-FileBytesEqual $sourceExecutable $packagedExecutable
   Assert-FileBytesEqual $sourceAsset $packagedAsset
+
+  if (-not (Test-Path -LiteralPath $portableMarker -PathType Leaf)) {
+    throw 'Portable marker is missing beside the packaged executable.'
+  }
+
+  if ((Get-Item -LiteralPath $portableMarker).Length -ne 0) {
+    throw 'Portable marker must be empty.'
+  }
+
+  if (Test-Path -LiteralPath $unpackagedMarker) {
+    throw 'Portable marker leaked into the normal release directory.'
+  }
 } finally {
   if (Test-Path -LiteralPath $testRoot) {
     $cleanupPath = [IO.Path]::GetFullPath($testRoot)

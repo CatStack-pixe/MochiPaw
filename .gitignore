@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 target
+/HANDOFF.md
 
 # Editor directories and files
 .idea

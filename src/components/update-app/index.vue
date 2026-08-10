@@ -3,29 +3,43 @@
  -->
 
 <script setup lang="ts">
-import type { Update } from '@tauri-apps/plugin-updater'
-
+import { invoke } from '@tauri-apps/api/core'
+import { openUrl } from '@tauri-apps/plugin-opener'
+import { platform } from '@tauri-apps/plugin-os'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { check } from '@tauri-apps/plugin-updater'
 import { useIntervalFn } from '@vueuse/core'
 import { Flex, message, Modal } from 'antdv-next'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { computed, reactive, watch } from 'vue'
+import { computed, markRaw, onUnmounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import VueMarkdown from 'vue-markdown-render'
 
+import type { AvailableUpdate, UpdateCapability } from '@/utils/updateFlow'
+
 import { useTauriListen } from '@/composables/useTauriListen'
-import { GITHUB_LINK, LISTEN_KEY, UPGRADE_LINK_ACCESS_KEY } from '@/constants'
+import { GITHUB_LINK, INVOKE_KEY, LISTEN_KEY } from '@/constants'
 import { showWindow } from '@/plugins/window'
 import { useGeneralStore } from '@/stores/general'
 import { runAfterSavingPersistentStores } from '@/utils/persistence'
+import {
+  applyUpdate,
+  disposeUpdate,
+  getUpdateReleaseUrl,
+  transferUpdateOwnership,
+  UpdateCheckCoordinator,
+  UpdateOperationGate,
+} from '@/utils/updateFlow'
 
 dayjs.extend(utc)
 
 interface State {
   open: boolean
-  update?: Update
+  update?: AvailableUpdate
+  capability?: UpdateCapability
+  updateBody: string
+  updateDate: string
   downloading: boolean
   totalProgress?: number
   downloadProgress: number
@@ -34,11 +48,18 @@ interface State {
 const generalStore = useGeneralStore()
 const state = reactive<State>({
   open: false,
+  updateBody: '',
+  updateDate: '',
   downloading: false,
   downloadProgress: 0,
 })
 const MESSAGE_KEY = 'updatable'
 const { t } = useI18n()
+const updateChecker = new UpdateCheckCoordinator({
+  check: () => check({ timeout: 5000 }),
+  getCapability: () => invoke<UpdateCapability>(INVOKE_KEY.GET_UPDATE_CAPABILITY),
+})
+const updateOperationGate = new UpdateOperationGate()
 
 const { pause, resume } = useIntervalFn(checkUpdate, 1000 * 60 * 60 * 24)
 
@@ -47,19 +68,21 @@ watch(() => generalStore.update.autoCheck, (value) => {
 
   if (!value) return
 
-  checkUpdate()
+  void checkUpdate()
 
   resume()
 }, { immediate: true })
 
 useTauriListen<boolean>(LISTEN_KEY.UPDATE_APP, () => {
-  checkUpdate(true)
+  if (state.downloading) return
 
   message.loading({
     key: MESSAGE_KEY,
     duration: 0,
     content: t('components.updateApp.hints.checkingUpdates'),
   })
+
+  void checkUpdate(true)
 })
 
 const downloadProgress = computed(() => {
@@ -72,30 +95,38 @@ const downloadProgress = computed(() => {
   return `${progress}%`
 })
 
+const releaseUrl = computed(() => state.update
+  ? getUpdateReleaseUrl(GITHUB_LINK, state.update.version)
+  : `${GITHUB_LINK}/releases`)
+
+const installManually = computed(() => state.capability?.installStrategy === 'manual')
+
 async function checkUpdate(visibleMessage = false) {
+  if (state.downloading) return
+
+  const operationGeneration = updateOperationGate.capture()
+
   try {
-    const update = await check({
-      timeout: 5000,
-      headers: {
-        'X-AccessKey': UPGRADE_LINK_ACCESS_KEY,
-      },
-    })
+    const result = await updateChecker.check()
 
-    if (update) {
-      const { version, currentVersion, body = '', date, downloadAndInstall } = update
+    if (state.downloading || !updateOperationGate.isCurrent(operationGeneration)) {
+      if (result.status === 'available') await disposeUpdate(result.update)
+      if (visibleMessage) message.destroy(MESSAGE_KEY)
+      return
+    }
 
-      state.update = Object.assign(update, {
-        version: `v${version}`,
-        currentVersion: `v${currentVersion}`,
-        body: replaceBody(body),
-        date: dayjs.utc(date?.split('.')[0]).local().format('YYYY-MM-DD HH:mm:ss'),
-        downloadAndInstall: downloadAndInstall.bind(update),
+    if (result.status === 'available') {
+      void transferUpdateOwnership(state.update, markRaw(result.update), (update) => {
+        state.update = update
       })
+      state.capability = result.capability
+      state.updateBody = replaceBody(result.update.body ?? '')
+      state.updateDate = result.update.date
+        ? dayjs.utc(result.update.date.split('.')[0]).local().format('YYYY-MM-DD HH:mm:ss')
+        : ''
 
       showWindow()
-
       state.open = true
-
       message.destroy(MESSAGE_KEY)
     } else if (visibleMessage) {
       message.success({ key: MESSAGE_KEY, content: t('components.updateApp.hints.alreadyLatest') })
@@ -103,9 +134,34 @@ async function checkUpdate(visibleMessage = false) {
   } catch (error) {
     if (!visibleMessage) return
 
-    message.error({ key: MESSAGE_KEY, content: String(error) })
+    message.error({
+      key: MESSAGE_KEY,
+      content: t('components.updateApp.hints.checkFailed', { error: String(error) }),
+    })
   }
 }
+
+function clearUpdateState() {
+  Object.assign(state, {
+    open: false,
+    update: undefined,
+    capability: undefined,
+    updateBody: '',
+    updateDate: '',
+  })
+}
+
+function handleCancel() {
+  updateOperationGate.invalidateChecks()
+  if (state.downloading) return
+
+  const update = state.update
+
+  clearUpdateState()
+  if (update) void disposeUpdate(update)
+}
+
+onUnmounted(handleCancel)
 
 function replaceBody(body: string) {
   return body
@@ -116,26 +172,39 @@ function replaceBody(body: string) {
 }
 
 async function handleOk() {
+  if (state.downloading || !state.update || !state.capability) return
+
   try {
+    updateOperationGate.invalidateChecks()
     state.downloading = true
 
-    await state.update?.downloadAndInstall((progress) => {
+    const result = await applyUpdate(state.update, state.capability, GITHUB_LINK, {
+      isWindows: platform() === 'windows',
+      openUrl,
+      relaunch,
+      runAfterPersisting: runAfterSavingPersistentStores,
+    }, (progress) => {
       switch (progress.event) {
         case 'Started':
-          state.totalProgress = progress.data.contentLength ?? 0
+          state.totalProgress = progress.data.contentLength
+          state.downloadProgress = 0
           break
         case 'Progress':
           state.downloadProgress += progress.data.chunkLength
           break
+        case 'Finished':
+          if (state.totalProgress) state.downloadProgress = state.totalProgress
+          break
       }
     })
 
-    await runAfterSavingPersistentStores(relaunch)
+    if (result === 'opened-download') clearUpdateState()
   } catch (error) {
-    message.error(String(error))
+    message.error(t('components.updateApp.hints.updateFailed', { error: String(error) }))
   } finally {
     Object.assign(state, {
       downloading: false,
+      totalProgress: undefined,
       downloadProgress: 0,
     })
   }
@@ -145,15 +214,19 @@ async function handleOk() {
 <template>
   <Modal
     v-model:open="state.open"
+    :cancel-button-props="{ disabled: state.downloading }"
     :cancel-text="$t('components.updateApp.buttons.updateLater')"
     centered
     :closable="false"
     :mask-closable="false"
     :title="$t('components.updateApp.title')"
+    @cancel="handleCancel"
     @ok="handleOk"
   >
     <template #okText>
-      {{ state.downloading ? downloadProgress : $t('components.updateApp.buttons.updateNow') }}
+      {{ state.downloading
+        ? downloadProgress
+        : $t(`components.updateApp.buttons.${installManually ? 'downloadUpdate' : 'updateNow'}`) }}
     </template>
 
     <Flex
@@ -164,26 +237,28 @@ async function handleOk() {
       <Flex align="center">
         <span>{{ $t('components.updateApp.labels.updateVersion') }}</span>
         <span>
-          <span>{{ state.update?.currentVersion }} 👉 </span>
-          <a
-            :href="`${GITHUB_LINK}/releases/tag/${state.update?.version}`"
-          >
-            {{ state.update?.version }}
+          <span>v{{ state.update?.currentVersion }} -&gt; </span>
+          <a :href="releaseUrl">
+            v{{ state.update?.version }}
           </a>
         </span>
       </Flex>
 
       <Flex align="center">
         <span>{{ $t('components.updateApp.labels.updateTime') }}</span>
-        <span>{{ state.update?.date }}</span>
+        <span>{{ state.updateDate }}</span>
       </Flex>
+
+      <span v-if="installManually">
+        {{ $t('components.updateApp.hints.manualInstall') }}
+      </span>
 
       <Flex vertical>
         <span>{{ $t('components.updateApp.labels.changelog') }}</span>
 
         <VueMarkdown
           class="update-note max-h-40 overflow-auto"
-          :source="state.update?.body ?? ''"
+          :source="state.updateBody"
         />
       </Flex>
     </Flex>

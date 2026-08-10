@@ -7,3 +7,4 @@ pub mod gamepad;
 pub mod prevent_default;
 pub mod runtime_security;
 pub mod setup;
+pub mod update;

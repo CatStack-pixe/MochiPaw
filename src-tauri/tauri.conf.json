@@ -50,7 +50,7 @@
   "bundle": {
     "active": true,
     "category": "Entertainment",
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "targets": ["msi", "nsis", "dmg", "app", "appimage", "deb", "rpm"],
     "shortDescription": "MochiPaw",
     "icon": [
@@ -86,10 +86,13 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBRjJFMzE3MjEwMUZEMTAKUldRUS9RRWhGK1B5NmdkemhKcUFrVjZBQXlzdExpakdWVEJDeU9XckVsbzV2cFIycVJOempWa2UK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUwMjgyOUNGRjkxODVGMUMKUldRY1h4ajV6eWtvVUcwVWo3WFZSNDc4OUtBR0ZGYmtiV1JBVjNHVXRmWFZCTXBDQStmbUMvSFUK",
       "endpoints": [
-        "https://github.com/CatStack-pixe/MochiPaw/releases/latest/download/latest.json"
-      ]
+        "https://github.com/CatStack-pixe/MochiPaw/releases/latest/download/latest-v2.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     },
     "fs": {
       "requireLiteralLeadingDot": false

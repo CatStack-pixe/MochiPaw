@@ -91,18 +91,30 @@ jobs:
         run: pnpm generate:contributors
 
       - name: Build the app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           CI: false
           PLATFORM: ${{ matrix.platform }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: MochiPaw ${{ github.ref_name }}
           releaseBody: ''
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+          updaterJsonPreferNsis: true
           args: ${{ matrix.tauriArgs }}
+
+      - name: Upload updater metadata fragment
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-metadata-${{ matrix.target }}
+          path: latest.json
+          if-no-files-found: error
 
       - name: Build portable Windows archive
         if: matrix.portable
@@ -122,3 +134,59 @@ jobs:
         with:
           draft: true
           files: target/${{ matrix.target }}/release/bundle/portable/*.zip
+
+  finalize-release:
+    name: Verify updater metadata and publish
+    needs: build-app
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download updater metadata fragments
+        uses: actions/download-artifact@v4
+        with:
+          pattern: updater-metadata-*
+          path: release-metadata/fragments
+
+      - name: Download release assets
+        env:
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          release_id="$(gh api "repos/$REPOSITORY/releases/tags/$RELEASE_TAG" --jq .id)"
+          gh api "repos/$REPOSITORY/releases/$release_id/assets?per_page=100" > release-metadata/assets.json
+
+      - name: Verify and rename updater metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          node scripts/verifyUpdaterMetadata.mjs \
+            release-metadata/fragments \
+            release-metadata/assets.json \
+            "$version" \
+            release-metadata/latest-v2.json
+
+      - name: Replace updater metadata asset
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$RELEASE_TAG" release-metadata/latest-v2.json --clobber
+          gh release delete-asset "$RELEASE_TAG" latest.json --yes || true
+
+      - name: Verify release assets and publish
+        env:
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          release_id="$(gh api "repos/$REPOSITORY/releases/tags/$RELEASE_TAG" --jq .id)"
+          assets="$(gh api "repos/$REPOSITORY/releases/$release_id/assets?per_page=100")"
+          test "$(jq '[.[].name | select(. == "latest-v2.json")] | length' <<< "$assets")" -eq 1
+          test "$(jq '[.[].name | select(. == "latest.json")] | length' <<< "$assets")" -eq 0
+          gh release edit "$RELEASE_TAG" --draft=false

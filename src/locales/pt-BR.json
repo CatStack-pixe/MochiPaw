@@ -361,10 +361,14 @@
       },
       "hints": {
         "checkingUpdates": "Verificando atualizações...",
-        "alreadyLatest": "Você já está na versão mais recente 🎉"
+        "alreadyLatest": "Você já está na versão mais recente 🎉",
+        "manualInstall": "Este pacote deve ser atualizado manualmente pelo GitHub Releases.",
+        "checkFailed": "Não foi possível verificar atualizações: {error}",
+        "updateFailed": "Não foi possível aplicar a atualização: {error}"
       },
       "buttons": {
         "updateNow": "Atualizar Agora",
+        "downloadUpdate": "Baixar atualização",
         "updateLater": "Atualizar mais tarde"
       }
     }

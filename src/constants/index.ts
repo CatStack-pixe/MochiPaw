@@ -4,8 +4,6 @@
 
 export const GITHUB_LINK = 'https://github.com/CatStack-pixe/MochiPaw'
 
-export const UPGRADE_LINK_ACCESS_KEY = 'xDbrq2rOoRThDqKOHL2ZRA'
-
 export const LISTEN_KEY = {
   SHOW_WINDOW: 'show-window',
   HIDE_WINDOW: 'hide-window',
@@ -31,6 +29,7 @@ export const INVOKE_KEY = {
   EXTRACT_ZIP: 'extract_zip',
   START_DEVICE_LISTENING: 'start_device_listening',
   GET_DEVICE_INPUT_STATUS: 'get_device_input_status',
+  GET_UPDATE_CAPABILITY: 'get_update_capability',
   START_GAMEPAD_LISTING: 'start_gamepad_listing',
   STOP_GAMEPAD_LISTING: 'stop_gamepad_listing',
   SET_GAMEPAD_LISTENER_ENABLED: 'set_gamepad_listener_enabled',

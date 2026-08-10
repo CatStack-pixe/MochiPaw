@@ -29,6 +29,7 @@ const stageRootDir = resolve(tmpdir(), `${packageJson.name}-portable-${pid}`)
 const stageDir = resolve(stageRootDir, productName)
 const archiveName = `${productName}_${packageJson.version}_windows_${arch}_portable.zip`
 const archivePath = resolve(bundleDir, archiveName)
+const portableMarkerName = '.mochipaw-portable'
 const skipBuild = argv.includes('--skip-build')
 
 if (targetIndex !== -1 && !target) {
@@ -105,6 +106,7 @@ mkdirSync(bundleDir, { recursive: true })
 mkdirSync(stageDir, { recursive: true })
 
 runPowerShell(`Copy-Item -LiteralPath ${quotePowerShell(builtExePath)} -Destination ${quotePowerShell(resolve(stageDir, `${productName}.exe`))} -Force`)
+writeFileSync(resolve(stageDir, portableMarkerName), '')
 copyIfExists(resolve(sourceAssetsDir, 'tray.png'), resolve(stageDir, 'assets', 'tray.png'))
 copyIfExists(resolve(sourceAssetsDir, 'models'), resolve(stageDir, 'assets', 'models'))
 copyIfExists(resolve(releaseDir, 'resources'), resolve(stageDir, 'resources'))
