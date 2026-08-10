@@ -190,7 +190,12 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          release_id="$(gh api "repos/$REPOSITORY/releases/tags/$RELEASE_TAG" --jq .id)"
+          release_id="$(
+            gh api --paginate "repos/$REPOSITORY/releases?per_page=100" \
+              --jq '.[] | select(.tag_name == env.RELEASE_TAG) | .id' |
+              head -n 1
+          )"
+          test -n "$release_id"
           gh api "repos/$REPOSITORY/releases/$release_id/assets?per_page=100" > release-metadata/assets.json
 
       - name: Verify and rename updater metadata
@@ -216,7 +221,12 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          release_id="$(gh api "repos/$REPOSITORY/releases/tags/$RELEASE_TAG" --jq .id)"
+          release_id="$(
+            gh api --paginate "repos/$REPOSITORY/releases?per_page=100" \
+              --jq '.[] | select(.tag_name == env.RELEASE_TAG) | .id' |
+              head -n 1
+          )"
+          test -n "$release_id"
           assets="$(gh api "repos/$REPOSITORY/releases/$release_id/assets?per_page=100")"
           test "$(jq '[.[].name | select(. == "latest-v2.json")] | length' <<< "$assets")" -eq 1
           test "$(jq '[.[].name | select(. == "latest.json")] | length' <<< "$assets")" -eq 0
