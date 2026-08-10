@@ -27,6 +27,7 @@ import {
   applyUpdate,
   disposeUpdate,
   getUpdateReleaseUrl,
+  transferUpdateOwnership,
   UpdateCheckCoordinator,
   UpdateOperationGate,
 } from '@/utils/updateFlow'
@@ -115,9 +116,9 @@ async function checkUpdate(visibleMessage = false) {
     }
 
     if (result.status === 'available') {
-      if (state.update && state.update !== result.update) await disposeUpdate(state.update)
-
-      state.update = markRaw(result.update)
+      void transferUpdateOwnership(state.update, markRaw(result.update), (update) => {
+        state.update = update
+      })
       state.capability = result.capability
       state.updateBody = replaceBody(result.update.body ?? '')
       state.updateDate = result.update.date

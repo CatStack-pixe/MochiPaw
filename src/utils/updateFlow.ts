@@ -63,6 +63,18 @@ export async function disposeUpdate(update: AvailableUpdate) {
   await closeUpdateResource(update)
 }
 
+export function transferUpdateOwnership(
+  currentUpdate: AvailableUpdate | undefined,
+  nextUpdate: AvailableUpdate,
+  assign: (update: AvailableUpdate) => void,
+) {
+  assign(nextUpdate)
+
+  return currentUpdate && currentUpdate !== nextUpdate
+    ? disposeUpdate(currentUpdate)
+    : Promise.resolve()
+}
+
 export class UpdateOperationGate {
   private generation = 0
 

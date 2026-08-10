@@ -8,6 +8,7 @@ import {
   applyUpdate,
   disposeUpdate,
   getUpdateReleaseUrl,
+  transferUpdateOwnership,
   UpdateCheckCoordinator,
   UpdateOperationGate,
 } from './updateFlow'
@@ -106,6 +107,30 @@ test('invalidates checks captured before an update operation starts', () => {
   gate.invalidateChecks()
   assert.equal(gate.isCurrent(pendingCheck), false)
   assert.equal(gate.isCurrent(gate.capture()), true)
+})
+
+test('transfers UI ownership before asynchronously closing the previous update', async () => {
+  let finishClose: (() => void) | undefined
+  let closeStarted = false
+  const previousUpdate = createUpdate({
+    close: () => {
+      closeStarted = true
+      return new Promise<void>((resolve) => {
+        finishClose = resolve
+      })
+    },
+  })
+  const nextUpdate = createUpdate({ version: '1.1.11' })
+  let ownedUpdate = previousUpdate
+
+  const cleanup = transferUpdateOwnership(previousUpdate, nextUpdate, (update) => {
+    ownedUpdate = update
+  })
+
+  assert.equal(ownedUpdate, nextUpdate)
+  assert.equal(closeStarted, true)
+  finishClose?.()
+  await cleanup
 })
 
 test('forwards download progress before persisting and installing', async () => {
