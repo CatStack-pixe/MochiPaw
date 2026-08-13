@@ -18,6 +18,8 @@
           "windowSettings": "Configurações da Janela",
           "passThrough": "Bloqueio do Gato",
           "alwaysOnTop": "Sempre no Topo",
+          "gameMode": "Modo de Jogo",
+          "gameProcesses": "Nomes dos processos-alvo",
           "returnToScreen": "Trazer para a Tela",
           "windowSize": "Tamanho da Janela",
           "windowRadius": "Raio da Janela",
@@ -39,6 +41,7 @@
           "typingExpression": "Quando ativado, a digita??o aciona aleatoriamente um movimento ou express?o do grupo selecionado ap?s um atraso neste intervalo.",
           "passThrough": "Quando ativado, a interação com a janela do gato fica bloqueada e o mouse passa para os aplicativos abaixo.",
           "alwaysOnTop": "Quando ativado, a janela sempre ficará acima de outros aplicativos.",
+          "gameMode": "No Windows, impede que o pet ative a janela ou force repetidamente sua posição acima dos processos de jogo configurados. Tela cheia exclusiva pode ocultar o pet.",
           "returnToScreen": "Move a janela do pet para a area visivel da tela onde esta o ponteiro.",
           "windowSize": "Use o controle deslizante para ajustar rapidamente ou digite uma porcentagem para controle preciso.",
           "autoReleaseDelay": "Devido ao Windows não capturar eventos de liberação de certas teclas de nível do sistema, elas serão automaticamente tratadas como liberadas após um tempo limite.",
@@ -245,14 +248,16 @@
           "togglePreferences": "Abrir Preferências",
           "mirrorMode": "Modo Espelho",
           "passThrough": "Bloqueio do Gato",
-          "alwaysOnTop": "Sempre no Topo"
+          "alwaysOnTop": "Sempre no Topo",
+          "gameMode": "Alternar Modo de Jogo"
         },
         "hints": {
           "toggleCat": "Alternar a visibilidade da janela do gato.",
           "togglePreferences": "Alternar a visibilidade da janela de preferências.",
           "mirrorMode": "Alternar o modo espelho do gato.",
           "passThrough": "Alternar se a interação com a janela do gato fica bloqueada.",
-          "alwaysOnTop": "Alternar se a janela do gato permanece no topo."
+          "alwaysOnTop": "Alternar se a janela do gato permanece no topo.",
+          "gameMode": "Alternar o modo de compatibilidade de jogos do Windows."
         }
       },
       "about": {

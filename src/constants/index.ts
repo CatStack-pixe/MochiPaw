@@ -22,6 +22,7 @@ export const LISTEN_KEY = {
   MODEL_SWITCH_APPLIED: 'model-switch-applied',
   TYPING_STATS_OPERATION_REQUESTED: 'typing-stats-operation-requested',
   TYPING_STATS_OPERATION_APPLIED: 'typing-stats-operation-applied',
+  GAME_MODE_CHANGED: 'game-mode-changed',
 }
 
 export const INVOKE_KEY = {

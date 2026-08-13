@@ -18,6 +18,8 @@
           "windowSettings": "窗口设置",
           "passThrough": "猫咪锁定",
           "alwaysOnTop": "窗口置顶",
+          "gameMode": "游戏模式",
+          "gameProcesses": "目标进程名称",
           "returnToScreen": "回到屏幕内",
           "windowSize": "窗口尺寸",
           "windowRadius": "窗口圆角",
@@ -39,6 +41,7 @@
           "typingExpression": "启用后，打字时会在设置的随机延迟范围内，从选中的组里随机触发动作或表情。",
           "passThrough": "启用后，锁定猫咪窗口交互，鼠标操作会穿透到下方应用。",
           "alwaysOnTop": "启用后，窗口始终显示在其他应用程序上方。",
+          "gameMode": "Windows 下，桌宠不会激活窗口或持续争抢已配置游戏进程的窗口层级。真正独占全屏时桌宠可能不可见。",
           "returnToScreen": "将猫猫窗口移动到当前鼠标所在屏幕的可见区域。",
           "windowSize": "使用滑动条快速调整窗口大小，也可以输入百分比精确设置。",
           "autoReleaseDelay": "由于 Windows 下部分系统级按键无法捕获释放事件，超时后将自动视为已释放。",
@@ -251,14 +254,16 @@
           "togglePreferences": "打开偏好设置",
           "mirrorMode": "镜像模式",
           "passThrough": "猫咪锁定",
-          "alwaysOnTop": "窗口置顶"
+          "alwaysOnTop": "窗口置顶",
+          "gameMode": "切换游戏模式"
         },
         "hints": {
           "toggleCat": "切换猫咪窗口的显示与隐藏。",
           "togglePreferences": "切换偏好设置窗口的显示与隐藏。",
           "mirrorMode": "切换猫咪的镜像模式。",
           "passThrough": "切换是否锁定猫咪窗口交互。",
-          "alwaysOnTop": "切换猫咪窗口是否置顶。"
+          "alwaysOnTop": "切换猫咪窗口是否置顶。",
+          "gameMode": "切换 Windows 游戏兼容模式。"
         }
       },
       "about": {

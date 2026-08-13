@@ -18,6 +18,8 @@
           "windowSettings": "Cài đặt Cửa sổ",
           "passThrough": "Khóa mèo",
           "alwaysOnTop": "Luôn trên cùng",
+          "gameMode": "Chế độ trò chơi",
+          "gameProcesses": "Tên tiến trình mục tiêu",
           "returnToScreen": "Đưa về màn hình",
           "windowSize": "Kích thước",
           "windowRadius": "Độ bo tròn cửa sổ",
@@ -39,6 +41,7 @@
           "typingExpression": "Khi b?t, vi?c g? s? k?ch ho?t ng?u nhi?n m?t chuy?n ??ng ho?c bi?u c?m trong nh?m ?? ch?n sau kho?ng tr? n?y.",
           "passThrough": "Bật để khóa tương tác với cửa sổ mèo và chuyển thao tác chuột xuống ứng dụng bên dưới.",
           "alwaysOnTop": "Bật để cửa sổ luôn nằm trên ứng dụng khác.",
+          "gameMode": "Trên Windows, thú cưng không kích hoạt cửa sổ hoặc liên tục tranh thứ tự hiển thị với các tiến trình trò chơi đã cấu hình. Toàn màn hình độc quyền có thể ẩn thú cưng.",
           "returnToScreen": "Di chuyển cửa sổ thú cưng đến vùng hiển thị của màn hình có con trỏ.",
           "windowSize": "Dùng thanh trượt để chỉnh nhanh hoặc nhập phần trăm để đặt chính xác.",
           "autoReleaseDelay": "Do Windows không bắt được sự kiện nhả của một số phím hệ thống, các phím đó sẽ được tự động xem như đã nhả sau khi hết thời gian chờ.",
@@ -245,14 +248,16 @@
           "togglePreferences": "Mở Tùy chỉnh",
           "mirrorMode": "Chế độ gương",
           "passThrough": "Khóa mèo",
-          "alwaysOnTop": "Luôn trên cùng"
+          "alwaysOnTop": "Luôn trên cùng",
+          "gameMode": "Chuyển chế độ trò chơi"
         },
         "hints": {
           "toggleCat": "Bật/Tắt cửa sổ mèo.",
           "togglePreferences": "Bật/Tắt cửa sổ tùy chỉnh.",
           "mirrorMode": "Bật/Tắt chế độ gương.",
           "passThrough": "Bật/Tắt khóa tương tác với cửa sổ mèo.",
-          "alwaysOnTop": "Bật/Tắt luôn giữ cửa sổ mèo trên cùng."
+          "alwaysOnTop": "Bật/Tắt luôn giữ cửa sổ mèo trên cùng.",
+          "gameMode": "Chuyển chế độ tương thích trò chơi Windows."
         }
       },
       "about": {

@@ -14,12 +14,21 @@ import { LISTEN_KEY } from '../constants'
 export type WindowLabel = typeof WINDOW_LABEL[keyof typeof WINDOW_LABEL]
 export type WebviewMemoryTarget = 'normal' | 'low'
 
+export interface GameModeOptions extends Record<string, unknown> {
+  enabled: boolean
+  processes: string[]
+  alwaysOnTop: boolean
+  passThrough: boolean
+}
+
 const COMMAND = {
   SHOW_WINDOW: 'plugin:custom-window|show_window',
   HIDE_WINDOW: 'plugin:custom-window|hide_window',
   SET_ALWAYS_ON_TOP: 'plugin:custom-window|set_always_on_top',
+  SET_PASS_THROUGH: 'plugin:custom-window|set_pass_through',
   SET_TASKBAR_VISIBILITY: 'plugin:custom-window|set_taskbar_visibility',
   SET_WEBVIEW_MEMORY_TARGET: 'plugin:custom-window|set_webview_memory_target',
+  SET_GAME_MODE: 'plugin:custom-window|set_game_mode',
 }
 
 function formatWindowError(error: unknown) {
@@ -56,6 +65,19 @@ export function hideWindow(label?: WindowLabel) {
 
 export function setAlwaysOnTop(alwaysOnTop: boolean) {
   return invoke(COMMAND.SET_ALWAYS_ON_TOP, { alwaysOnTop }).catch(catchWindowError('always-on-top'))
+}
+
+export function setPassThrough(passThrough: boolean) {
+  return invoke(COMMAND.SET_PASS_THROUGH, { passThrough }).catch(catchWindowError('pass-through'))
+}
+
+export async function setGameMode(options: GameModeOptions): Promise<boolean> {
+  try {
+    return await invoke<boolean>(COMMAND.SET_GAME_MODE, options)
+  } catch (reason) {
+    catchWindowError('game-mode')(reason)
+    return false
+  }
 }
 
 export async function toggleWindowVisible(label?: WindowLabel) {

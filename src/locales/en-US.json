@@ -18,6 +18,8 @@
           "windowSettings": "Window Settings",
           "passThrough": "Cat Lock",
           "alwaysOnTop": "Always on Top",
+          "gameMode": "Game Mode",
+          "gameProcesses": "Target process names",
           "returnToScreen": "Return to Screen",
           "windowSize": "Window Size",
           "windowRadius": "Window Radius",
@@ -39,6 +41,7 @@
           "typingExpression": "When enabled, typing randomly triggers a motion or expression from the selected group after a random delay within this range.",
           "passThrough": "When enabled, cat window interaction is locked and mouse input passes to apps underneath.",
           "alwaysOnTop": "When enabled, the window stays above all other windows.",
+          "gameMode": "On Windows, keeps the pet from activating or repeatedly forcing itself above configured game processes. True exclusive fullscreen may hide the pet.",
           "returnToScreen": "Moves the pet window to the visible area of the screen containing the pointer.",
           "windowSize": "Use the slider for quick resizing, or enter a percentage for precise control.",
           "autoReleaseDelay": "On Windows, some system keys cannot capture release events and will auto-release after timeout.",
@@ -251,14 +254,16 @@
           "togglePreferences": "Toggle Preferences",
           "mirrorMode": "Mirror Mode",
           "passThrough": "Cat Lock",
-          "alwaysOnTop": "Always on Top"
+          "alwaysOnTop": "Always on Top",
+          "gameMode": "Toggle Game Mode"
         },
         "hints": {
           "toggleCat": "Toggle the visibility of the cat window.",
           "togglePreferences": "Toggle the visibility of the preferences window.",
           "mirrorMode": "Toggle the cat's mirror mode.",
           "passThrough": "Toggle whether cat window interaction is locked.",
-          "alwaysOnTop": "Toggle whether the cat window stays on top."
+          "alwaysOnTop": "Toggle whether the cat window stays on top.",
+          "gameMode": "Toggle Windows game compatibility mode."
         }
       },
       "about": {
