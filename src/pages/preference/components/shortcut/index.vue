@@ -16,7 +16,7 @@ import { useCatStore } from '@/stores/cat'
 import { useShortcutStore } from '@/stores/shortcut.ts'
 
 const shortcutStore = useShortcutStore()
-const { visibleCat, visiblePreference, mirrorMode, penetrable, alwaysOnTop } = storeToRefs(shortcutStore)
+const { visibleCat, visiblePreference, mirrorMode, penetrable, alwaysOnTop, gameMode } = storeToRefs(shortcutStore)
 const catStore = useCatStore()
 
 useKeyPress(visibleCat, () => {
@@ -37,6 +37,10 @@ useKeyPress(penetrable, () => {
 
 useKeyPress(alwaysOnTop, () => {
   catStore.window.alwaysOnTop = !catStore.window.alwaysOnTop
+})
+
+useKeyPress(gameMode, () => {
+  catStore.window.gameMode.enabled = !catStore.window.gameMode.enabled
 })
 </script>
 
@@ -75,6 +79,13 @@ useKeyPress(alwaysOnTop, () => {
       :title="$t('pages.preference.shortcut.labels.alwaysOnTop')"
     >
       <Shortcut v-model="shortcutStore.alwaysOnTop" />
+    </ProListItem>
+
+    <ProListItem
+      :description="$t('pages.preference.shortcut.hints.gameMode')"
+      :title="$t('pages.preference.shortcut.labels.gameMode')"
+    >
+      <Shortcut v-model="shortcutStore.gameMode" />
     </ProListItem>
   </ProList>
 </template>

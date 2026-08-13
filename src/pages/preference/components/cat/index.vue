@@ -171,6 +171,28 @@ const typingBehaviorGroupOptions = computed(() => {
     </ProListItem>
 
     <ProListItem
+      v-if="isWindows"
+      :description="$t('pages.preference.cat.hints.gameMode')"
+      :title="$t('pages.preference.cat.labels.gameMode')"
+      vertical
+    >
+      <Flex
+        align="center"
+        class="gap-3"
+      >
+        <Switch v-model:checked="catStore.window.gameMode.enabled" />
+
+        <Select
+          v-model:value="catStore.window.gameMode.processes"
+          class="min-w-70 flex-1"
+          mode="tags"
+          :placeholder="$t('pages.preference.cat.labels.gameProcesses')"
+          :token-separators="[',', ';']"
+        />
+      </Flex>
+    </ProListItem>
+
+    <ProListItem
       :description="hideOnHoverSupported ? $t('pages.preference.cat.hints.hideOnHover') : $t('pages.preference.cat.hints.hideOnHoverWayland')"
       :title="$t('pages.preference.cat.labels.hideOnHover')"
     >

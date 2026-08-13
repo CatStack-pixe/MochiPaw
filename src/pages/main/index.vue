@@ -27,7 +27,7 @@ import { useGamepad } from '@/composables/useGamepad'
 import { useModel } from '@/composables/useModel'
 import { useTauriListen } from '@/composables/useTauriListen'
 import { LISTEN_KEY, WINDOW_LABEL } from '@/constants'
-import { hideWindow, setAlwaysOnTop, setTaskbarVisibility, showWindow } from '@/plugins/window'
+import { hideWindow, setAlwaysOnTop, setGameMode, setPassThrough, setTaskbarVisibility, showWindow } from '@/plugins/window'
 import { useCatStore } from '@/stores/cat'
 import { useGeneralStore } from '@/stores/general.ts'
 import { useModelStore } from '@/stores/model'
@@ -127,6 +127,7 @@ const { getBaseMenu, getExitMenu } = useAppMenu({
 })
 const backgroundImagePath = ref<string>()
 const live2dCanvas = ref<HTMLCanvasElement | null>(null)
+const gameModeActive = ref(false)
 const { stickActive, handleInputEvent: handleGamepadInputEvent } = useGamepad({
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
@@ -670,10 +671,27 @@ if (!isSubModel) {
 }
 
 watch(() => windowSettings.value.passThrough, (value) => {
-  appWindow.setIgnoreCursorEvents(value)
+  if (isWindows && !isSubModel) {
+    setPassThrough(value)
+  } else {
+    appWindow.setIgnoreCursorEvents(value)
+  }
 }, { immediate: true })
 
 watch(() => windowSettings.value.alwaysOnTop, setAlwaysOnTop, { immediate: true })
+
+if (!isSubModel) {
+  watch([
+    () => catStore.window.gameMode.enabled,
+    () => catStore.window.gameMode.processes,
+    () => catStore.window.alwaysOnTop,
+    () => catStore.window.passThrough,
+  ], ([enabled, processes, alwaysOnTop, passThrough]) => {
+    void setGameMode({ enabled, processes, alwaysOnTop, passThrough }).then((active) => {
+      gameModeActive.value = active
+    })
+  }, { deep: true, immediate: true })
+}
 
 if (!isSubModel) {
   watch(() => generalStore.app.taskbarVisible, setTaskbarVisibility, { immediate: true })
@@ -681,7 +699,13 @@ if (!isSubModel) {
 
 watch(() => catStore.model.motionSound, live2d.setMotionSoundEnabled, { immediate: true })
 
-watch(() => appearanceSettings.value.maxFPS, fps => live2d.setMaxFPS(fps), { immediate: true })
+watch([() => appearanceSettings.value.maxFPS, gameModeActive], ([fps, active]) => {
+  live2d.setMaxFPS(active ? Math.min(fps, 30) : fps)
+}, { immediate: true })
+
+useTauriListen<boolean>(LISTEN_KEY.GAME_MODE_CHANGED, ({ payload }) => {
+  if (!isSubModel) gameModeActive.value = payload
+})
 
 useTauriListen<{
   id: string

@@ -25,6 +25,10 @@ export interface CatStore {
     visible: boolean
     passThrough: boolean
     alwaysOnTop: boolean
+    gameMode: {
+      enabled: boolean
+      processes: string[]
+    }
     scale: number
     opacity: number
     radius: number
@@ -75,6 +79,10 @@ export const useCatStore = defineStore('cat', () => {
     visible: true,
     passThrough: false,
     alwaysOnTop: false,
+    gameMode: {
+      enabled: false,
+      processes: ['VALORANT-Win64-Shipping.exe', 'VALORANT.exe'],
+    },
     scale: 100,
     opacity: 100,
     radius: 0,
@@ -83,6 +91,13 @@ export const useCatStore = defineStore('cat', () => {
   })
 
   const init = () => {
+    if (!window.gameMode || !Array.isArray(window.gameMode.processes)) {
+      window.gameMode = {
+        enabled: false,
+        processes: ['VALORANT-Win64-Shipping.exe', 'VALORANT.exe'],
+      }
+    }
+
     if (migrated.value) return
 
     model.mirror = mirrorMode.value
