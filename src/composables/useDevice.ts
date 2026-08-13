@@ -13,6 +13,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ModelRuntimeOptions } from '@/composables/useModel'
 import type { DeviceInputEvent } from '@/utils/subModelRuntime'
 
+import { setPassThrough } from '@/plugins/window'
 import { useAppStore } from '@/stores/app'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
@@ -64,6 +65,12 @@ export function useDevice(options: UseDeviceOptions = {}) {
   let cursorSmoothingFrame = 0
   let lastCursorSmoothingAt = 0
   let relativeMouseFrame = 0
+
+  const updateMainWindowPassThrough = (passThrough: boolean) => {
+    if (isWindows) return setPassThrough(passThrough)
+
+    return appWindow.setIgnoreCursorEvents(passThrough)
+  }
 
   const reportRuntimeUsed = () => {
     const now = Date.now()
@@ -244,12 +251,12 @@ export function useDevice(options: UseDeviceOptions = {}) {
         timer = setTimeout(() => {
           document.body.style.setProperty('opacity', '0')
 
-          appWindow.setIgnoreCursorEvents(true)
+          void updateMainWindowPassThrough(true)
         }, catStore.window.hideOnHoverDelay * 1000)
       } else {
         document.body.style.setProperty('opacity', 'unset')
 
-        appWindow.setIgnoreCursorEvents(catStore.window.passThrough)
+        void updateMainWindowPassThrough(catStore.window.passThrough)
       }
 
       wasInWindow = isInWindow
