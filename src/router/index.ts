@@ -7,6 +7,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 import Main from '../pages/main/index.vue'
+import Pomodoro from '../pages/pomodoro/index.vue'
 import Preference from '../pages/preference/index.vue'
 
 const routes: Readonly<RouteRecordRaw[]> = [
@@ -17,6 +18,10 @@ const routes: Readonly<RouteRecordRaw[]> = [
   {
     path: '/preference',
     component: Preference,
+  },
+  {
+    path: '/pomodoro',
+    component: Pomodoro,
   },
   {
     path: '/sub-model',

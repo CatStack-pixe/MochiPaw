@@ -17,6 +17,8 @@ import { showWindow } from '@/plugins/window'
 import { useCatStore } from '@/stores/cat'
 import { runAfterSavingPersistentStores } from '@/utils/persistence'
 import { isMac } from '@/utils/platform'
+import { requestPomodoroCommand } from '@/utils/pomodoroRequest'
+import { openPomodoroWindow } from '@/utils/pomodoroWindow'
 
 type AppMenuWindowSettings = Pick<CatStore['window'], 'passThrough' | 'scale' | 'opacity'>
 
@@ -106,6 +108,27 @@ export function useAppMenu(options: AppMenuOptions = {}) {
       MenuItem.new({
         text: visible.value ? t('composables.useAppMenu.labels.hideCat') : t('composables.useAppMenu.labels.showCat'),
         action: toggleVisibility,
+      }),
+      Submenu.new({
+        text: t('pages.pomodoro.title'),
+        items: await Promise.all([
+          MenuItem.new({
+            text: t('pages.pomodoro.buttons.open'),
+            action: () => openPomodoroWindow(),
+          }),
+          MenuItem.new({
+            text: t('pages.pomodoro.buttons.start'),
+            action: () => requestPomodoroCommand('start'),
+          }),
+          MenuItem.new({
+            text: t('pages.pomodoro.buttons.pause'),
+            action: () => requestPomodoroCommand('pause'),
+          }),
+          MenuItem.new({
+            text: t('pages.pomodoro.buttons.reset'),
+            action: () => requestPomodoroCommand('reset'),
+          }),
+        ]),
       }),
       PredefinedMenuItem.new({ item: 'Separator' }),
       CheckMenuItem.new({

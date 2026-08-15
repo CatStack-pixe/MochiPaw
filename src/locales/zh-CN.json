@@ -6,6 +6,70 @@
         "switching": "切换中..."
       }
     },
+    "pomodoro": {
+      "title": "番茄钟",
+      "phases": {
+        "work": "专注",
+        "shortBreak": "短休息",
+        "longBreak": "长休息"
+      },
+      "status": {
+        "idle": "准备就绪",
+        "running": "进行中",
+        "paused": "已暂停"
+      },
+      "labels": {
+        "overview": "概览",
+        "settings": "设置",
+        "controls": "控制",
+        "todayCompletedTitle": "今日完成的番茄钟",
+        "todayCompleted": "今日完成：{count}",
+        "round": "第 {current} / {total} 轮",
+        "workMinutes": "专注时长",
+        "shortBreakMinutes": "短休息时长",
+        "longBreakMinutes": "长休息时长",
+        "longBreakInterval": "长休息间隔",
+        "autoStartBreak": "自动开始休息",
+        "autoStartWork": "自动开始专注",
+        "soundEnabled": "完成提示音",
+        "notificationsEnabled": "系统通知"
+      },
+      "buttons": {
+        "start": "开始",
+        "pause": "暂停",
+        "resume": "继续",
+        "reset": "重置",
+        "skip": "跳过",
+        "open": "打开番茄钟",
+        "openWindow": "打开番茄钟窗口",
+        "saveSettings": "保存设置",
+        "clearToday": "清除今日统计",
+        "close": "关闭"
+      },
+      "units": {
+        "minutes": "分钟",
+        "rounds": "轮"
+      },
+      "hints": {
+        "closeKeepsRunning": "关闭此窗口不会停止计时。",
+        "clearToday": "重置今日完成的番茄数。",
+        "durationRange": "时长可设置为 1 到 120 分钟。",
+        "commandFailed": "番茄钟操作未能完成。",
+        "currentState": "当前状态：{status}",
+        "todayCompleted": "今日完成番茄钟：{count}",
+        "saved": "番茄钟设置已保存。",
+        "saveFailed": "无法保存番茄钟设置。"
+      },
+      "notifications": {
+        "title": "番茄钟",
+        "work": "专注完成",
+        "shortBreak": "短休息完成",
+        "longBreak": "长休息完成",
+        "workCompleted": "专注完成",
+        "shortBreakCompleted": "短休息完成",
+        "longBreakCompleted": "长休息完成"
+      }
+    },
     "preference": {
       "title": "偏好设置",
       "cat": {

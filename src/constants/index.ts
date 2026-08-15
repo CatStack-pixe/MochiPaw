@@ -22,6 +22,11 @@ export const LISTEN_KEY = {
   MODEL_SWITCH_APPLIED: 'model-switch-applied',
   TYPING_STATS_OPERATION_REQUESTED: 'typing-stats-operation-requested',
   TYPING_STATS_OPERATION_APPLIED: 'typing-stats-operation-applied',
+  POMODORO_COMMAND_REQUESTED: 'pomodoro-command-requested',
+  POMODORO_COMMAND_APPLIED: 'pomodoro-command-applied',
+  POMODORO_STATE_CHANGED: 'pomodoro-state-changed',
+  POMODORO_STAGE_COMPLETED: 'pomodoro-stage-completed',
+  POMODORO_WINDOW_REQUESTED: 'pomodoro-window-requested',
   GAME_MODE_CHANGED: 'game-mode-changed',
 }
 
@@ -47,4 +52,5 @@ export const LANGUAGE = {
 export const WINDOW_LABEL = {
   MAIN: 'main',
   PREFERENCE: 'preference',
+  POMODORO: 'pomodoro',
 } as const

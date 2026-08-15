@@ -6,6 +6,70 @@
         "switching": "Switching..."
       }
     },
+    "pomodoro": {
+      "title": "Pomodoro",
+      "phases": {
+        "work": "Focus",
+        "shortBreak": "Short break",
+        "longBreak": "Long break"
+      },
+      "status": {
+        "idle": "Ready",
+        "running": "Running",
+        "paused": "Paused"
+      },
+      "labels": {
+        "overview": "Overview",
+        "settings": "Settings",
+        "controls": "Controls",
+        "todayCompletedTitle": "Today's completed Pomodoros",
+        "todayCompleted": "Completed today: {count}",
+        "round": "Round {current} of {total}",
+        "workMinutes": "Focus duration",
+        "shortBreakMinutes": "Short break duration",
+        "longBreakMinutes": "Long break duration",
+        "longBreakInterval": "Long break every",
+        "autoStartBreak": "Auto-start breaks",
+        "autoStartWork": "Auto-start focus",
+        "soundEnabled": "Completion sound",
+        "notificationsEnabled": "Notifications"
+      },
+      "buttons": {
+        "start": "Start",
+        "pause": "Pause",
+        "resume": "Resume",
+        "reset": "Reset",
+        "skip": "Skip",
+        "open": "Open Pomodoro",
+        "openWindow": "Open Pomodoro window",
+        "saveSettings": "Save settings",
+        "clearToday": "Clear today's count",
+        "close": "Close"
+      },
+      "units": {
+        "minutes": "minutes",
+        "rounds": "rounds"
+      },
+      "hints": {
+        "closeKeepsRunning": "Closing this window does not stop the timer.",
+        "clearToday": "Reset today's completed Pomodoro count.",
+        "durationRange": "Choose a duration from 1 to 120 minutes.",
+        "commandFailed": "The Pomodoro command could not be completed.",
+        "currentState": "Current state: {status}",
+        "todayCompleted": "Completed Pomodoros today: {count}",
+        "saved": "Pomodoro settings saved.",
+        "saveFailed": "Could not save Pomodoro settings."
+      },
+      "notifications": {
+        "title": "Pomodoro",
+        "work": "Focus session complete",
+        "shortBreak": "Short break complete",
+        "longBreak": "Long break complete",
+        "workCompleted": "Focus session complete",
+        "shortBreakCompleted": "Short break complete",
+        "longBreakCompleted": "Long break complete"
+      }
+    },
     "preference": {
       "title": "Preferences",
       "cat": {

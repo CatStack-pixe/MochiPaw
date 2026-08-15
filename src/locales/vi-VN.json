@@ -6,6 +6,70 @@
         "switching": "Đang chuyển đổi..."
       }
     },
+    "pomodoro": {
+      "title": "Pomodoro",
+      "phases": {
+        "work": "Tập trung",
+        "shortBreak": "Nghỉ ngắn",
+        "longBreak": "Nghỉ dài"
+      },
+      "status": {
+        "idle": "Sẵn sàng",
+        "running": "Đang chạy",
+        "paused": "Đã tạm dừng"
+      },
+      "labels": {
+        "overview": "Tổng quan",
+        "settings": "Cài đặt",
+        "controls": "Điều khiển",
+        "todayCompletedTitle": "Pomodoro đã hoàn thành hôm nay",
+        "todayCompleted": "Hoàn thành hôm nay: {count}",
+        "round": "Vòng {current} / {total}",
+        "workMinutes": "Thời lượng tập trung",
+        "shortBreakMinutes": "Thời lượng nghỉ ngắn",
+        "longBreakMinutes": "Thời lượng nghỉ dài",
+        "longBreakInterval": "Nghỉ dài sau mỗi",
+        "autoStartBreak": "Tự động bắt đầu giờ nghỉ",
+        "autoStartWork": "Tự động bắt đầu tập trung",
+        "soundEnabled": "Âm thanh hoàn thành",
+        "notificationsEnabled": "Thông báo"
+      },
+      "buttons": {
+        "start": "Bắt đầu",
+        "pause": "Tạm dừng",
+        "resume": "Tiếp tục",
+        "reset": "Đặt lại",
+        "skip": "Bỏ qua",
+        "open": "Mở Pomodoro",
+        "openWindow": "Mở cửa sổ Pomodoro",
+        "saveSettings": "Lưu cài đặt",
+        "clearToday": "Xóa số liệu hôm nay",
+        "close": "Đóng"
+      },
+      "units": {
+        "minutes": "phút",
+        "rounds": "vòng"
+      },
+      "hints": {
+        "closeKeepsRunning": "Đóng cửa sổ này không dừng bộ hẹn giờ.",
+        "clearToday": "Đặt lại số Pomodoro đã hoàn thành hôm nay.",
+        "durationRange": "Chọn thời lượng từ 1 đến 120 phút.",
+        "commandFailed": "Không thể hoàn thành thao tác Pomodoro.",
+        "currentState": "Trạng thái hiện tại: {status}",
+        "todayCompleted": "Pomodoro hoàn thành hôm nay: {count}",
+        "saved": "Đã lưu cài đặt Pomodoro.",
+        "saveFailed": "Không thể lưu cài đặt Pomodoro."
+      },
+      "notifications": {
+        "title": "Pomodoro",
+        "work": "Đã hoàn thành phiên tập trung",
+        "shortBreak": "Đã hoàn thành giờ nghỉ ngắn",
+        "longBreak": "Đã hoàn thành giờ nghỉ dài",
+        "workCompleted": "Đã hoàn thành phiên tập trung",
+        "shortBreakCompleted": "Đã hoàn thành giờ nghỉ ngắn",
+        "longBreakCompleted": "Đã hoàn thành giờ nghỉ dài"
+      }
+    },
     "preference": {
       "title": "Tùy chỉnh",
       "cat": {
