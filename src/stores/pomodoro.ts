@@ -89,8 +89,10 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     reconcile(now)
 
     if (command === 'reset') {
+      const completedToday = runtime.completedToday
       Object.assign(runtime, resetPomodoro())
       runtime.completedDate = getPomodoroDateKey(new Date(now))
+      runtime.completedToday = completedToday
       return { completedWork: 0, transitions: [], completedPhases: [] }
     }
 

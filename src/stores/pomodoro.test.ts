@@ -59,3 +59,17 @@ test('skip advances a paused phase without double counting', () => {
   assert.equal(store.todayCompleted, 1)
   assert.equal(store.runtime.phase, 'shortBreak')
 })
+
+test('reset clears the current session but keeps today completed count', () => {
+  const store = createStore()
+  const now = new Date(2026, 0, 2, 10).getTime()
+
+  store.execute('start', now)
+  store.reconcile(now + 25 * 60_000)
+  store.execute('reset', now + 26 * 60_000)
+
+  assert.equal(store.todayCompleted, 1)
+  assert.equal(store.runtime.completedRounds, 0)
+  assert.equal(store.runtime.phase, 'work')
+  assert.equal(store.runtime.status, 'idle')
+})
