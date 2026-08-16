@@ -11,9 +11,10 @@ export type HotKey
     | 'penetrable'
     | 'alwaysOnTop'
     | 'gameMode'
-    | 'pomodoroToggle'
+    | 'pomodoroStart'
+    | 'pomodoroPause'
+    | 'pomodoroResume'
     | 'pomodoroReset'
-    | 'pomodoroSkip'
 
 export const useShortcutStore = defineStore('shortcut', () => {
   const visibleCat = ref('')
@@ -22,9 +23,10 @@ export const useShortcutStore = defineStore('shortcut', () => {
   const penetrable = ref('')
   const alwaysOnTop = ref('')
   const gameMode = ref('Ctrl+Shift+G')
-  const pomodoroToggle = ref('')
+  const pomodoroStart = ref('')
+  const pomodoroPause = ref('')
+  const pomodoroResume = ref('')
   const pomodoroReset = ref('')
-  const pomodoroSkip = ref('')
 
   return {
     visibleCat,
@@ -33,8 +35,9 @@ export const useShortcutStore = defineStore('shortcut', () => {
     penetrable,
     alwaysOnTop,
     gameMode,
-    pomodoroToggle,
+    pomodoroStart,
+    pomodoroPause,
+    pomodoroResume,
     pomodoroReset,
-    pomodoroSkip,
   }
 })

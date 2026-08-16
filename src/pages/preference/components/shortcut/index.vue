@@ -55,26 +55,5 @@ const shortcutStore = useShortcutStore()
     >
       <Shortcut v-model="shortcutStore.gameMode" />
     </ProListItem>
-
-    <ProListItem
-      :description="$t('pages.preference.shortcut.hints.pomodoroToggle')"
-      :title="$t('pages.preference.shortcut.labels.pomodoroToggle')"
-    >
-      <Shortcut v-model="shortcutStore.pomodoroToggle" />
-    </ProListItem>
-
-    <ProListItem
-      :description="$t('pages.preference.shortcut.hints.pomodoroReset')"
-      :title="$t('pages.preference.shortcut.labels.pomodoroReset')"
-    >
-      <Shortcut v-model="shortcutStore.pomodoroReset" />
-    </ProListItem>
-
-    <ProListItem
-      :description="$t('pages.preference.shortcut.hints.pomodoroSkip')"
-      :title="$t('pages.preference.shortcut.labels.pomodoroSkip')"
-    >
-      <Shortcut v-model="shortcutStore.pomodoroSkip" />
-    </ProListItem>
   </ProList>
 </template>

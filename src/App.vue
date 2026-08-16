@@ -60,9 +60,10 @@ const {
   penetrable,
   alwaysOnTop,
   gameMode,
-  pomodoroToggle,
+  pomodoroStart,
+  pomodoroPause,
+  pomodoroResume,
   pomodoroReset,
-  pomodoroSkip,
 } = storeToRefs(shortcutStore)
 const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
@@ -73,7 +74,7 @@ const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow
 const { darkAlgorithm, defaultAlgorithm } = theme
 const { locale, t } = useI18n()
 
-function runPomodoroShortcut(command: 'start' | 'pause' | 'resume' | 'reset' | 'skip') {
+function runPomodoroShortcut(command: 'start' | 'pause' | 'resume' | 'reset') {
   void requestPomodoroCommand(command).catch((error) => {
     logError('[shortcut] Pomodoro command failed', { command, error })
   })
@@ -104,22 +105,12 @@ if (appWindow.label === WINDOW_LABEL.MAIN) {
     catStore.window.gameMode.enabled = !catStore.window.gameMode.enabled
   })
 
-  useKeyPress(pomodoroToggle, () => {
-    const command = pomodoroStore.runtime.status === 'running'
-      ? 'pause'
-      : pomodoroStore.runtime.status === 'paused'
-        ? 'resume'
-        : 'start'
-
-    runPomodoroShortcut(command)
-  })
+  useKeyPress(pomodoroStart, () => runPomodoroShortcut('start'))
+  useKeyPress(pomodoroPause, () => runPomodoroShortcut('pause'))
+  useKeyPress(pomodoroResume, () => runPomodoroShortcut('resume'))
 
   useKeyPress(pomodoroReset, () => {
     runPomodoroShortcut('reset')
-  })
-
-  useKeyPress(pomodoroSkip, () => {
-    runPomodoroShortcut('skip')
   })
 }
 

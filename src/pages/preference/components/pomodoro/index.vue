@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { listen } from '@tauri-apps/api/event'
 import { useDebounceFn } from '@vueuse/core'
-import { Button, InputNumber, message, Slider, Switch } from 'antdv-next'
+import { InputNumber, message, Slider, Switch } from 'antdv-next'
 import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -13,11 +13,14 @@ import type { PomodoroStatePayload } from '@/utils/pomodoroRequest'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
+import Shortcut from '@/components/shortcut/index.vue'
 import { LISTEN_KEY } from '@/constants'
 import { usePomodoroStore } from '@/stores/pomodoro'
+import { useShortcutStore } from '@/stores/shortcut'
 import { requestPomodoroCommand } from '@/utils/pomodoroRequest'
 
 const store = usePomodoroStore()
+const shortcutStore = useShortcutStore()
 const { t } = useI18n()
 const pending = ref(false)
 const todayCompleted = ref(store.todayCompleted)
@@ -82,24 +85,6 @@ async function setTodayCompleted(value: number | null) {
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error))
     todayCompleted.value = store.todayCompleted
-  } finally {
-    pending.value = false
-  }
-}
-
-async function runCommand(command: Parameters<typeof requestPomodoroCommand>[0]) {
-  if (pending.value) return
-
-  pending.value = true
-
-  try {
-    const acknowledgement = await requestPomodoroCommand(command)
-
-    if (!acknowledgement.accepted) throw new Error(acknowledgement.reason ?? t('pages.pomodoro.hints.commandFailed'))
-
-    if (acknowledgement.state) syncDraft(acknowledgement.state)
-  } catch (error) {
-    message.error(error instanceof Error ? error.message : String(error))
   } finally {
     pending.value = false
   }
@@ -220,27 +205,29 @@ watch(() => store.todayCompleted, (value) => {
   </ProList>
 
   <ProList :title="t('pages.pomodoro.labels.controls')">
-    <ProListItem :title="t('pages.pomodoro.buttons.start')">
-      <div class="flex gap-2">
-        <Button
-          :disabled="pending"
-          @click="runCommand(store.runtime.status === 'running' ? 'pause' : store.runtime.status === 'paused' ? 'resume' : 'start')"
-        >
-          <template #icon>
-            <i :class="store.runtime.status === 'running' ? 'i-lucide:pause' : 'i-lucide:play'" />
-          </template>
-          {{ store.runtime.status === 'running' ? t('pages.pomodoro.buttons.pause') : store.runtime.status === 'paused' ? t('pages.pomodoro.buttons.resume') : t('pages.pomodoro.buttons.start') }}
-        </Button>
-        <Button
-          :disabled="pending"
-          @click="runCommand('reset')"
-        >
-          <template #icon>
-            <i class="i-lucide:rotate-ccw" />
-          </template>
-          {{ t('pages.pomodoro.buttons.reset') }}
-        </Button>
-      </div>
+    <ProListItem
+      :description="t('pages.pomodoro.hints.shortcutStart')"
+      :title="t('pages.pomodoro.buttons.start')"
+    >
+      <Shortcut v-model="shortcutStore.pomodoroStart" />
+    </ProListItem>
+    <ProListItem
+      :description="t('pages.pomodoro.hints.shortcutPause')"
+      :title="t('pages.pomodoro.buttons.pause')"
+    >
+      <Shortcut v-model="shortcutStore.pomodoroPause" />
+    </ProListItem>
+    <ProListItem
+      :description="t('pages.pomodoro.hints.shortcutResume')"
+      :title="t('pages.pomodoro.buttons.resume')"
+    >
+      <Shortcut v-model="shortcutStore.pomodoroResume" />
+    </ProListItem>
+    <ProListItem
+      :description="t('pages.pomodoro.hints.shortcutReset')"
+      :title="t('pages.pomodoro.buttons.reset')"
+    >
+      <Shortcut v-model="shortcutStore.pomodoroReset" />
     </ProListItem>
   </ProList>
 </template>
