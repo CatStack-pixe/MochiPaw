@@ -20,6 +20,7 @@ export interface PomodoroWindowLayoutOptions {
 }
 
 export const POMODORO_DISPLAY_BASE_FONT_SIZE = 24
+export const POMODORO_DISPLAY_MIN_FONT_SIZE = 12
 export const POMODORO_DISPLAY_VERTICAL_PADDING = 8
 
 export function calculatePomodoroWindowLayout({
@@ -34,7 +35,9 @@ export function calculatePomodoroWindowLayout({
     width: Math.max(1, Math.round(modelSize.width * scale)),
     height: Math.max(1, Math.round(modelSize.height * scale)),
   }
-  const fontSize = POMODORO_DISPLAY_BASE_FONT_SIZE * scale * relativeDisplayScale
+  const fontSize = displayEnabled
+    ? Math.max(POMODORO_DISPLAY_MIN_FONT_SIZE, POMODORO_DISPLAY_BASE_FONT_SIZE * scale * relativeDisplayScale)
+    : 0
   const timerHeight = displayEnabled
     ? Math.max(1, Math.ceil(fontSize * 1.2 + POMODORO_DISPLAY_VERTICAL_PADDING * 2))
     : 0

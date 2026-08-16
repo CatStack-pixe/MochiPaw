@@ -56,6 +56,18 @@ test('display scale only changes the timer area', () => {
   assert.ok(larger.timer.height > normal.timer.height)
 })
 
+test('keeps the countdown readable when the cat is scaled down', () => {
+  const layout = calculatePomodoroWindowLayout({
+    modelSize,
+    modelScale: 15,
+    displayEnabled: true,
+    displayScale: 100,
+  })
+
+  assert.equal(layout.timer.fontSize, 12)
+  assert.ok(layout.timer.height > 0)
+})
+
 test('disabled display restores the model-only window size', () => {
   const layout = calculatePomodoroWindowLayout({ modelSize, modelScale: 100, displayEnabled: false, displayScale: 200 })
 
