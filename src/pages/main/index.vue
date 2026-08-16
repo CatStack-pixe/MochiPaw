@@ -914,3 +914,12 @@ function handleMouseMove(event: MouseEvent) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.timer-display {
+  color: rgb(255 255 255 / 95%);
+  text-shadow:
+    0 1px 3px rgb(0 0 0 / 90%),
+    0 0 1px rgb(0 0 0 / 100%);
+}
+</style>

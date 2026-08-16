@@ -26,6 +26,7 @@ import { runAfterSavingPersistentStores } from '@/utils/persistence'
 import {
   applyUpdate,
   disposeUpdate,
+  fetchGitHubReleaseBody,
   getUpdateReleaseUrl,
   transferUpdateOwnership,
   UpdateCheckCoordinator,
@@ -120,7 +121,9 @@ async function checkUpdate(visibleMessage = false) {
         state.update = update
       })
       state.capability = result.capability
-      state.updateBody = replaceBody(result.update.body ?? '')
+      const updateBody = result.update.body?.trim()
+        || await fetchGitHubReleaseBody(GITHUB_LINK, result.update.version)
+      state.updateBody = replaceBody(updateBody)
       state.updateDate = result.update.date
         ? dayjs.utc(result.update.date.split('.')[0]).local().format('YYYY-MM-DD HH:mm:ss')
         : ''

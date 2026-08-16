@@ -132,9 +132,9 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: MochiPaw ${{ github.ref_name }}
-          releaseBody: ''
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+          generateReleaseNotes: true
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
@@ -200,14 +200,23 @@ jobs:
 
       - name: Verify and rename updater metadata
         env:
+          REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          release_id="$(
+            gh api --paginate "repos/$REPOSITORY/releases?per_page=100" \
+              --jq '.[] | select(.tag_name == env.RELEASE_TAG) | .id' |
+              head -n 1
+          )"
+          test -n "$release_id"
+          gh api "repos/$REPOSITORY/releases/$release_id" --jq '.body // ""' > release-metadata/release-notes.md
           version="${RELEASE_TAG#v}"
           node scripts/verifyUpdaterMetadata.mjs \
             release-metadata/fragments \
             release-metadata/assets.json \
             "$version" \
-            release-metadata/latest-v2.json
+            release-metadata/latest-v2.json \
+            release-metadata/release-notes.md
 
       - name: Replace updater metadata asset
         env:

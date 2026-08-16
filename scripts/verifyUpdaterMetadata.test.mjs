@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 // eslint-disable-next-line test/no-import-node-test -- Vitest is not installed; this test runs through tsx's Node test runner.
 import { describe, it } from 'node:test'
 
-import { mergeUpdaterMetadata, verifyUpdaterMetadata } from './verifyUpdaterMetadata.mjs'
+import { addReleaseNotes, mergeUpdaterMetadata, verifyUpdaterMetadata } from './verifyUpdaterMetadata.mjs'
 
 const expectedVersion = '1.2.3'
 
@@ -68,6 +68,14 @@ function createPlatform(asset) {
 }
 
 describe('verifyUpdaterMetadata', () => {
+  it('replaces empty updater notes with the GitHub release body', () => {
+    const fixture = createFixture()
+    const withNotes = addReleaseNotes(fixture.metadata, '## What is new\n\n- Embedded timer')
+
+    assert.equal(withNotes.notes, '## What is new\n\n- Embedded timer')
+    assert.equal(fixture.metadata.notes, '')
+  })
+
   it('accepts complete installer-specific metadata with NSIS fallback', () => {
     const fixture = createFixture()
     assert.equal(
@@ -145,6 +153,23 @@ describe('verifyUpdaterMetadata', () => {
     const merged = mergeUpdaterMetadata(fragments, expectedVersion)
     assert.deepEqual(merged.platforms, fixture.metadata.platforms)
     assert.doesNotThrow(() => verifyUpdaterMetadata(merged, fixture.assets, expectedVersion))
+  })
+
+  it('copies the GitHub Release description into the updater notes', () => {
+    const fixture = createFixture()
+    const notes = '## What\'s New\n\n- Embedded countdown'
+
+    const metadata = addReleaseNotes(fixture.metadata, notes)
+
+    assert.equal(metadata.notes, notes)
+    assert.equal(fixture.metadata.notes, '')
+  })
+
+  it('rejects non-string release notes', () => {
+    assert.throws(
+      () => addReleaseNotes(createFixture().metadata, null),
+      /release notes must be a string/,
+    )
   })
 
   it('rejects conflicting matrix fragments', () => {
