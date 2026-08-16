@@ -16,6 +16,7 @@ import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { logError, logStep, logTrace } from '@/utils/diagnostics'
 import { getCursorMonitor } from '@/utils/monitor'
+import { applyMouseSensitivity } from '@/utils/mouseSensitivity'
 import { isMac } from '@/utils/platform'
 
 import live2d, { isLive2dLoadCancelledError } from '../utils/live2d'
@@ -524,8 +525,11 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
   }
 
   function applyMouseLook(xRatio: number, yRatio: number) {
-    const lookTargetX = (mouseMirror.value ? -1 : 1) * (1 - 2 * xRatio)
-    const lookTargetY = 1 - 2 * yRatio
+    const sensitivity = catStore.model.mouseSensitivity
+    const adjustedXRatio = applyMouseSensitivity(xRatio, sensitivity)
+    const adjustedYRatio = applyMouseSensitivity(yRatio, sensitivity)
+    const lookTargetX = (mouseMirror.value ? -1 : 1) * (1 - 2 * adjustedXRatio)
+    const lookTargetY = 1 - 2 * adjustedYRatio
 
     for (const id of [
       'ParamMouseX',
@@ -551,12 +555,12 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
       let value: number
 
       if (isZAxis) {
-        const dragX = 1 - 2 * xRatio
-        const dragY = 1 - 2 * yRatio
+        const dragX = 1 - 2 * adjustedXRatio
+        const dragY = 1 - 2 * adjustedYRatio
 
         value = dragX * dragY * min
       } else {
-        const ratio = isXAxis ? xRatio : yRatio
+        const ratio = isXAxis ? adjustedXRatio : adjustedYRatio
 
         value = max - ratio * (max - min)
       }
