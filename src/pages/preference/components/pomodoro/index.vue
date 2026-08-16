@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { listen } from '@tauri-apps/api/event'
 import { useDebounceFn } from '@vueuse/core'
-import { InputNumber, message, Slider, Switch } from 'antdv-next'
+import { Button, Divider, InputNumber, message, Slider, Switch } from 'antdv-next'
 import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -70,6 +70,26 @@ async function persistSettings() {
 const scheduleSettingsPersistence = useDebounceFn(() => {
   if (hasDraftChanges()) void persistSettings()
 }, 300)
+
+type PomodoroControlCommand = 'start' | 'pause' | 'resume' | 'reset'
+
+async function runCommand(command: PomodoroControlCommand) {
+  if (pending.value) return
+
+  pending.value = true
+
+  try {
+    const acknowledgement = await requestPomodoroCommand(command)
+
+    if (!acknowledgement.accepted) throw new Error(acknowledgement.reason ?? t('pages.pomodoro.hints.commandFailed'))
+
+    if (acknowledgement.state) syncDraft(acknowledgement.state)
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+  } finally {
+    pending.value = false
+  }
+}
 
 async function setTodayCompleted(value: number | null) {
   if (pending.value || value == null) return
@@ -209,25 +229,93 @@ watch(() => store.todayCompleted, (value) => {
       :description="t('pages.pomodoro.hints.shortcutStart')"
       :title="t('pages.pomodoro.buttons.start')"
     >
-      <Shortcut v-model="shortcutStore.pomodoroStart" />
+      <div class="flex items-center gap-2">
+        <Shortcut v-model="shortcutStore.pomodoroStart" />
+        <Divider
+          class="m-0!"
+          type="vertical"
+        />
+        <Button
+          :aria-label="t('pages.pomodoro.buttons.start')"
+          :disabled="pending"
+          :loading="pending"
+          :title="t('pages.pomodoro.buttons.start')"
+          @click="runCommand('start')"
+        >
+          <template #icon>
+            <i class="i-lucide:play" />
+          </template>
+        </Button>
+      </div>
     </ProListItem>
     <ProListItem
       :description="t('pages.pomodoro.hints.shortcutPause')"
       :title="t('pages.pomodoro.buttons.pause')"
     >
-      <Shortcut v-model="shortcutStore.pomodoroPause" />
+      <div class="flex items-center gap-2">
+        <Shortcut v-model="shortcutStore.pomodoroPause" />
+        <Divider
+          class="m-0!"
+          type="vertical"
+        />
+        <Button
+          :aria-label="t('pages.pomodoro.buttons.pause')"
+          :disabled="pending"
+          :loading="pending"
+          :title="t('pages.pomodoro.buttons.pause')"
+          @click="runCommand('pause')"
+        >
+          <template #icon>
+            <i class="i-lucide:pause" />
+          </template>
+        </Button>
+      </div>
     </ProListItem>
     <ProListItem
       :description="t('pages.pomodoro.hints.shortcutResume')"
       :title="t('pages.pomodoro.buttons.resume')"
     >
-      <Shortcut v-model="shortcutStore.pomodoroResume" />
+      <div class="flex items-center gap-2">
+        <Shortcut v-model="shortcutStore.pomodoroResume" />
+        <Divider
+          class="m-0!"
+          type="vertical"
+        />
+        <Button
+          :aria-label="t('pages.pomodoro.buttons.resume')"
+          :disabled="pending"
+          :loading="pending"
+          :title="t('pages.pomodoro.buttons.resume')"
+          @click="runCommand('resume')"
+        >
+          <template #icon>
+            <i class="i-lucide:play" />
+          </template>
+        </Button>
+      </div>
     </ProListItem>
     <ProListItem
       :description="t('pages.pomodoro.hints.shortcutReset')"
       :title="t('pages.pomodoro.buttons.reset')"
     >
-      <Shortcut v-model="shortcutStore.pomodoroReset" />
+      <div class="flex items-center gap-2">
+        <Shortcut v-model="shortcutStore.pomodoroReset" />
+        <Divider
+          class="m-0!"
+          type="vertical"
+        />
+        <Button
+          :aria-label="t('pages.pomodoro.buttons.reset')"
+          :disabled="pending"
+          :loading="pending"
+          :title="t('pages.pomodoro.buttons.reset')"
+          @click="runCommand('reset')"
+        >
+          <template #icon>
+            <i class="i-lucide:rotate-ccw" />
+          </template>
+        </Button>
+      </div>
     </ProListItem>
   </ProList>
 </template>
