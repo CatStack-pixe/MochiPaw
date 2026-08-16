@@ -243,7 +243,7 @@ watch(() => store.todayCompleted, (value) => {
           @click="runCommand('start')"
         >
           <template #icon>
-            <i class="i-lucide:play" />
+            <div class="i-lucide:play size-4" />
           </template>
         </Button>
       </div>
@@ -266,7 +266,7 @@ watch(() => store.todayCompleted, (value) => {
           @click="runCommand('pause')"
         >
           <template #icon>
-            <i class="i-lucide:pause" />
+            <div class="i-lucide:pause size-4" />
           </template>
         </Button>
       </div>
@@ -289,7 +289,7 @@ watch(() => store.todayCompleted, (value) => {
           @click="runCommand('resume')"
         >
           <template #icon>
-            <i class="i-lucide:play" />
+            <div class="i-lucide:play size-4" />
           </template>
         </Button>
       </div>
@@ -312,7 +312,7 @@ watch(() => store.todayCompleted, (value) => {
           @click="runCommand('reset')"
         >
           <template #icon>
-            <i class="i-lucide:rotate-ccw" />
+            <div class="i-lucide:rotate-ccw size-4" />
           </template>
         </Button>
       </div>
