@@ -18,7 +18,6 @@ import { useCatStore } from '@/stores/cat'
 import { runAfterSavingPersistentStores } from '@/utils/persistence'
 import { isMac } from '@/utils/platform'
 import { requestPomodoroCommand } from '@/utils/pomodoroRequest'
-import { openPomodoroWindow } from '@/utils/pomodoroWindow'
 
 type AppMenuWindowSettings = Pick<CatStore['window'], 'passThrough' | 'scale' | 'opacity'>
 
@@ -112,10 +111,6 @@ export function useAppMenu(options: AppMenuOptions = {}) {
       Submenu.new({
         text: t('pages.pomodoro.title'),
         items: await Promise.all([
-          MenuItem.new({
-            text: t('pages.pomodoro.buttons.open'),
-            action: () => openPomodoroWindow(),
-          }),
           MenuItem.new({
             text: t('pages.pomodoro.buttons.start'),
             action: () => requestPomodoroCommand('start'),

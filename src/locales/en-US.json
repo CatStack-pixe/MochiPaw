@@ -32,7 +32,9 @@
         "autoStartBreak": "Auto-start breaks",
         "autoStartWork": "Auto-start focus",
         "soundEnabled": "Completion sound",
-        "notificationsEnabled": "Notifications"
+        "notificationsEnabled": "Notifications",
+        "displayEnabled": "Show countdown below cat",
+        "displayScale": "Countdown size"
       },
       "buttons": {
         "start": "Start",
@@ -40,20 +42,17 @@
         "resume": "Resume",
         "reset": "Reset",
         "skip": "Skip",
-        "open": "Open Pomodoro",
-        "openWindow": "Open Pomodoro window",
         "saveSettings": "Save settings",
-        "clearToday": "Clear today's count",
-        "close": "Close"
+        "clearToday": "Clear today's count"
       },
       "units": {
         "minutes": "minutes",
         "rounds": "rounds"
       },
       "hints": {
-        "closeKeepsRunning": "Closing this window does not stop the timer.",
         "clearToday": "Reset today's completed Pomodoro count.",
         "durationRange": "Choose a duration from 1 to 120 minutes.",
+        "displayScaleRange": "Adjust countdown size relative to cat scale (50-200%).",
         "commandFailed": "The Pomodoro command could not be completed.",
         "currentState": "Current state: {status}",
         "todayCompleted": "Completed Pomodoros today: {count}",

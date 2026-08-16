@@ -32,7 +32,9 @@
         "autoStartBreak": "自动开始休息",
         "autoStartWork": "自动开始专注",
         "soundEnabled": "完成提示音",
-        "notificationsEnabled": "系统通知"
+        "notificationsEnabled": "系统通知",
+        "displayEnabled": "在猫咪下方显示倒计时",
+        "displayScale": "倒计时大小"
       },
       "buttons": {
         "start": "开始",
@@ -40,20 +42,17 @@
         "resume": "继续",
         "reset": "重置",
         "skip": "跳过",
-        "open": "打开番茄钟",
-        "openWindow": "打开番茄钟窗口",
         "saveSettings": "保存设置",
-        "clearToday": "清除今日统计",
-        "close": "关闭"
+        "clearToday": "清除今日统计"
       },
       "units": {
         "minutes": "分钟",
         "rounds": "轮"
       },
       "hints": {
-        "closeKeepsRunning": "关闭此窗口不会停止计时。",
         "clearToday": "重置今日完成的番茄数。",
         "durationRange": "时长可设置为 1 到 120 分钟。",
+        "displayScaleRange": "调整倒计时相对于猫咪缩放的大小（50-200%）。",
         "commandFailed": "番茄钟操作未能完成。",
         "currentState": "当前状态：{status}",
         "todayCompleted": "今日完成番茄钟：{count}",

@@ -8,6 +8,7 @@ import {
   getRemainingMs,
   INITIAL_POMODORO_RUNTIME,
   pausePomodoro,
+  sanitizePomodoroSettings,
   startPomodoro,
 } from './pomodoroClock'
 
@@ -71,4 +72,13 @@ test('stops at the next phase when automatic transitions are disabled', () => {
   assert.equal(runtime.phase, 'shortBreak')
   assert.equal(runtime.status, 'paused')
   assert.equal(runtime.pausedRemainingMs, 300_000)
+})
+
+test('defaults and sanitizes the embedded display settings', () => {
+  assert.equal(DEFAULT_POMODORO_SETTINGS.displayEnabled, true)
+  assert.equal(DEFAULT_POMODORO_SETTINGS.displayScale, 100)
+  assert.equal(sanitizePomodoroSettings({}).displayScale, 100)
+  assert.equal(sanitizePomodoroSettings({ displayScale: Number.NaN }).displayScale, 100)
+  assert.equal(sanitizePomodoroSettings({ displayScale: -10 }).displayScale, 50)
+  assert.equal(sanitizePomodoroSettings({ displayScale: 999 }).displayScale, 200)
 })

@@ -32,7 +32,9 @@
         "autoStartBreak": "Tự động bắt đầu giờ nghỉ",
         "autoStartWork": "Tự động bắt đầu tập trung",
         "soundEnabled": "Âm thanh hoàn thành",
-        "notificationsEnabled": "Thông báo"
+        "notificationsEnabled": "Thông báo",
+        "displayEnabled": "Hiển thị đếm ngược bên dưới mèo",
+        "displayScale": "Kích thước đếm ngược"
       },
       "buttons": {
         "start": "Bắt đầu",
@@ -40,20 +42,17 @@
         "resume": "Tiếp tục",
         "reset": "Đặt lại",
         "skip": "Bỏ qua",
-        "open": "Mở Pomodoro",
-        "openWindow": "Mở cửa sổ Pomodoro",
         "saveSettings": "Lưu cài đặt",
-        "clearToday": "Xóa số liệu hôm nay",
-        "close": "Đóng"
+        "clearToday": "Xóa số liệu hôm nay"
       },
       "units": {
         "minutes": "phút",
         "rounds": "vòng"
       },
       "hints": {
-        "closeKeepsRunning": "Đóng cửa sổ này không dừng bộ hẹn giờ.",
         "clearToday": "Đặt lại số Pomodoro đã hoàn thành hôm nay.",
         "durationRange": "Chọn thời lượng từ 1 đến 120 phút.",
+        "displayScaleRange": "Điều chỉnh kích thước đếm ngược theo tỷ lệ với mèo (50-200%).",
         "commandFailed": "Không thể hoàn thành thao tác Pomodoro.",
         "currentState": "Trạng thái hiện tại: {status}",
         "todayCompleted": "Pomodoro hoàn thành hôm nay: {count}",

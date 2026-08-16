@@ -31,6 +31,7 @@ import { hideWindow, setAlwaysOnTop, setGameMode, setPassThrough, setTaskbarVisi
 import { useCatStore } from '@/stores/cat'
 import { useGeneralStore } from '@/stores/general.ts'
 import { useModelStore } from '@/stores/model'
+import { usePomodoroStore } from '@/stores/pomodoro'
 import {
   isCountableTypingEvent,
   useTypingStatsStore,
@@ -43,6 +44,7 @@ import { requestModelStoreSave } from '@/utils/modelPersistence'
 import { executeModelSwitchTransaction } from '@/utils/modelSwitch'
 import { join } from '@/utils/path'
 import { isWindows } from '@/utils/platform'
+import { calculatePomodoroWindowLayout, formatPomodoroRemaining } from '@/utils/pomodoroDisplay'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { clearObject } from '@/utils/shared'
 import { SubModelInputCoordinator } from '@/utils/subModelRuntime'
@@ -56,6 +58,7 @@ const isSubModel = Boolean(subModelId)
 const modelStore = useModelStore()
 const catStore = useCatStore()
 const generalStore = useGeneralStore()
+const pomodoroStore = usePomodoroStore()
 const typingStatsStore = useTypingStatsStore()
 const typingStatsCoordinator = new TypingStatsOperationCoordinator<TimestampedTypingInput>()
 const inputCoordinator = isSubModel
@@ -107,6 +110,7 @@ const {
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
   syncWindowScale: !isSubModel,
+  resizeWindow: isSubModel,
 })
 const { startListening, handleInputEvent: handleDeviceInputEvent } = useDevice({
   currentModel: activeModel,
@@ -153,7 +157,22 @@ let lastShortcutResizeAt = 0
 let currentModelLoadVersion = 0
 let explicitModelSwitchInProgress = false
 let modelSwitchRequestInProgress = false
+let pomodoroDisplayTimer: ReturnType<typeof setInterval> | undefined
 const modelLoadTrigger = ref(0)
+const pomodoroNow = ref(Date.now())
+
+const pomodoroLayout = computed(() => {
+  if (isSubModel || !modelSize.value) return
+
+  return calculatePomodoroWindowLayout({
+    modelSize: modelSize.value,
+    modelScale: windowSettings.value.scale,
+    displayEnabled: pomodoroStore.settings.displayEnabled,
+    displayScale: pomodoroStore.settings.displayScale,
+  })
+})
+const pomodoroDisplayText = computed(() => formatPomodoroRemaining(pomodoroStore.getRemainingMs(pomodoroNow.value)))
+const modelAspectRatio = computed(() => modelSize.value ? `${modelSize.value.width} / ${modelSize.value.height}` : '1')
 
 const SCALE_DRAG_SENSITIVITY = 0.12
 const SHORTCUT_RESIZE_INTERVAL = 33
@@ -198,14 +217,24 @@ async function toggleMenuVisibility() {
 function applyWindowScale(scale: number, modelSizeValue = modelSize.value) {
   if (!modelSizeValue) return
 
-  const { width, height } = modelSizeValue
+  if (isSubModel) {
+    const { width, height } = modelSizeValue
 
-  appWindow.setSize(
-    new PhysicalSize({
+    appWindow.setSize(new PhysicalSize({
       width: Math.round(width * (scale / 100)),
       height: Math.round(height * (scale / 100)),
-    }),
-  )
+    }))
+    return
+  }
+
+  const layout = calculatePomodoroWindowLayout({
+    modelSize: modelSizeValue,
+    modelScale: scale,
+    displayEnabled: pomodoroStore.settings.displayEnabled,
+    displayScale: pomodoroStore.settings.displayScale,
+  })
+
+  appWindow.setSize(new PhysicalSize(layout.window))
 }
 
 function resolveModelSwitchTarget(request: ModelSwitchRequest) {
@@ -415,6 +444,9 @@ useTauriListen<TypingStatsOperationRequest>(LISTEN_KEY.TYPING_STATS_OPERATION_RE
 
 onMounted(async () => {
   if (!isSubModel) {
+    pomodoroDisplayTimer = setInterval(() => {
+      pomodoroNow.value = Date.now()
+    }, 250)
     await waitForTypingStatsPersistenceHydration()
     startListening()
     return
@@ -446,6 +478,7 @@ onUnmounted(() => {
   inputCoordinator?.dispose()
   currentModelLoadVersion += 1
   handleDestroy()
+  if (pomodoroDisplayTimer) clearInterval(pomodoroDisplayTimer)
 })
 
 const debouncedResize = useDebounceFn(async () => {
@@ -637,7 +670,12 @@ watch([() => {
   }
 }, { flush: 'post', immediate: true })
 
-watch([() => windowSettings.value.scale, modelSize], ([scale, modelSize]) => {
+watch([
+  () => windowSettings.value.scale,
+  () => pomodoroStore.settings.displayEnabled,
+  () => pomodoroStore.settings.displayScale,
+  modelSize,
+], ([scale, , , modelSize]) => {
   if (!modelSize) return
 
   cancelAnimationFrame(resizeFrame)
@@ -825,37 +863,54 @@ function handleMouseMove(event: MouseEvent) {
 
 <template>
   <div
-    class="relative size-screen overflow-hidden children:(absolute size-full)"
-    :class="{ '-scale-x-100': appearanceSettings.mirror }"
+    class="main-window flex flex-col overflow-hidden"
     :style="{
       opacity: windowSettings.opacity / 100,
       borderRadius: `${windowSettings.radius}%`,
     }"
-    @contextmenu="handleContextmenu"
-    @mousedown="handleMouseDown"
-    @mousemove="handleMouseMove"
   >
-    <img
-      v-if="backgroundImagePath"
-      class="object-cover"
-      :src="backgroundImagePath"
+    <div
+      class="model-area relative w-full shrink-0 overflow-hidden children:(absolute size-full)"
+      :class="{ '-scale-x-100': appearanceSettings.mirror }"
+      :style="{ aspectRatio: modelAspectRatio }"
+      @contextmenu="handleContextmenu"
+      @mousedown="handleMouseDown"
+      @mousemove="handleMouseMove"
     >
+      <img
+        v-if="backgroundImagePath"
+        class="object-cover"
+        :src="backgroundImagePath"
+      >
 
-    <canvas
-      id="live2dCanvas"
-      ref="live2dCanvas"
-    />
+      <canvas
+        id="live2dCanvas"
+        ref="live2dCanvas"
+      />
 
-    <img
-      v-for="{ key, path } in pressedKeyLayers"
-      :key="key"
-      class="object-cover"
-      :src="convertFileSrc(path)"
-    >
+      <img
+        v-for="{ key, path } in pressedKeyLayers"
+        :key="key"
+        class="object-cover"
+        :src="convertFileSrc(path)"
+      >
+
+      <div
+        v-show="!modelStore.modelReady"
+        class="flex items-center justify-center bg-black"
+      />
+    </div>
 
     <div
-      v-show="!modelStore.modelReady"
-      class="flex items-center justify-center bg-black"
-    />
+      v-if="pomodoroLayout?.timer.height"
+      class="timer-display w-full flex shrink-0 items-center justify-center font-semibold font-mono"
+      :style="{
+        height: `${pomodoroLayout.timer.height}px`,
+        fontSize: `${pomodoroLayout.timer.fontSize}px`,
+        lineHeight: '1',
+      }"
+    >
+      {{ pomodoroDisplayText }}
+    </div>
   </div>
 </template>

@@ -13,6 +13,8 @@ export interface PomodoroSettings {
   autoStartWork: boolean
   soundEnabled: boolean
   notificationsEnabled: boolean
+  displayEnabled: boolean
+  displayScale: number
 }
 
 export interface PomodoroRuntime {
@@ -41,6 +43,8 @@ export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
   autoStartWork: true,
   soundEnabled: true,
   notificationsEnabled: true,
+  displayEnabled: true,
+  displayScale: 100,
 }
 
 export const INITIAL_POMODORO_RUNTIME: PomodoroRuntime = {
@@ -56,11 +60,19 @@ export const INITIAL_POMODORO_RUNTIME: PomodoroRuntime = {
 
 const MIN_MINUTES = 1
 const MAX_MINUTES = 120
+const MIN_DISPLAY_SCALE = 50
+const MAX_DISPLAY_SCALE = 200
 
 export function clampMinutes(value: number, fallback: number) {
   if (!Number.isFinite(value)) return fallback
 
   return Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.trunc(value)))
+}
+
+export function clampPomodoroDisplayScale(value: number, fallback = DEFAULT_POMODORO_SETTINGS.displayScale) {
+  if (!Number.isFinite(value)) return fallback
+
+  return Math.min(MAX_DISPLAY_SCALE, Math.max(MIN_DISPLAY_SCALE, Math.trunc(value)))
 }
 
 export function sanitizePomodoroSettings(
@@ -75,6 +87,8 @@ export function sanitizePomodoroSettings(
     autoStartWork: settings?.autoStartWork ?? DEFAULT_POMODORO_SETTINGS.autoStartWork,
     soundEnabled: settings?.soundEnabled ?? DEFAULT_POMODORO_SETTINGS.soundEnabled,
     notificationsEnabled: settings?.notificationsEnabled ?? DEFAULT_POMODORO_SETTINGS.notificationsEnabled,
+    displayEnabled: settings?.displayEnabled ?? DEFAULT_POMODORO_SETTINGS.displayEnabled,
+    displayScale: clampPomodoroDisplayScale(settings?.displayScale ?? DEFAULT_POMODORO_SETTINGS.displayScale),
   }
 }
 

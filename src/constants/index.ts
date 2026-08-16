@@ -26,7 +26,6 @@ export const LISTEN_KEY = {
   POMODORO_COMMAND_APPLIED: 'pomodoro-command-applied',
   POMODORO_STATE_CHANGED: 'pomodoro-state-changed',
   POMODORO_STAGE_COMPLETED: 'pomodoro-stage-completed',
-  POMODORO_WINDOW_REQUESTED: 'pomodoro-window-requested',
   GAME_MODE_CHANGED: 'game-mode-changed',
 }
 
@@ -52,5 +51,4 @@ export const LANGUAGE = {
 export const WINDOW_LABEL = {
   MAIN: 'main',
   PREFERENCE: 'preference',
-  POMODORO: 'pomodoro',
 } as const

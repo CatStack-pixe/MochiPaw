@@ -282,7 +282,7 @@ class Live2d {
 
     this.appInitPromise = this.app.init({
       view,
-      resizeTo: window,
+      resizeTo: view.parentElement ?? window,
       backgroundAlpha: 0,
       autoDensity: true,
       resolution: devicePixelRatio,
@@ -482,18 +482,18 @@ class Live2d {
     destroyLive2dSprite(model, this.app)
   }
 
-  public resizeModel(modelSize: ModelSize) {
+  public resizeModel(modelSize: ModelSize, viewportSize: ModelSize = { width: innerWidth, height: innerHeight }) {
     if (!this.model) return
 
     const { width, height } = modelSize
 
-    const scaleX = innerWidth / width
-    const scaleY = innerHeight / height
+    const scaleX = viewportSize.width / width
+    const scaleY = viewportSize.height / height
     const scale = Math.min(scaleX, scaleY)
 
     this.model.scale.set(scale)
-    this.model.x = innerWidth / 2
-    this.model.y = innerHeight / 2
+    this.model.x = viewportSize.width / 2
+    this.model.y = viewportSize.height / 2
     this.model.anchor.set(0.5)
     if (this.renderingEnabled) {
       this.app?.start()

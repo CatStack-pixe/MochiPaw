@@ -33,19 +33,6 @@
         "minWidth": 800,
         "minHeight": 600,
         "skipTaskbar": true
-      },
-      {
-        "label": "pomodoro",
-        "url": "index.html/#/pomodoro",
-        "visible": false,
-        "title": "Pomodoro",
-        "width": 360,
-        "height": 420,
-        "minWidth": 320,
-        "minHeight": 360,
-        "alwaysOnTop": true,
-        "maximizable": false,
-        "skipTaskbar": true
       }
     ],
     "security": {

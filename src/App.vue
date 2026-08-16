@@ -52,8 +52,7 @@ const typingStatsStore = useTypingStatsStore()
 const pomodoroStore = usePomodoroStore()
 const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
-const isPomodoroWindow = appWindow.label === WINDOW_LABEL.POMODORO
-setCoreStoresPersistenceWritable(!isSubModelWindow && !isPomodoroWindow)
+setCoreStoresPersistenceWritable(!isSubModelWindow)
 const idleMemory = new WebviewIdleMemoryController({ setTarget: setWebviewMemoryTarget })
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
@@ -202,19 +201,6 @@ onMounted(async () => {
     await generalStore.init()
     await restoreState()
     logInfo('[app-init] submodel initialization completed', { windowLabel: appWindow.label })
-    return
-  }
-
-  if (isPomodoroWindow) {
-    setPomodoroPersistenceWritable(false)
-    await appStore.$tauri.start()
-    await appStore.init()
-    await generalStore.$tauri.start()
-    await generalStore.init()
-    await pomodoroStore.$tauri.start()
-    pomodoroStore.normalizePersistedState()
-    await restoreState()
-    logInfo('[app-init] pomodoro window initialization completed', { windowLabel: appWindow.label })
     return
   }
 

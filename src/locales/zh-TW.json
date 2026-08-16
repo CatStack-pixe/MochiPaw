@@ -32,7 +32,9 @@
         "autoStartBreak": "自動開始休息",
         "autoStartWork": "自動開始專注",
         "soundEnabled": "完成提示音",
-        "notificationsEnabled": "系統通知"
+        "notificationsEnabled": "系統通知",
+        "displayEnabled": "在貓咪下方顯示倒數計時",
+        "displayScale": "倒數計時大小"
       },
       "buttons": {
         "start": "開始",
@@ -40,20 +42,17 @@
         "resume": "繼續",
         "reset": "重設",
         "skip": "跳過",
-        "open": "開啟番茄鐘",
-        "openWindow": "開啟番茄鐘視窗",
         "saveSettings": "儲存設定",
-        "clearToday": "清除今日統計",
-        "close": "關閉"
+        "clearToday": "清除今日統計"
       },
       "units": {
         "minutes": "分鐘",
         "rounds": "輪"
       },
       "hints": {
-        "closeKeepsRunning": "關閉此視窗不會停止計時。",
         "clearToday": "重設今日完成的番茄數。",
         "durationRange": "時長可設定為 1 到 120 分鐘。",
+        "displayScaleRange": "調整倒數計時相對於貓咪縮放的大小（50-200%）。",
         "commandFailed": "番茄鐘操作未能完成。",
         "currentState": "目前狀態：{status}",
         "todayCompleted": "今日完成番茄鐘：{count}",

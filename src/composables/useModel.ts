@@ -40,6 +40,7 @@ export interface ModelRuntimeOptions {
   currentModel?: Readonly<Ref<Model | undefined>>
   mouseMirror?: Readonly<Ref<boolean>>
   syncWindowScale?: boolean
+  resizeWindow?: boolean
 }
 
 export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
@@ -270,7 +271,7 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
     const { width, height } = modelSize.value
     const expectedHeight = Math.ceil(innerWidth * (height / width))
 
-    if (Math.abs(innerHeight - expectedHeight) > 1) {
+    if (runtimeOptions.resizeWindow !== false && Math.abs(innerHeight - expectedHeight) > 1) {
       await appWindow.setSize(
         new LogicalSize({
           width: innerWidth,
@@ -281,7 +282,10 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
       await waitForNextFrame()
     }
 
-    live2d.resizeModel(modelSize.value)
+    live2d.resizeModel(modelSize.value, {
+      width: innerWidth,
+      height: expectedHeight,
+    })
 
     if (resizeOptions.syncScale === false || runtimeOptions.syncWindowScale === false) return
 

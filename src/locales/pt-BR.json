@@ -32,7 +32,9 @@
         "autoStartBreak": "Iniciar pausas automaticamente",
         "autoStartWork": "Iniciar foco automaticamente",
         "soundEnabled": "Som de conclusão",
-        "notificationsEnabled": "Notificações"
+        "notificationsEnabled": "Notificações",
+        "displayEnabled": "Mostrar contagem regressiva abaixo do gato",
+        "displayScale": "Tamanho da contagem regressiva"
       },
       "buttons": {
         "start": "Iniciar",
@@ -40,20 +42,17 @@
         "resume": "Retomar",
         "reset": "Redefinir",
         "skip": "Pular",
-        "open": "Abrir Pomodoro",
-        "openWindow": "Abrir janela do Pomodoro",
         "saveSettings": "Salvar configurações",
-        "clearToday": "Limpar contagem de hoje",
-        "close": "Fechar"
+        "clearToday": "Limpar contagem de hoje"
       },
       "units": {
         "minutes": "minutos",
         "rounds": "rodadas"
       },
       "hints": {
-        "closeKeepsRunning": "Fechar esta janela não interrompe o temporizador.",
         "clearToday": "Redefine os Pomodoros concluídos hoje.",
         "durationRange": "Escolha uma duração entre 1 e 120 minutos.",
+        "displayScaleRange": "Ajuste o tamanho da contagem regressiva em relação à escala do gato (50-200%).",
         "commandFailed": "Não foi possível concluir o comando do Pomodoro.",
         "currentState": "Estado atual: {status}",
         "todayCompleted": "Pomodoros concluídos hoje: {count}",

@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { listen } from '@tauri-apps/api/event'
-import { Button, InputNumber, message, Switch } from 'antdv-next'
+import { Button, InputNumber, message, Slider, Switch } from 'antdv-next'
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -15,7 +15,6 @@ import ProList from '@/components/pro-list/index.vue'
 import { LISTEN_KEY } from '@/constants'
 import { usePomodoroStore } from '@/stores/pomodoro'
 import { requestPomodoroCommand } from '@/utils/pomodoroRequest'
-import { openPomodoroWindow } from '@/utils/pomodoroWindow'
 
 const store = usePomodoroStore()
 const { t } = useI18n()
@@ -29,6 +28,8 @@ const draft = reactive({
   autoStartWork: store.settings.autoStartWork,
   soundEnabled: store.settings.soundEnabled,
   notificationsEnabled: store.settings.notificationsEnabled,
+  displayEnabled: store.settings.displayEnabled,
+  displayScale: store.settings.displayScale,
 })
 let unlistenState: (() => void) | undefined
 
@@ -94,12 +95,6 @@ onUnmounted(() => {
       <div class="flex items-center gap-2">
         <strong class="text-7">{{ Math.ceil(store.getRemainingMs() / 60_000) }}</strong>
         <span class="color-text-tertiary">{{ t('pages.pomodoro.units.minutes') }}</span>
-        <Button @click="openPomodoroWindow">
-          <template #icon>
-            <i class="i-lucide:external-link" />
-          </template>
-          {{ t('pages.pomodoro.buttons.openWindow') }}
-        </Button>
       </div>
     </ProListItem>
     <ProListItem
@@ -150,6 +145,37 @@ onUnmounted(() => {
     </ProListItem>
     <ProListItem :title="t('pages.pomodoro.labels.soundEnabled')">
       <Switch v-model:checked="draft.soundEnabled" />
+    </ProListItem>
+    <ProListItem :title="t('pages.pomodoro.labels.displayEnabled')">
+      <Switch v-model:checked="draft.displayEnabled" />
+    </ProListItem>
+    <ProListItem
+      :description="t('pages.pomodoro.hints.displayScaleRange')"
+      :title="t('pages.pomodoro.labels.displayScale')"
+      vertical
+    >
+      <div class="flex items-center gap-4">
+        <Slider
+          v-model:value="draft.displayScale"
+          class="flex-1 m-0!"
+          :max="200"
+          :min="50"
+          :tooltip="{
+            formatter(value) {
+              return `${value}%`
+            },
+          }"
+        />
+        <div class="flex items-center gap-1">
+          <InputNumber
+            v-model:value="draft.displayScale"
+            class="w-24"
+            :max="200"
+            :min="50"
+          />
+          <span>%</span>
+        </div>
+      </div>
     </ProListItem>
     <ProListItem>
       <Button
