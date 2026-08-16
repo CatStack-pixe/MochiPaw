@@ -16,6 +16,7 @@ type PomodoroStore = ReturnType<typeof usePomodoroStore>
 export interface PomodoroCoordinatorOptions {
   notify?: (phase: PomodoroPhase) => void | Promise<void>
   playSound?: () => void | Promise<void>
+  prepareNotifications?: () => boolean | Promise<boolean>
 }
 
 function getState(store: PomodoroStore): PomodoroStatePayload {
@@ -76,7 +77,10 @@ export async function startPomodoroCoordinator(
 
         try {
           if (request.settings) Object.assign(store.settings, request.settings)
-          result = store.execute(request.command)
+          if (request.settings?.notificationsEnabled) await options.prepareNotifications?.()
+          result = store.execute(request.command, Date.now(), {
+            todayCompleted: request.todayCompleted,
+          })
           await announce(result.completedPhases)
           await publish()
         } catch (error) {

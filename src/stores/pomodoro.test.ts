@@ -73,3 +73,13 @@ test('reset clears the current session but keeps today completed count', () => {
   assert.equal(store.runtime.phase, 'work')
   assert.equal(store.runtime.status, 'idle')
 })
+
+test('allows the user to set today completed count directly', () => {
+  const store = createStore()
+
+  store.execute('set-today-completed', Date.now(), { todayCompleted: 7.8 })
+  assert.equal(store.todayCompleted, 7)
+
+  store.execute('set-today-completed', Date.now(), { todayCompleted: -1 })
+  assert.equal(store.todayCompleted, 0)
+})

@@ -68,6 +68,15 @@ test('keeps the countdown readable when the cat is scaled down', () => {
   assert.ok(layout.timer.height > 0)
 })
 
+test('applies the display scale below the readable font-size baseline', () => {
+  const smaller = calculatePomodoroWindowLayout({ modelSize, modelScale: 15, displayEnabled: true, displayScale: 50 })
+  const larger = calculatePomodoroWindowLayout({ modelSize, modelScale: 15, displayEnabled: true, displayScale: 200 })
+
+  assert.equal(smaller.timer.fontSize, 6)
+  assert.equal(larger.timer.fontSize, 24)
+  assert.ok(larger.timer.height > smaller.timer.height)
+})
+
 test('disabled display restores the model-only window size', () => {
   const layout = calculatePomodoroWindowLayout({ modelSize, modelScale: 100, displayEnabled: false, displayScale: 200 })
 

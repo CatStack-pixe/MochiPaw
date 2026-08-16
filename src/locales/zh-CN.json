@@ -320,7 +320,10 @@
           "mirrorMode": "镜像模式",
           "passThrough": "猫咪锁定",
           "alwaysOnTop": "窗口置顶",
-          "gameMode": "切换游戏模式"
+          "gameMode": "切换游戏模式",
+          "pomodoroToggle": "开始 / 暂停 / 继续番茄钟",
+          "pomodoroReset": "重置番茄钟",
+          "pomodoroSkip": "跳过当前阶段"
         },
         "hints": {
           "toggleCat": "切换猫咪窗口的显示与隐藏。",
@@ -328,7 +331,10 @@
           "mirrorMode": "切换猫咪的镜像模式。",
           "passThrough": "切换是否锁定猫咪窗口交互。",
           "alwaysOnTop": "切换猫咪窗口是否置顶。",
-          "gameMode": "切换 Windows 游戏兼容模式。"
+          "gameMode": "切换 Windows 游戏兼容模式。",
+          "pomodoroToggle": "根据当前状态开始、暂停或继续番茄钟。",
+          "pomodoroReset": "将番茄钟重置到当前阶段的起始时间。",
+          "pomodoroSkip": "完成并跳过当前番茄钟阶段。"
         }
       },
       "about": {

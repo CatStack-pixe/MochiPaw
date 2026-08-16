@@ -314,7 +314,10 @@
           "mirrorMode": "Modo Espelho",
           "passThrough": "Bloqueio do Gato",
           "alwaysOnTop": "Sempre no Topo",
-          "gameMode": "Alternar Modo de Jogo"
+          "gameMode": "Alternar Modo de Jogo",
+          "pomodoroToggle": "Iniciar / pausar / retomar Pomodoro",
+          "pomodoroReset": "Redefinir Pomodoro",
+          "pomodoroSkip": "Pular etapa atual"
         },
         "hints": {
           "toggleCat": "Alternar a visibilidade da janela do gato.",
@@ -322,7 +325,10 @@
           "mirrorMode": "Alternar o modo espelho do gato.",
           "passThrough": "Alternar se a interação com a janela do gato fica bloqueada.",
           "alwaysOnTop": "Alternar se a janela do gato permanece no topo.",
-          "gameMode": "Alternar o modo de compatibilidade de jogos do Windows."
+          "gameMode": "Alternar o modo de compatibilidade de jogos do Windows.",
+          "pomodoroToggle": "Inicia, pausa ou retoma o Pomodoro conforme o estado atual.",
+          "pomodoroReset": "Redefine o Pomodoro para o início da etapa atual.",
+          "pomodoroSkip": "Conclui e pula a etapa atual do Pomodoro."
         }
       },
       "about": {

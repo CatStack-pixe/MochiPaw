@@ -320,7 +320,10 @@
           "mirrorMode": "Mirror Mode",
           "passThrough": "Cat Lock",
           "alwaysOnTop": "Always on Top",
-          "gameMode": "Toggle Game Mode"
+          "gameMode": "Toggle Game Mode",
+          "pomodoroToggle": "Start / Pause / Resume Pomodoro",
+          "pomodoroReset": "Reset Pomodoro",
+          "pomodoroSkip": "Skip Current Stage"
         },
         "hints": {
           "toggleCat": "Toggle the visibility of the cat window.",
@@ -328,7 +331,10 @@
           "mirrorMode": "Toggle the cat's mirror mode.",
           "passThrough": "Toggle whether cat window interaction is locked.",
           "alwaysOnTop": "Toggle whether the cat window stays on top.",
-          "gameMode": "Toggle Windows game compatibility mode."
+          "gameMode": "Toggle Windows game compatibility mode.",
+          "pomodoroToggle": "Start, pause, or resume the Pomodoro based on its current state.",
+          "pomodoroReset": "Reset the Pomodoro to the beginning of its current stage.",
+          "pomodoroSkip": "Complete and skip the current Pomodoro stage."
         }
       },
       "about": {

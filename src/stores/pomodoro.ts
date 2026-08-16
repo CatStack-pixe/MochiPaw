@@ -41,7 +41,7 @@ function cloneRuntime(): PomodoroRuntime {
   return { ...INITIAL_POMODORO_RUNTIME, completedDate: getPomodoroDateKey() }
 }
 
-export type PomodoroCommand = 'start' | 'pause' | 'resume' | 'reset' | 'skip' | 'update-settings' | 'clear-today'
+export type PomodoroCommand = 'start' | 'pause' | 'resume' | 'reset' | 'skip' | 'update-settings' | 'set-today-completed'
 
 export const usePomodoroStore = defineStore('pomodoro', () => {
   const settings = reactive<PomodoroSettings>({ ...DEFAULT_POMODORO_SETTINGS })
@@ -85,7 +85,11 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
     return advanced.result
   }
 
-  function execute(command: PomodoroCommand, now = Date.now()): PomodoroTransitionResult {
+  function execute(
+    command: PomodoroCommand,
+    now = Date.now(),
+    options: { todayCompleted?: number } = {},
+  ): PomodoroTransitionResult {
     reconcile(now)
 
     if (command === 'reset') {
@@ -116,8 +120,10 @@ export const usePomodoroStore = defineStore('pomodoro', () => {
       return { completedWork: 0, transitions: [], completedPhases: [] }
     }
 
-    if (command === 'clear-today') {
-      runtime.completedToday = 0
+    if (command === 'set-today-completed') {
+      runtime.completedToday = Number.isFinite(options.todayCompleted)
+        ? Math.max(0, Math.trunc(options.todayCompleted!))
+        : runtime.completedToday
       return { completedWork: 0, transitions: [], completedPhases: [] }
     }
 

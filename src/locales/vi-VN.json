@@ -314,7 +314,10 @@
           "mirrorMode": "Chế độ gương",
           "passThrough": "Khóa mèo",
           "alwaysOnTop": "Luôn trên cùng",
-          "gameMode": "Chuyển chế độ trò chơi"
+          "gameMode": "Chuyển chế độ trò chơi",
+          "pomodoroToggle": "Bắt đầu / tạm dừng / tiếp tục Pomodoro",
+          "pomodoroReset": "Đặt lại Pomodoro",
+          "pomodoroSkip": "Bỏ qua giai đoạn hiện tại"
         },
         "hints": {
           "toggleCat": "Bật/Tắt cửa sổ mèo.",
@@ -322,7 +325,10 @@
           "mirrorMode": "Bật/Tắt chế độ gương.",
           "passThrough": "Bật/Tắt khóa tương tác với cửa sổ mèo.",
           "alwaysOnTop": "Bật/Tắt luôn giữ cửa sổ mèo trên cùng.",
-          "gameMode": "Chuyển chế độ tương thích trò chơi Windows."
+          "gameMode": "Chuyển chế độ tương thích trò chơi Windows.",
+          "pomodoroToggle": "Bắt đầu, tạm dừng hoặc tiếp tục Pomodoro theo trạng thái hiện tại.",
+          "pomodoroReset": "Đặt lại Pomodoro về đầu giai đoạn hiện tại.",
+          "pomodoroSkip": "Hoàn tất và bỏ qua giai đoạn Pomodoro hiện tại."
         }
       },
       "about": {

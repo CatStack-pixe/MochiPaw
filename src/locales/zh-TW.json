@@ -314,7 +314,10 @@
           "mirrorMode": "鏡像模式",
           "passThrough": "貓咪鎖定",
           "alwaysOnTop": "視窗置頂",
-          "gameMode": "切換遊戲模式"
+          "gameMode": "切換遊戲模式",
+          "pomodoroToggle": "開始 / 暫停 / 繼續番茄鐘",
+          "pomodoroReset": "重設番茄鐘",
+          "pomodoroSkip": "跳過目前階段"
         },
         "hints": {
           "toggleCat": "切換貓咪視窗的顯示與隱藏。",
@@ -322,7 +325,10 @@
           "mirrorMode": "切換貓咪的鏡像模式。",
           "passThrough": "切換是否鎖定貓咪視窗互動。",
           "alwaysOnTop": "切換貓咪視窗是否置頂。",
-          "gameMode": "切換 Windows 遊戲相容模式。"
+          "gameMode": "切換 Windows 遊戲相容模式。",
+          "pomodoroToggle": "依目前狀態開始、暫停或繼續番茄鐘。",
+          "pomodoroReset": "將番茄鐘重設為目前階段的起始時間。",
+          "pomodoroSkip": "完成並跳過目前番茄鐘階段。"
         }
       },
       "about": {

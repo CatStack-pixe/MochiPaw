@@ -4,8 +4,9 @@
 
 <script setup lang="ts">
 import { listen } from '@tauri-apps/api/event'
+import { useDebounceFn } from '@vueuse/core'
 import { Button, InputNumber, message, Slider, Switch } from 'antdv-next'
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { PomodoroStatePayload } from '@/utils/pomodoroRequest'
@@ -19,6 +20,7 @@ import { requestPomodoroCommand } from '@/utils/pomodoroRequest'
 const store = usePomodoroStore()
 const { t } = useI18n()
 const pending = ref(false)
+const todayCompleted = ref(store.todayCompleted)
 const draft = reactive({
   workMinutes: store.settings.workMinutes,
   shortBreakMinutes: store.settings.shortBreakMinutes,
@@ -36,9 +38,14 @@ let unlistenState: (() => void) | undefined
 function syncDraft(payload: PomodoroStatePayload) {
   store.$patch(payload)
   Object.assign(draft, payload.settings)
+  todayCompleted.value = payload.runtime.completedToday
 }
 
-async function saveSettings() {
+function hasDraftChanges() {
+  return Object.entries(draft).some(([key, value]) => value !== store.settings[key as keyof typeof store.settings])
+}
+
+async function persistSettings() {
   if (pending.value) return
 
   pending.value = true
@@ -49,9 +56,32 @@ async function saveSettings() {
     if (!acknowledgement.accepted) throw new Error(acknowledgement.reason ?? t('pages.pomodoro.hints.saveFailed'))
 
     if (acknowledgement.state) syncDraft(acknowledgement.state)
-    message.success(t('pages.pomodoro.hints.saved'))
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error))
+  } finally {
+    pending.value = false
+    if (hasDraftChanges()) scheduleSettingsPersistence()
+  }
+}
+
+const scheduleSettingsPersistence = useDebounceFn(() => {
+  if (hasDraftChanges()) void persistSettings()
+}, 300)
+
+async function setTodayCompleted(value: number | null) {
+  if (pending.value || value == null) return
+
+  pending.value = true
+
+  try {
+    const acknowledgement = await requestPomodoroCommand('set-today-completed', undefined, value)
+
+    if (!acknowledgement.accepted) throw new Error(acknowledgement.reason ?? t('pages.pomodoro.hints.commandFailed'))
+
+    if (acknowledgement.state) syncDraft(acknowledgement.state)
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+    todayCompleted.value = store.todayCompleted
   } finally {
     pending.value = false
   }
@@ -84,6 +114,11 @@ onMounted(async () => {
 onUnmounted(() => {
   unlistenState?.()
 })
+
+watch(draft, scheduleSettingsPersistence, { deep: true })
+watch(() => store.todayCompleted, (value) => {
+  todayCompleted.value = value
+})
 </script>
 
 <template>
@@ -98,10 +133,15 @@ onUnmounted(() => {
       </div>
     </ProListItem>
     <ProListItem
-      :description="t('pages.pomodoro.hints.todayCompleted')"
+      :description="t('pages.pomodoro.hints.todayCompleted', { count: todayCompleted })"
       :title="t('pages.pomodoro.labels.todayCompletedTitle')"
     >
-      <strong class="text-7">{{ store.todayCompleted }}</strong>
+      <InputNumber
+        v-model:value="todayCompleted"
+        :disabled="pending"
+        :min="0"
+        @change="setTodayCompleted"
+      />
     </ProListItem>
   </ProList>
 
@@ -177,18 +217,6 @@ onUnmounted(() => {
         </div>
       </div>
     </ProListItem>
-    <ProListItem>
-      <Button
-        :loading="pending"
-        type="primary"
-        @click="saveSettings"
-      >
-        <template #icon>
-          <i class="i-lucide:save" />
-        </template>
-        {{ t('pages.pomodoro.buttons.saveSettings') }}
-      </Button>
-    </ProListItem>
   </ProList>
 
   <ProList :title="t('pages.pomodoro.labels.controls')">
@@ -213,17 +241,6 @@ onUnmounted(() => {
           {{ t('pages.pomodoro.buttons.reset') }}
         </Button>
       </div>
-    </ProListItem>
-    <ProListItem :title="t('pages.pomodoro.buttons.clearToday')">
-      <Button
-        :disabled="pending || store.todayCompleted === 0"
-        @click="runCommand('clear-today')"
-      >
-        <template #icon>
-          <i class="i-lucide:trash-2" />
-        </template>
-        {{ t('pages.pomodoro.buttons.clearToday') }}
-      </Button>
     </ProListItem>
   </ProList>
 </template>
