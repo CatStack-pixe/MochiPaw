@@ -28,7 +28,12 @@ test('pauses and resumes without losing elapsed time', () => {
 
   assert.equal(paused.status, 'paused')
   assert.equal(paused.pausedRemainingMs, 1_470_000)
-  assert.equal(startPomodoro(paused, settings, 100_000).endAt, 1_570_000)
+  const resumed = startPomodoro(paused, settings, 100_000)
+
+  assert.equal(resumed.endAt, 1_570_000)
+  assert.equal(running.phaseStartedAt, 1_000)
+  assert.equal(paused.phaseStartedAt, null)
+  assert.equal(resumed.phaseStartedAt, 100_000)
 })
 
 test('moves to a short break after one completed work phase', () => {
@@ -41,6 +46,7 @@ test('moves to a short break after one completed work phase', () => {
   assert.equal(runtime.phase, 'shortBreak')
   assert.equal(runtime.status, 'running')
   assert.equal(runtime.endAt, 1_800_000)
+  assert.equal(runtime.phaseStartedAt, 1_500_000)
 })
 
 test('uses a long break at the configured interval', () => {

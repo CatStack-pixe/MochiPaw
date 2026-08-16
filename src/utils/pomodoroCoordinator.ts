@@ -78,9 +78,7 @@ export async function startPomodoroCoordinator(
         try {
           if (request.settings) Object.assign(store.settings, request.settings)
           if (request.settings?.notificationsEnabled) await options.prepareNotifications?.()
-          result = store.execute(request.command, Date.now(), {
-            todayCompleted: request.todayCompleted,
-          })
+          result = store.execute(request.command, Date.now())
           await announce(result.completedPhases)
           await publish()
         } catch (error) {

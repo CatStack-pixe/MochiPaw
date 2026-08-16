@@ -22,7 +22,6 @@ export interface PomodoroCommandRequest {
   requestId: string
   sourceWindow?: string
   settings?: Partial<PomodoroSettings>
-  todayCompleted?: number
 }
 
 export interface PomodoroCommandAcknowledgement {
@@ -36,14 +35,12 @@ export interface PomodoroCommandAcknowledgement {
 export async function requestPomodoroCommand(
   command: PomodoroCommand,
   settings?: Partial<PomodoroSettings>,
-  todayCompleted?: number,
 ) {
   const request: PomodoroCommandRequest = {
     command,
     requestId: nanoid(),
     sourceWindow: getCurrentWebviewWindow().label,
     settings,
-    todayCompleted,
   }
   let resolveAcknowledgement!: (value: PomodoroCommandAcknowledgement) => void
   const acknowledgement = new Promise<PomodoroCommandAcknowledgement>((resolve) => {

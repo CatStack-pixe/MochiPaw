@@ -22,8 +22,9 @@
         "overview": "Visão geral",
         "settings": "Configurações",
         "controls": "Controles",
-        "todayCompletedTitle": "Pomodoros concluídos hoje",
-        "todayCompleted": "Concluídos hoje: {count}",
+        "timeline": "Linha do tempo de hoje",
+        "today": "Hoje",
+        "completed": "concluídos",
         "round": "Rodada {current} de {total}",
         "workMinutes": "Duração do foco",
         "shortBreakMinutes": "Duração da pausa curta",
@@ -42,15 +43,16 @@
         "resume": "Retomar",
         "reset": "Redefinir",
         "skip": "Pular",
-        "saveSettings": "Salvar configurações",
-        "clearToday": "Limpar contagem de hoje"
+        "saveSettings": "Salvar configurações"
       },
       "units": {
         "minutes": "minutos",
         "rounds": "rodadas"
       },
       "hints": {
-        "clearToday": "Redefine os Pomodoros concluídos hoje.",
+        "timelineDescription": "Acompanhe os períodos de foco e pausa ao longo do dia.",
+        "timelineLabel": "Linha do tempo de foco e pausas do Pomodoro",
+        "timelineEmpty": "Nenhuma etapa do Pomodoro foi registrada neste dia.",
         "durationRange": "Escolha uma duração entre 1 e 120 minutos.",
         "displayScaleRange": "Ajuste o tamanho da contagem regressiva em relação à escala do gato (50-200%).",
         "shortcutStart": "Defina um atalho global para iniciar o Pomodoro.",
@@ -59,7 +61,6 @@
         "shortcutReset": "Defina um atalho global para redefinir a etapa atual.",
         "commandFailed": "Não foi possível concluir o comando do Pomodoro.",
         "currentState": "Estado atual: {status}",
-        "todayCompleted": "Pomodoros concluídos hoje: {count}",
         "saved": "Configurações do Pomodoro salvas.",
         "saveFailed": "Não foi possível salvar as configurações do Pomodoro."
       },

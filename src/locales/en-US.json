@@ -22,8 +22,9 @@
         "overview": "Overview",
         "settings": "Settings",
         "controls": "Controls",
-        "todayCompletedTitle": "Today's completed Pomodoros",
-        "todayCompleted": "Completed today: {count}",
+        "timeline": "Today's timeline",
+        "today": "Today",
+        "completed": "completed",
         "round": "Round {current} of {total}",
         "workMinutes": "Focus duration",
         "shortBreakMinutes": "Short break duration",
@@ -42,15 +43,16 @@
         "resume": "Resume",
         "reset": "Reset",
         "skip": "Skip",
-        "saveSettings": "Save settings",
-        "clearToday": "Clear today's count"
+        "saveSettings": "Save settings"
       },
       "units": {
         "minutes": "minutes",
         "rounds": "rounds"
       },
       "hints": {
-        "clearToday": "Reset today's completed Pomodoro count.",
+        "timelineDescription": "Follow focus and break phases across the day.",
+        "timelineLabel": "Pomodoro focus and break timeline",
+        "timelineEmpty": "No Pomodoro phases recorded for this day.",
         "durationRange": "Choose a duration from 1 to 120 minutes.",
         "displayScaleRange": "Adjust countdown size relative to cat scale (50-200%).",
         "shortcutStart": "Set a global shortcut to start the Pomodoro.",
@@ -59,7 +61,6 @@
         "shortcutReset": "Set a global shortcut to reset the current stage.",
         "commandFailed": "The Pomodoro command could not be completed.",
         "currentState": "Current state: {status}",
-        "todayCompleted": "Completed Pomodoros today: {count}",
         "saved": "Pomodoro settings saved.",
         "saveFailed": "Could not save Pomodoro settings."
       },

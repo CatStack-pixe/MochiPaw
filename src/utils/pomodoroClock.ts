@@ -22,10 +22,24 @@ export interface PomodoroRuntime {
   status: PomodoroStatus
   endAt: number | null
   pausedRemainingMs: number | null
+  phaseStartedAt: number | null
   completedRounds: number
   completedToday: number
   completedDate: string
   sessionId: string
+  timeline: PomodoroTimelineState
+}
+
+export interface PomodoroTimelineSegment {
+  id: string
+  phase: PomodoroPhase
+  startedAt: number
+  endedAt: number
+}
+
+export interface PomodoroTimelineState {
+  segments: Record<string, PomodoroTimelineSegment[]>
+  completed: Record<string, number>
 }
 
 export interface PomodoroTransitionResult {
@@ -52,10 +66,15 @@ export const INITIAL_POMODORO_RUNTIME: PomodoroRuntime = {
   status: 'idle',
   endAt: null,
   pausedRemainingMs: null,
+  phaseStartedAt: null,
   completedRounds: 0,
   completedToday: 0,
   completedDate: '',
   sessionId: '',
+  timeline: {
+    segments: {},
+    completed: {},
+  },
 }
 
 const MIN_MINUTES = 1
@@ -139,6 +158,7 @@ export function startPomodoro(runtime: PomodoroRuntime, settings: PomodoroSettin
     status: 'running',
     endAt: now + remaining,
     pausedRemainingMs: null,
+    phaseStartedAt: runtime.phaseStartedAt ?? now,
     sessionId: runtime.sessionId || createSessionId(),
   }
 }
@@ -151,6 +171,7 @@ export function pausePomodoro(runtime: PomodoroRuntime, settings: PomodoroSettin
     status: 'paused',
     endAt: null,
     pausedRemainingMs: getRemainingMs(runtime, settings, now),
+    phaseStartedAt: null,
   }
 }
 
@@ -192,6 +213,7 @@ export function advancePomodoro(
       completedRounds: next.completedRounds + transition.completedWork,
       endAt: nextEndAt,
       pausedRemainingMs: null,
+      phaseStartedAt: cursor,
       sessionId: createSessionId(),
     }
     completedWork += transition.completedWork
@@ -205,6 +227,7 @@ export function advancePomodoro(
         next.status = 'paused'
         next.endAt = null
         next.pausedRemainingMs = phaseDurationMs(next.phase, settings)
+        next.phaseStartedAt = null
       }
       break
     }

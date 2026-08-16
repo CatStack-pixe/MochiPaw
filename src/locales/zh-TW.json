@@ -22,8 +22,9 @@
         "overview": "概覽",
         "settings": "設定",
         "controls": "控制",
-        "todayCompletedTitle": "今日完成的番茄鐘",
-        "todayCompleted": "今日完成：{count}",
+        "timeline": "今日階段時間軌",
+        "today": "今天",
+        "completed": "已完成",
         "round": "第 {current} / {total} 輪",
         "workMinutes": "專注時長",
         "shortBreakMinutes": "短休息時長",
@@ -42,15 +43,16 @@
         "resume": "繼續",
         "reset": "重設",
         "skip": "跳過",
-        "saveSettings": "儲存設定",
-        "clearToday": "清除今日統計"
+        "saveSettings": "儲存設定"
       },
       "units": {
         "minutes": "分鐘",
         "rounds": "輪"
       },
       "hints": {
-        "clearToday": "重設今日完成的番茄數。",
+        "timelineDescription": "按時間查看今天的專注與休息階段。",
+        "timelineLabel": "番茄鐘專注與休息時間軌",
+        "timelineEmpty": "這一天還沒有番茄鐘記錄。",
         "durationRange": "時長可設定為 1 到 120 分鐘。",
         "displayScaleRange": "調整倒數計時相對於貓咪縮放的大小（50-200%）。",
         "shortcutStart": "設定全域組合鍵以開始番茄鐘。",
@@ -59,7 +61,6 @@
         "shortcutReset": "設定全域組合鍵以重設目前階段。",
         "commandFailed": "番茄鐘操作未能完成。",
         "currentState": "目前狀態：{status}",
-        "todayCompleted": "今日完成番茄鐘：{count}",
         "saved": "番茄鐘設定已儲存。",
         "saveFailed": "無法儲存番茄鐘設定。"
       },

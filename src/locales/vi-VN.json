@@ -22,8 +22,9 @@
         "overview": "Tổng quan",
         "settings": "Cài đặt",
         "controls": "Điều khiển",
-        "todayCompletedTitle": "Pomodoro đã hoàn thành hôm nay",
-        "todayCompleted": "Hoàn thành hôm nay: {count}",
+        "timeline": "Dòng thời gian hôm nay",
+        "today": "Hôm nay",
+        "completed": "đã hoàn thành",
         "round": "Vòng {current} / {total}",
         "workMinutes": "Thời lượng tập trung",
         "shortBreakMinutes": "Thời lượng nghỉ ngắn",
@@ -42,15 +43,16 @@
         "resume": "Tiếp tục",
         "reset": "Đặt lại",
         "skip": "Bỏ qua",
-        "saveSettings": "Lưu cài đặt",
-        "clearToday": "Xóa số liệu hôm nay"
+        "saveSettings": "Lưu cài đặt"
       },
       "units": {
         "minutes": "phút",
         "rounds": "vòng"
       },
       "hints": {
-        "clearToday": "Đặt lại số Pomodoro đã hoàn thành hôm nay.",
+        "timelineDescription": "Theo dõi các giai đoạn tập trung và nghỉ trong ngày.",
+        "timelineLabel": "Dòng thời gian tập trung và nghỉ Pomodoro",
+        "timelineEmpty": "Chưa có giai đoạn Pomodoro nào được ghi lại trong ngày này.",
         "durationRange": "Chọn thời lượng từ 1 đến 120 phút.",
         "displayScaleRange": "Điều chỉnh kích thước đếm ngược theo tỷ lệ với mèo (50-200%).",
         "shortcutStart": "Đặt phím tắt toàn cục để bắt đầu Pomodoro.",
@@ -59,7 +61,6 @@
         "shortcutReset": "Đặt phím tắt toàn cục để đặt lại giai đoạn hiện tại.",
         "commandFailed": "Không thể hoàn thành thao tác Pomodoro.",
         "currentState": "Trạng thái hiện tại: {status}",
-        "todayCompleted": "Pomodoro hoàn thành hôm nay: {count}",
         "saved": "Đã lưu cài đặt Pomodoro.",
         "saveFailed": "Không thể lưu cài đặt Pomodoro."
       },
