@@ -12,21 +12,25 @@ import { useEventListener } from '@vueuse/core'
 import { ConfigProvider, theme } from 'antdv-next'
 import { isString } from 'es-toolkit'
 import isURL from 'is-url'
+import { storeToRefs } from 'pinia'
 import { nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterView } from 'vue-router'
 
+import type { PomodoroPhase } from './utils/pomodoroClock'
 import type { DeviceInputEvent, SubModelInputFrame } from './utils/subModelRuntime'
 
+import { useKeyPress } from './composables/useKeyPress'
 import { useTauriListen } from './composables/useTauriListen'
 import { useWindowState } from './composables/useWindowState'
 import { LANGUAGE, LISTEN_KEY, WINDOW_LABEL } from './constants'
 import { getAntdLocale } from './locales/index.ts'
-import { hideWindow, setWebviewMemoryTarget, showWindow } from './plugins/window'
+import { hideWindow, setWebviewMemoryTarget, showWindow, toggleWindowVisible } from './plugins/window'
 import { useAppStore } from './stores/app'
 import { useCatStore } from './stores/cat'
 import { useGeneralStore } from './stores/general'
 import { useModelStore } from './stores/model'
+import { setPomodoroPersistenceWritable, usePomodoroStore } from './stores/pomodoro'
 import { useShortcutStore } from './stores/shortcut.ts'
 import {
   markTypingStatsPersistenceHydrated,
@@ -36,6 +40,8 @@ import {
 import { logError, logInfo, logStartupDiagnostics, logStep } from './utils/diagnostics'
 import { requestModelStoreSave } from './utils/modelPersistence'
 import { setCoreStoresPersistenceWritable } from './utils/persistence'
+import { startPomodoroCoordinator } from './utils/pomodoroCoordinator'
+import { requestPomodoroCommand } from './utils/pomodoroRequest'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
 import { openSubModelWindow } from './utils/subModelWindow'
 import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
@@ -46,13 +52,67 @@ const catStore = useCatStore()
 const generalStore = useGeneralStore()
 const shortcutStore = useShortcutStore()
 const typingStatsStore = useTypingStatsStore()
+const pomodoroStore = usePomodoroStore()
+const {
+  visibleCat,
+  visiblePreference,
+  mirrorMode,
+  penetrable,
+  alwaysOnTop,
+  gameMode,
+  pomodoroStart,
+  pomodoroPause,
+  pomodoroResume,
+  pomodoroReset,
+} = storeToRefs(shortcutStore)
 const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
 setCoreStoresPersistenceWritable(!isSubModelWindow)
+setPomodoroPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
 const idleMemory = new WebviewIdleMemoryController({ setTarget: setWebviewMemoryTarget })
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
-const { locale } = useI18n()
+const { locale, t } = useI18n()
+
+function runPomodoroShortcut(command: 'start' | 'pause' | 'resume' | 'reset') {
+  void requestPomodoroCommand(command).catch((error) => {
+    logError('[shortcut] Pomodoro command failed', { command, error })
+  })
+}
+
+if (appWindow.label === WINDOW_LABEL.MAIN) {
+  useKeyPress(visibleCat, () => {
+    catStore.window.visible = !catStore.window.visible
+  })
+
+  useKeyPress(visiblePreference, () => {
+    toggleWindowVisible(WINDOW_LABEL.PREFERENCE)
+  })
+
+  useKeyPress(mirrorMode, () => {
+    catStore.model.mirror = !catStore.model.mirror
+  })
+
+  useKeyPress(penetrable, () => {
+    catStore.window.passThrough = !catStore.window.passThrough
+  })
+
+  useKeyPress(alwaysOnTop, () => {
+    catStore.window.alwaysOnTop = !catStore.window.alwaysOnTop
+  })
+
+  useKeyPress(gameMode, () => {
+    catStore.window.gameMode.enabled = !catStore.window.gameMode.enabled
+  })
+
+  useKeyPress(pomodoroStart, () => runPomodoroShortcut('start'))
+  useKeyPress(pomodoroPause, () => runPomodoroShortcut('pause'))
+  useKeyPress(pomodoroResume, () => runPomodoroShortcut('resume'))
+
+  useKeyPress(pomodoroReset, () => {
+    runPomodoroShortcut('reset')
+  })
+}
 
 async function persistInitializedModelState(result: Awaited<ReturnType<typeof modelStore.init>>) {
   logStep('model-persistence', 'persist initialized model state', {
@@ -120,6 +180,58 @@ function handleInputFrame(frame: SubModelInputFrame) {
 
 let unlistenFocus: (() => void) | undefined
 let idleMemoryDisposed = false
+let stopPomodoroCoordinator: (() => void) | undefined
+let pomodoroNotificationPermission: Promise<boolean> | undefined
+
+async function ensurePomodoroNotificationPermission() {
+  try {
+    const { isPermissionGranted, requestPermission } = await import('@tauri-apps/plugin-notification')
+
+    pomodoroNotificationPermission ??= (async () => {
+      if (await isPermissionGranted()) return true
+
+      return (await requestPermission()) === 'granted'
+    })()
+
+    return await pomodoroNotificationPermission
+  } catch (error) {
+    logError('[pomodoro] notification permission unavailable', { error })
+    return false
+  }
+}
+
+async function sendPomodoroNotification(phase: PomodoroPhase) {
+  if (!await ensurePomodoroNotificationPermission()) return
+
+  const { sendNotification } = await import('@tauri-apps/plugin-notification')
+
+  await sendNotification({
+    title: t('pages.pomodoro.notifications.title'),
+    body: t(`pages.pomodoro.notifications.${phase}`),
+  })
+}
+
+let pomodoroAudioContext: AudioContext | undefined
+
+async function playPomodoroSound() {
+  const AudioContextClass = window.AudioContext
+  if (!AudioContextClass) return
+
+  pomodoroAudioContext ??= new AudioContextClass()
+  if (pomodoroAudioContext.state === 'suspended') await pomodoroAudioContext.resume()
+
+  const context = pomodoroAudioContext
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+
+  oscillator.frequency.value = 880
+  gain.gain.setValueAtTime(0.08, context.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.35)
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start()
+  oscillator.stop(context.currentTime + 0.35)
+}
 
 onMounted(async () => {
   idleMemory.start(document.hidden)
@@ -139,6 +251,7 @@ onUnmounted(() => {
   idleMemoryDisposed = true
   unlistenFocus?.()
   idleMemory.dispose()
+  stopPomodoroCoordinator?.()
 })
 
 useEventListener(document, 'visibilitychange', () => {
@@ -184,6 +297,20 @@ onMounted(async () => {
   await appStore.$tauri.start()
   logStep('app-init', 'initialize app store', { windowLabel: appWindow.label })
   await appStore.init()
+
+  // Register the main-window Pomodoro command listener before model scanning so
+  // Preferences commands cannot be lost during a slow startup.
+  if (appWindow.label === WINDOW_LABEL.MAIN) {
+    await pomodoroStore.$tauri.start()
+    pomodoroStore.normalizePersistedState()
+    pomodoroStore.reconcile()
+    stopPomodoroCoordinator = await startPomodoroCoordinator(pomodoroStore, {
+      notify: sendPomodoroNotification,
+      playSound: playPomodoroSound,
+      prepareNotifications: ensurePomodoroNotificationPermission,
+    })
+  }
+
   await initializeModelStore()
   logStep('app-init', 'start cat persistence', { windowLabel: appWindow.label })
   await catStore.$tauri.start()
@@ -199,6 +326,11 @@ onMounted(async () => {
   setTypingStatsPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
   await typingStatsStore.$tauri.start()
   markTypingStatsPersistenceHydrated()
+  if (appWindow.label !== WINDOW_LABEL.MAIN) {
+    await pomodoroStore.$tauri.start()
+    pomodoroStore.normalizePersistedState()
+    pomodoroStore.reconcile()
+  }
   await restoreState()
   logStep('app-init', 'application state restored', { windowLabel: appWindow.label })
 

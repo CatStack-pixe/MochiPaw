@@ -5,6 +5,7 @@
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
+import { MOUSE_SENSITIVITY_DEFAULT, normalizeMouseSensitivity } from '@/utils/mouseSensitivity'
 import { persistStateWhenWritable } from '@/utils/persistence'
 
 export interface CatStore {
@@ -20,6 +21,7 @@ export interface CatStore {
     autoReleaseDelay: number
     maxFPS: number
     ignoreMouse: boolean
+    mouseSensitivity: number
   }
   window: {
     visible: boolean
@@ -73,6 +75,7 @@ export const useCatStore = defineStore('cat', () => {
     autoReleaseDelay: 3,
     maxFPS: 60,
     ignoreMouse: false,
+    mouseSensitivity: MOUSE_SENSITIVITY_DEFAULT,
   })
 
   const window = reactive<CatStore['window']>({
@@ -91,6 +94,8 @@ export const useCatStore = defineStore('cat', () => {
   })
 
   const init = () => {
+    model.mouseSensitivity = normalizeMouseSensitivity(model.mouseSensitivity)
+
     if (!window.gameMode || !Array.isArray(window.gameMode.processes)) {
       window.gameMode = {
         enabled: false,

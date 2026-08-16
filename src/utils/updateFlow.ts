@@ -131,6 +131,46 @@ export function getUpdateReleaseUrl(repositoryUrl: string, version: string) {
   return `${repositoryUrl}/releases/tag/${encodeURIComponent(tag)}`
 }
 
+/** Read the authoritative release body when updater metadata has no notes. */
+export async function fetchGitHubReleaseBody(
+  repositoryUrl: string,
+  version: string,
+  fetcher: typeof fetch = fetch,
+) {
+  try {
+    const repository = new URL(repositoryUrl)
+    if (repository.hostname.toLowerCase() !== 'github.com') return ''
+
+    const segments = repository.pathname.split('/').filter(Boolean)
+    if (segments.length !== 2) return ''
+
+    const tag = version.startsWith('v') ? version : `v${version}`
+    const endpoint = `https://api.github.com/repos/${segments.map(encodeURIComponent).join('/')}/releases/tags/${encodeURIComponent(tag)}`
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5_000)
+    let response: Response
+    try {
+      response = await fetcher(endpoint, {
+        headers: { Accept: 'application/vnd.github+json' },
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (!response.ok) return ''
+
+    const payload: unknown = await response.json()
+    if (!payload || typeof payload !== 'object' || typeof (payload as { body?: unknown }).body !== 'string') {
+      return ''
+    }
+
+    return (payload as { body: string }).body
+  } catch {
+    return ''
+  }
+}
+
 export async function applyUpdate(
   update: AvailableUpdate,
   capability: UpdateCapability,

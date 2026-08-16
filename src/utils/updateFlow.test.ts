@@ -7,6 +7,7 @@ import type { AvailableUpdate, UpdateCapability, UpdateDownloadEvent } from './u
 import {
   applyUpdate,
   disposeUpdate,
+  fetchGitHubReleaseBody,
   getUpdateReleaseUrl,
   transferUpdateOwnership,
   UpdateCheckCoordinator,
@@ -361,6 +362,29 @@ test('lets the Windows installer own process restart after state is saved', asyn
   })
 
   assert.deepEqual(order, ['download', 'persist', 'install', 'close'])
+})
+
+test('loads GitHub release notes when updater metadata is empty', async () => {
+  let requestedUrl = ''
+  const fetcher: typeof fetch = async (input) => {
+    requestedUrl = String(input)
+    return new Response(JSON.stringify({ body: '## What is new\n\n- Embedded timer' }), {
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  assert.equal(
+    await fetchGitHubReleaseBody('https://github.com/CatStack-pixe/MochiPaw', '1.1.10', fetcher),
+    '## What is new\n\n- Embedded timer',
+  )
+  assert.equal(requestedUrl, 'https://api.github.com/repos/CatStack-pixe/MochiPaw/releases/tags/v1.1.10')
+})
+
+test('ignores unavailable or non-GitHub release note sources', async () => {
+  const fetcher: typeof fetch = async () => new Response('', { status: 404 })
+
+  assert.equal(await fetchGitHubReleaseBody('https://example.com/MochiPaw', '1.1.10', fetcher), '')
+  assert.equal(await fetchGitHubReleaseBody('https://github.com/CatStack-pixe/MochiPaw', '1.1.10', fetcher), '')
 })
 
 test('disposal ignores close failures after clearing retry state', async () => {

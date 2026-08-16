@@ -6,6 +6,74 @@
         "switching": "Switching..."
       }
     },
+    "pomodoro": {
+      "title": "Pomodoro",
+      "phases": {
+        "work": "Focus",
+        "shortBreak": "Short break",
+        "longBreak": "Long break"
+      },
+      "status": {
+        "idle": "Ready",
+        "running": "Running",
+        "paused": "Paused"
+      },
+      "labels": {
+        "overview": "Overview",
+        "settings": "Settings",
+        "controls": "Controls",
+        "timeline": "Today's timeline",
+        "today": "Today",
+        "completed": "completed",
+        "round": "Round {current} of {total}",
+        "workMinutes": "Focus duration",
+        "shortBreakMinutes": "Short break duration",
+        "longBreakMinutes": "Long break duration",
+        "longBreakInterval": "Long break every",
+        "autoStartBreak": "Auto-start breaks",
+        "autoStartWork": "Auto-start focus",
+        "soundEnabled": "Completion sound",
+        "notificationsEnabled": "Notifications",
+        "displayEnabled": "Show countdown below cat",
+        "displayScale": "Countdown size"
+      },
+      "buttons": {
+        "start": "Start",
+        "pause": "Pause",
+        "resume": "Resume",
+        "reset": "Reset",
+        "skip": "Skip",
+        "saveSettings": "Save settings"
+      },
+      "units": {
+        "minutes": "minutes",
+        "rounds": "rounds"
+      },
+      "hints": {
+        "timelineDescription": "Follow focus and break phases across the day.",
+        "timelineLabel": "Pomodoro focus and break timeline",
+        "timelineEmpty": "No Pomodoro phases recorded for this day.",
+        "durationRange": "Choose a duration from 1 to 120 minutes.",
+        "displayScaleRange": "Adjust countdown size relative to cat scale (50-200%).",
+        "shortcutStart": "Set a global shortcut to start the Pomodoro.",
+        "shortcutPause": "Set a global shortcut to pause the Pomodoro.",
+        "shortcutResume": "Set a global shortcut to resume the Pomodoro.",
+        "shortcutReset": "Set a global shortcut to reset the current stage.",
+        "commandFailed": "The Pomodoro command could not be completed.",
+        "currentState": "Current state: {status}",
+        "saved": "Pomodoro settings saved.",
+        "saveFailed": "Could not save Pomodoro settings."
+      },
+      "notifications": {
+        "title": "Pomodoro",
+        "work": "Focus session complete",
+        "shortBreak": "Short break complete",
+        "longBreak": "Long break complete",
+        "workCompleted": "Focus session complete",
+        "shortBreakCompleted": "Short break complete",
+        "longBreakCompleted": "Long break complete"
+      }
+    },
     "preference": {
       "title": "Preferences",
       "cat": {
@@ -14,6 +82,7 @@
           "modelSettings": "Model Settings",
           "mirrorMode": "Mirror Mode",
           "mouseMirror": "Mouse Mirror",
+          "mouseSensitivity": "Mouse Follow Sensitivity",
           "ignoreMouse": "Ignore Mouse Events",
           "windowSettings": "Window Settings",
           "passThrough": "Cat Lock",
@@ -35,6 +104,7 @@
         "hints": {
           "mirrorMode": "When enabled, the model will be mirrored horizontally.",
           "mouseMirror": "When enabled, the mouse will mirror the hand movement.",
+          "mouseSensitivity": "Adjust how strongly the model follows mouse movement. 100% keeps the default response.",
           "ignoreMouse": "When enabled, the model will not respond to mouse events. Useful for keyboard mode or gamepad mode.",
           "motionSound": "When enabled, the model will play corresponding sound effects when performing actions (if they exist).",
           "behavior": "When enabled, motions and expressions can be configured and triggered.",
@@ -255,7 +325,10 @@
           "mirrorMode": "Mirror Mode",
           "passThrough": "Cat Lock",
           "alwaysOnTop": "Always on Top",
-          "gameMode": "Toggle Game Mode"
+          "gameMode": "Toggle Game Mode",
+          "pomodoroToggle": "Start / Pause / Resume Pomodoro",
+          "pomodoroReset": "Reset Pomodoro",
+          "pomodoroSkip": "Skip Current Stage"
         },
         "hints": {
           "toggleCat": "Toggle the visibility of the cat window.",
@@ -263,7 +336,10 @@
           "mirrorMode": "Toggle the cat's mirror mode.",
           "passThrough": "Toggle whether cat window interaction is locked.",
           "alwaysOnTop": "Toggle whether the cat window stays on top.",
-          "gameMode": "Toggle Windows game compatibility mode."
+          "gameMode": "Toggle Windows game compatibility mode.",
+          "pomodoroToggle": "Start, pause, or resume the Pomodoro based on its current state.",
+          "pomodoroReset": "Reset the Pomodoro to the beginning of its current stage.",
+          "pomodoroSkip": "Complete and skip the current Pomodoro stage."
         }
       },
       "about": {

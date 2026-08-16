@@ -6,6 +6,74 @@
         "switching": "Alternando..."
       }
     },
+    "pomodoro": {
+      "title": "Pomodoro",
+      "phases": {
+        "work": "Foco",
+        "shortBreak": "Pausa curta",
+        "longBreak": "Pausa longa"
+      },
+      "status": {
+        "idle": "Pronto",
+        "running": "Em andamento",
+        "paused": "Pausado"
+      },
+      "labels": {
+        "overview": "Visão geral",
+        "settings": "Configurações",
+        "controls": "Controles",
+        "timeline": "Linha do tempo de hoje",
+        "today": "Hoje",
+        "completed": "concluídos",
+        "round": "Rodada {current} de {total}",
+        "workMinutes": "Duração do foco",
+        "shortBreakMinutes": "Duração da pausa curta",
+        "longBreakMinutes": "Duração da pausa longa",
+        "longBreakInterval": "Pausa longa a cada",
+        "autoStartBreak": "Iniciar pausas automaticamente",
+        "autoStartWork": "Iniciar foco automaticamente",
+        "soundEnabled": "Som de conclusão",
+        "notificationsEnabled": "Notificações",
+        "displayEnabled": "Mostrar contagem regressiva abaixo do gato",
+        "displayScale": "Tamanho da contagem regressiva"
+      },
+      "buttons": {
+        "start": "Iniciar",
+        "pause": "Pausar",
+        "resume": "Retomar",
+        "reset": "Redefinir",
+        "skip": "Pular",
+        "saveSettings": "Salvar configurações"
+      },
+      "units": {
+        "minutes": "minutos",
+        "rounds": "rodadas"
+      },
+      "hints": {
+        "timelineDescription": "Acompanhe os períodos de foco e pausa ao longo do dia.",
+        "timelineLabel": "Linha do tempo de foco e pausas do Pomodoro",
+        "timelineEmpty": "Nenhuma etapa do Pomodoro foi registrada neste dia.",
+        "durationRange": "Escolha uma duração entre 1 e 120 minutos.",
+        "displayScaleRange": "Ajuste o tamanho da contagem regressiva em relação à escala do gato (50-200%).",
+        "shortcutStart": "Defina um atalho global para iniciar o Pomodoro.",
+        "shortcutPause": "Defina um atalho global para pausar o Pomodoro.",
+        "shortcutResume": "Defina um atalho global para retomar o Pomodoro.",
+        "shortcutReset": "Defina um atalho global para redefinir a etapa atual.",
+        "commandFailed": "Não foi possível concluir o comando do Pomodoro.",
+        "currentState": "Estado atual: {status}",
+        "saved": "Configurações do Pomodoro salvas.",
+        "saveFailed": "Não foi possível salvar as configurações do Pomodoro."
+      },
+      "notifications": {
+        "title": "Pomodoro",
+        "work": "Sessão de foco concluída",
+        "shortBreak": "Pausa curta concluída",
+        "longBreak": "Pausa longa concluída",
+        "workCompleted": "Sessão de foco concluída",
+        "shortBreakCompleted": "Pausa curta concluída",
+        "longBreakCompleted": "Pausa longa concluída"
+      }
+    },
     "preference": {
       "title": "Preferências",
       "cat": {
@@ -14,6 +82,7 @@
           "modelSettings": "Configurações do Modelo",
           "mirrorMode": "Modo Espelho",
           "mouseMirror": "Espelho do Mouse",
+          "mouseSensitivity": "Sensibilidade ao movimento do mouse",
           "ignoreMouse": "Ignorar Eventos do Mouse",
           "windowSettings": "Configurações da Janela",
           "passThrough": "Bloqueio do Gato",
@@ -35,6 +104,7 @@
         "hints": {
           "mirrorMode": "Quando ativado, o modelo será invertido horizontalmente.",
           "mouseMirror": "Quando ativado, o mouse espelhará o movimento da mão.",
+          "mouseSensitivity": "Ajusta a intensidade com que o modelo acompanha o movimento do mouse. 100% mantém a resposta padrão.",
           "ignoreMouse": "Quando ativado, o modelo não responderá a eventos do mouse. Útil para o modo teclado ou modo controle.",
           "motionSound": "Quando ativado, o modelo reproduzirá efeitos sonoros correspondentes ao executar ações (se existirem).",
           "behavior": "Quando ativado, movimentos e expressões podem ser configurados e acionados.",
@@ -249,7 +319,10 @@
           "mirrorMode": "Modo Espelho",
           "passThrough": "Bloqueio do Gato",
           "alwaysOnTop": "Sempre no Topo",
-          "gameMode": "Alternar Modo de Jogo"
+          "gameMode": "Alternar Modo de Jogo",
+          "pomodoroToggle": "Iniciar / pausar / retomar Pomodoro",
+          "pomodoroReset": "Redefinir Pomodoro",
+          "pomodoroSkip": "Pular etapa atual"
         },
         "hints": {
           "toggleCat": "Alternar a visibilidade da janela do gato.",
@@ -257,7 +330,10 @@
           "mirrorMode": "Alternar o modo espelho do gato.",
           "passThrough": "Alternar se a interação com a janela do gato fica bloqueada.",
           "alwaysOnTop": "Alternar se a janela do gato permanece no topo.",
-          "gameMode": "Alternar o modo de compatibilidade de jogos do Windows."
+          "gameMode": "Alternar o modo de compatibilidade de jogos do Windows.",
+          "pomodoroToggle": "Inicia, pausa ou retoma o Pomodoro conforme o estado atual.",
+          "pomodoroReset": "Redefine o Pomodoro para o início da etapa atual.",
+          "pomodoroSkip": "Conclui e pula a etapa atual do Pomodoro."
         }
       },
       "about": {

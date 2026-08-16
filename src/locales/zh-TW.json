@@ -6,6 +6,74 @@
         "switching": "切換中…"
       }
     },
+    "pomodoro": {
+      "title": "番茄鐘",
+      "phases": {
+        "work": "專注",
+        "shortBreak": "短休息",
+        "longBreak": "長休息"
+      },
+      "status": {
+        "idle": "準備就緒",
+        "running": "進行中",
+        "paused": "已暫停"
+      },
+      "labels": {
+        "overview": "概覽",
+        "settings": "設定",
+        "controls": "控制",
+        "timeline": "今日階段時間軌",
+        "today": "今天",
+        "completed": "已完成",
+        "round": "第 {current} / {total} 輪",
+        "workMinutes": "專注時長",
+        "shortBreakMinutes": "短休息時長",
+        "longBreakMinutes": "長休息時長",
+        "longBreakInterval": "長休息間隔",
+        "autoStartBreak": "自動開始休息",
+        "autoStartWork": "自動開始專注",
+        "soundEnabled": "完成提示音",
+        "notificationsEnabled": "系統通知",
+        "displayEnabled": "在貓咪下方顯示倒數計時",
+        "displayScale": "倒數計時大小"
+      },
+      "buttons": {
+        "start": "開始",
+        "pause": "暫停",
+        "resume": "繼續",
+        "reset": "重設",
+        "skip": "跳過",
+        "saveSettings": "儲存設定"
+      },
+      "units": {
+        "minutes": "分鐘",
+        "rounds": "輪"
+      },
+      "hints": {
+        "timelineDescription": "按時間查看今天的專注與休息階段。",
+        "timelineLabel": "番茄鐘專注與休息時間軌",
+        "timelineEmpty": "這一天還沒有番茄鐘記錄。",
+        "durationRange": "時長可設定為 1 到 120 分鐘。",
+        "displayScaleRange": "調整倒數計時相對於貓咪縮放的大小（50-200%）。",
+        "shortcutStart": "設定全域組合鍵以開始番茄鐘。",
+        "shortcutPause": "設定全域組合鍵以暫停番茄鐘。",
+        "shortcutResume": "設定全域組合鍵以繼續番茄鐘。",
+        "shortcutReset": "設定全域組合鍵以重設目前階段。",
+        "commandFailed": "番茄鐘操作未能完成。",
+        "currentState": "目前狀態：{status}",
+        "saved": "番茄鐘設定已儲存。",
+        "saveFailed": "無法儲存番茄鐘設定。"
+      },
+      "notifications": {
+        "title": "番茄鐘",
+        "work": "專注完成",
+        "shortBreak": "短休息完成",
+        "longBreak": "長休息完成",
+        "workCompleted": "專注完成",
+        "shortBreakCompleted": "短休息完成",
+        "longBreakCompleted": "長休息完成"
+      }
+    },
     "preference": {
       "title": "偏好設定",
       "cat": {
@@ -14,6 +82,7 @@
           "modelSettings": "模型設定",
           "mirrorMode": "鏡像模式",
           "mouseMirror": "滑鼠游標鏡像",
+          "mouseSensitivity": "滑鼠跟隨靈敏度",
           "ignoreMouse": "忽略滑鼠事件",
           "windowSettings": "視窗設定",
           "passThrough": "貓咪鎖定",
@@ -35,6 +104,7 @@
         "hints": {
           "mirrorMode": "啟用後，模型將水平鏡像翻轉。",
           "mouseMirror": "啟用後，滑鼠游標將鏡像跟隨手部移動。",
+          "mouseSensitivity": "調整模型跟隨滑鼠移動的回應幅度，100% 保持預設回應。",
           "ignoreMouse": "啟用後，模型將不再回應滑鼠事件，適用於鍵盤模式或手柄模式。",
           "motionSound": "啟用後，模型執行動作時會播放對應音效（如果存在）。",
           "behavior": "啟用後，可以配置和觸發模型的動作與表情。",
@@ -249,7 +319,10 @@
           "mirrorMode": "鏡像模式",
           "passThrough": "貓咪鎖定",
           "alwaysOnTop": "視窗置頂",
-          "gameMode": "切換遊戲模式"
+          "gameMode": "切換遊戲模式",
+          "pomodoroToggle": "開始 / 暫停 / 繼續番茄鐘",
+          "pomodoroReset": "重設番茄鐘",
+          "pomodoroSkip": "跳過目前階段"
         },
         "hints": {
           "toggleCat": "切換貓咪視窗的顯示與隱藏。",
@@ -257,7 +330,10 @@
           "mirrorMode": "切換貓咪的鏡像模式。",
           "passThrough": "切換是否鎖定貓咪視窗互動。",
           "alwaysOnTop": "切換貓咪視窗是否置頂。",
-          "gameMode": "切換 Windows 遊戲相容模式。"
+          "gameMode": "切換 Windows 遊戲相容模式。",
+          "pomodoroToggle": "依目前狀態開始、暫停或繼續番茄鐘。",
+          "pomodoroReset": "將番茄鐘重設為目前階段的起始時間。",
+          "pomodoroSkip": "完成並跳過目前番茄鐘階段。"
         }
       },
       "about": {

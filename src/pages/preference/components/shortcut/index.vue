@@ -4,44 +4,12 @@
  -->
 
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
-
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
 import Shortcut from '@/components/shortcut/index.vue'
-import { useKeyPress } from '@/composables/useKeyPress'
-import { WINDOW_LABEL } from '@/constants'
-import { toggleWindowVisible } from '@/plugins/window'
-import { useCatStore } from '@/stores/cat'
 import { useShortcutStore } from '@/stores/shortcut.ts'
 
 const shortcutStore = useShortcutStore()
-const { visibleCat, visiblePreference, mirrorMode, penetrable, alwaysOnTop, gameMode } = storeToRefs(shortcutStore)
-const catStore = useCatStore()
-
-useKeyPress(visibleCat, () => {
-  catStore.window.visible = !catStore.window.visible
-})
-
-useKeyPress(visiblePreference, () => {
-  toggleWindowVisible(WINDOW_LABEL.PREFERENCE)
-})
-
-useKeyPress(mirrorMode, () => {
-  catStore.model.mirror = !catStore.model.mirror
-})
-
-useKeyPress(penetrable, () => {
-  catStore.window.passThrough = !catStore.window.passThrough
-})
-
-useKeyPress(alwaysOnTop, () => {
-  catStore.window.alwaysOnTop = !catStore.window.alwaysOnTop
-})
-
-useKeyPress(gameMode, () => {
-  catStore.window.gameMode.enabled = !catStore.window.gameMode.enabled
-})
 </script>
 
 <template>

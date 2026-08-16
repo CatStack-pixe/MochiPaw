@@ -36,6 +36,7 @@
     },
     "pinia:default",
     "log:default",
+    "notification:default",
     "updater:default",
     "prevent-default:default",
     "autostart:default",

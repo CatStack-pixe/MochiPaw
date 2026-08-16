@@ -158,6 +158,17 @@ export function verifyUpdaterMetadata(metadata, assets, expectedVersion) {
   return metadata
 }
 
+export function addReleaseNotes(metadata, notes) {
+  if (typeof notes !== 'string') {
+    fail('release notes must be a string')
+  }
+
+  return {
+    ...metadata,
+    notes,
+  }
+}
+
 function readMetadataDocuments(path) {
   const paths = []
 
@@ -179,17 +190,18 @@ function readMetadataDocuments(path) {
 }
 
 function run() {
-  const [metadataPath, assetsPath, expectedVersion, outputPath] = argv.slice(2)
+  const [metadataPath, assetsPath, expectedVersion, outputPath, releaseNotesPath] = argv.slice(2)
 
-  if (!metadataPath || !assetsPath || !expectedVersion || !outputPath) {
-    throw new Error('Usage: node scripts/verifyUpdaterMetadata.mjs <metadata> <assets> <version> <output>')
+  if (!metadataPath || !assetsPath || !expectedVersion || !outputPath || !releaseNotesPath) {
+    throw new Error('Usage: node scripts/verifyUpdaterMetadata.mjs <metadata> <assets> <version> <output> <release-notes>')
   }
 
   const documents = readMetadataDocuments(metadataPath)
   const assets = JSON.parse(readFileSync(resolve(assetsPath), 'utf8'))
   const metadata = mergeUpdaterMetadata(documents, expectedVersion)
   const verified = verifyUpdaterMetadata(metadata, assets, expectedVersion)
-  writeFileSync(resolve(outputPath), `${JSON.stringify(verified, null, 2)}\n`)
+  const releaseNotes = readFileSync(resolve(releaseNotesPath), 'utf8').trimEnd()
+  writeFileSync(resolve(outputPath), `${JSON.stringify(addReleaseNotes(verified, releaseNotes), null, 2)}\n`)
 }
 
 if (argv[1] && resolve(argv[1]) === fileURLToPath(import.meta.url)) {

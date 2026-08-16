@@ -13,6 +13,7 @@ import { useDeviceInputStatus } from '@/composables/useDeviceInputStatus'
 import { returnMainWindowToScreen } from '@/composables/useWindowState'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
+import { MOUSE_SENSITIVITY_MAX, MOUSE_SENSITIVITY_MIN } from '@/utils/mouseSensitivity'
 import { isWindows } from '@/utils/platform'
 
 const catStore = useCatStore()
@@ -60,6 +61,40 @@ const typingBehaviorGroupOptions = computed(() => {
       :title="$t('pages.preference.cat.labels.mouseMirror')"
     >
       <Switch v-model:checked="catStore.model.mouseMirror" />
+    </ProListItem>
+
+    <ProListItem
+      :description="$t('pages.preference.cat.hints.mouseSensitivity')"
+      :title="$t('pages.preference.cat.labels.mouseSensitivity')"
+      vertical
+    >
+      <Flex
+        align="center"
+        class="gap-4"
+      >
+        <Slider
+          v-model:value="catStore.model.mouseSensitivity"
+          class="flex-1 m-0!"
+          :max="MOUSE_SENSITIVITY_MAX"
+          :min="MOUSE_SENSITIVITY_MIN"
+          :tooltip="{
+            formatter(value) {
+              return `${value}%`
+            },
+          }"
+        />
+
+        <SpaceCompact>
+          <InputNumber
+            v-model:value="catStore.model.mouseSensitivity"
+            class="w-24"
+            :max="MOUSE_SENSITIVITY_MAX"
+            :min="MOUSE_SENSITIVITY_MIN"
+          />
+
+          <SpaceAddon>%</SpaceAddon>
+        </SpaceCompact>
+      </Flex>
     </ProListItem>
 
     <ProListItem

@@ -21,6 +21,7 @@ import About from './components/about/index.vue'
 import Cat from './components/cat/index.vue'
 import General from './components/general/index.vue'
 import Model from './components/model/index.vue'
+import Pomodoro from './components/pomodoro/index.vue'
 import Shortcut from './components/shortcut/index.vue'
 import SubModel from './components/sub-model/index.vue'
 import TypingStats from './components/typing-stats/index.vue'
@@ -55,6 +56,12 @@ const menus = computed(() => [
     label: t('pages.preference.typingStats.title'),
     icon: 'i-solar:chart-2-bold',
     component: TypingStats,
+  },
+  {
+    key: 'pomodoro',
+    label: t('pages.pomodoro.title'),
+    icon: 'i-lucide:timer',
+    component: Pomodoro,
   },
   {
     key: 'model',

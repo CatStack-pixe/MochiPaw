@@ -159,6 +159,7 @@ pub fn run() {
                 .filter(|metadata| !metadata.target().contains("gilrs"))
                 .build(),
         )
+        .plugin(tauri_plugin_notification::init())
         .plugin(persistence_recovery_init())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,

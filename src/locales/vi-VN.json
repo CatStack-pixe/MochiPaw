@@ -6,6 +6,74 @@
         "switching": "Đang chuyển đổi..."
       }
     },
+    "pomodoro": {
+      "title": "Pomodoro",
+      "phases": {
+        "work": "Tập trung",
+        "shortBreak": "Nghỉ ngắn",
+        "longBreak": "Nghỉ dài"
+      },
+      "status": {
+        "idle": "Sẵn sàng",
+        "running": "Đang chạy",
+        "paused": "Đã tạm dừng"
+      },
+      "labels": {
+        "overview": "Tổng quan",
+        "settings": "Cài đặt",
+        "controls": "Điều khiển",
+        "timeline": "Dòng thời gian hôm nay",
+        "today": "Hôm nay",
+        "completed": "đã hoàn thành",
+        "round": "Vòng {current} / {total}",
+        "workMinutes": "Thời lượng tập trung",
+        "shortBreakMinutes": "Thời lượng nghỉ ngắn",
+        "longBreakMinutes": "Thời lượng nghỉ dài",
+        "longBreakInterval": "Nghỉ dài sau mỗi",
+        "autoStartBreak": "Tự động bắt đầu giờ nghỉ",
+        "autoStartWork": "Tự động bắt đầu tập trung",
+        "soundEnabled": "Âm thanh hoàn thành",
+        "notificationsEnabled": "Thông báo",
+        "displayEnabled": "Hiển thị đếm ngược bên dưới mèo",
+        "displayScale": "Kích thước đếm ngược"
+      },
+      "buttons": {
+        "start": "Bắt đầu",
+        "pause": "Tạm dừng",
+        "resume": "Tiếp tục",
+        "reset": "Đặt lại",
+        "skip": "Bỏ qua",
+        "saveSettings": "Lưu cài đặt"
+      },
+      "units": {
+        "minutes": "phút",
+        "rounds": "vòng"
+      },
+      "hints": {
+        "timelineDescription": "Theo dõi các giai đoạn tập trung và nghỉ trong ngày.",
+        "timelineLabel": "Dòng thời gian tập trung và nghỉ Pomodoro",
+        "timelineEmpty": "Chưa có giai đoạn Pomodoro nào được ghi lại trong ngày này.",
+        "durationRange": "Chọn thời lượng từ 1 đến 120 phút.",
+        "displayScaleRange": "Điều chỉnh kích thước đếm ngược theo tỷ lệ với mèo (50-200%).",
+        "shortcutStart": "Đặt phím tắt toàn cục để bắt đầu Pomodoro.",
+        "shortcutPause": "Đặt phím tắt toàn cục để tạm dừng Pomodoro.",
+        "shortcutResume": "Đặt phím tắt toàn cục để tiếp tục Pomodoro.",
+        "shortcutReset": "Đặt phím tắt toàn cục để đặt lại giai đoạn hiện tại.",
+        "commandFailed": "Không thể hoàn thành thao tác Pomodoro.",
+        "currentState": "Trạng thái hiện tại: {status}",
+        "saved": "Đã lưu cài đặt Pomodoro.",
+        "saveFailed": "Không thể lưu cài đặt Pomodoro."
+      },
+      "notifications": {
+        "title": "Pomodoro",
+        "work": "Đã hoàn thành phiên tập trung",
+        "shortBreak": "Đã hoàn thành giờ nghỉ ngắn",
+        "longBreak": "Đã hoàn thành giờ nghỉ dài",
+        "workCompleted": "Đã hoàn thành phiên tập trung",
+        "shortBreakCompleted": "Đã hoàn thành giờ nghỉ ngắn",
+        "longBreakCompleted": "Đã hoàn thành giờ nghỉ dài"
+      }
+    },
     "preference": {
       "title": "Tùy chỉnh",
       "cat": {
@@ -14,6 +82,7 @@
           "modelSettings": "Cài đặt Mô hình",
           "mirrorMode": "Chế độ gương",
           "mouseMirror": "Phản chiếu chuột",
+          "mouseSensitivity": "Độ nhạy theo chuột",
           "ignoreMouse": "Bỏ qua sự kiện chuột",
           "windowSettings": "Cài đặt Cửa sổ",
           "passThrough": "Khóa mèo",
@@ -35,6 +104,7 @@
         "hints": {
           "mirrorMode": "Bật để lật ngang mô hình.",
           "mouseMirror": "Khi bật, chuột của mô hình sẽ phản chiếu theo chuyển động chuột thực tế.",
+          "mouseSensitivity": "Điều chỉnh mức độ mô hình phản hồi theo chuyển động chuột. 100% giữ nguyên phản hồi mặc định.",
           "ignoreMouse": "Khi bật, mô hình sẽ không phản hồi sự kiện chuột. Hữu ích cho chế độ bàn phím hoặc chế độ tay cầm.",
           "motionSound": "Khi bật, mô hình sẽ phát các âm thanh tương ứng khi thực hiện hành động (nếu tồn tại).",
           "behavior": "Khi bật, các hành động và biểu cảm có thể được cấu hình và kích hoạt.",
@@ -249,7 +319,10 @@
           "mirrorMode": "Chế độ gương",
           "passThrough": "Khóa mèo",
           "alwaysOnTop": "Luôn trên cùng",
-          "gameMode": "Chuyển chế độ trò chơi"
+          "gameMode": "Chuyển chế độ trò chơi",
+          "pomodoroToggle": "Bắt đầu / tạm dừng / tiếp tục Pomodoro",
+          "pomodoroReset": "Đặt lại Pomodoro",
+          "pomodoroSkip": "Bỏ qua giai đoạn hiện tại"
         },
         "hints": {
           "toggleCat": "Bật/Tắt cửa sổ mèo.",
@@ -257,7 +330,10 @@
           "mirrorMode": "Bật/Tắt chế độ gương.",
           "passThrough": "Bật/Tắt khóa tương tác với cửa sổ mèo.",
           "alwaysOnTop": "Bật/Tắt luôn giữ cửa sổ mèo trên cùng.",
-          "gameMode": "Chuyển chế độ tương thích trò chơi Windows."
+          "gameMode": "Chuyển chế độ tương thích trò chơi Windows.",
+          "pomodoroToggle": "Bắt đầu, tạm dừng hoặc tiếp tục Pomodoro theo trạng thái hiện tại.",
+          "pomodoroReset": "Đặt lại Pomodoro về đầu giai đoạn hiện tại.",
+          "pomodoroSkip": "Hoàn tất và bỏ qua giai đoạn Pomodoro hiện tại."
         }
       },
       "about": {
