@@ -1,14 +1,15 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import { emit, listen } from '@tauri-apps/api/event'
+import { emit, emitTo, listen } from '@tauri-apps/api/event'
+import { toRaw } from 'vue'
 
 import type { usePomodoroStore } from '@/stores/pomodoro'
 
 import { LISTEN_KEY } from '@/constants'
 
 import type { PomodoroPhase } from './pomodoroClock'
-import type { PomodoroCommandRequest, PomodoroStatePayload } from './pomodoroRequest'
+import type { PomodoroCommandAcknowledgement, PomodoroCommandRequest, PomodoroStatePayload } from './pomodoroRequest'
 
 type PomodoroStore = ReturnType<typeof usePomodoroStore>
 
@@ -19,8 +20,8 @@ export interface PomodoroCoordinatorOptions {
 
 function getState(store: PomodoroStore): PomodoroStatePayload {
   return {
-    runtime: structuredClone(store.runtime),
-    settings: structuredClone(store.settings),
+    runtime: structuredClone(toRaw(store.runtime)),
+    settings: structuredClone(toRaw(store.settings)),
   }
 }
 
@@ -83,13 +84,19 @@ export async function startPomodoroCoordinator(
           reason = error instanceof Error ? error.message : String(error)
         }
 
-        await emit(LISTEN_KEY.POMODORO_COMMAND_APPLIED, {
+        const acknowledgement: PomodoroCommandAcknowledgement = {
           accepted,
           reason,
           requestId: request.requestId,
           result,
           state: getState(store),
-        })
+        }
+
+        if (request.sourceWindow) {
+          await emitTo(request.sourceWindow, LISTEN_KEY.POMODORO_COMMAND_APPLIED, acknowledgement).catch(() => undefined)
+        } else {
+          await emit(LISTEN_KEY.POMODORO_COMMAND_APPLIED, acknowledgement).catch(() => undefined)
+        }
       }).catch(() => undefined)
     },
   )

@@ -53,6 +53,7 @@ const pomodoroStore = usePomodoroStore()
 const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
 setCoreStoresPersistenceWritable(!isSubModelWindow)
+setPomodoroPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
 const idleMemory = new WebviewIdleMemoryController({ setTarget: setWebviewMemoryTarget })
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
@@ -208,29 +209,13 @@ onMounted(async () => {
   await appStore.$tauri.start()
   logStep('app-init', 'initialize app store', { windowLabel: appWindow.label })
   await appStore.init()
-  await initializeModelStore()
-  logStep('app-init', 'start cat persistence', { windowLabel: appWindow.label })
-  await catStore.$tauri.start()
-  logStep('app-init', 'initialize cat store', { windowLabel: appWindow.label })
-  catStore.init()
-  logStep('app-init', 'start general persistence', { windowLabel: appWindow.label })
-  await generalStore.$tauri.start()
-  logStep('app-init', 'initialize general store', { windowLabel: appWindow.label })
-  await generalStore.init()
-  logStep('app-init', 'start shortcut persistence', { windowLabel: appWindow.label })
-  await shortcutStore.$tauri.start()
-  logStep('app-init', 'start typing stats persistence', { windowLabel: appWindow.label })
-  setTypingStatsPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
-  await typingStatsStore.$tauri.start()
-  markTypingStatsPersistenceHydrated()
-  setPomodoroPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
-  await pomodoroStore.$tauri.start()
-  pomodoroStore.normalizePersistedState()
-  pomodoroStore.reconcile()
-  await restoreState()
-  logStep('app-init', 'application state restored', { windowLabel: appWindow.label })
 
+  // Register the main-window Pomodoro command listener before model scanning so
+  // Preferences commands cannot be lost during a slow startup.
   if (appWindow.label === WINDOW_LABEL.MAIN) {
+    await pomodoroStore.$tauri.start()
+    pomodoroStore.normalizePersistedState()
+    pomodoroStore.reconcile()
     stopPomodoroCoordinator = await startPomodoroCoordinator(pomodoroStore, {
       notify: sendPomodoroNotification,
       playSound: () => {
@@ -252,6 +237,29 @@ onMounted(async () => {
       },
     })
   }
+
+  await initializeModelStore()
+  logStep('app-init', 'start cat persistence', { windowLabel: appWindow.label })
+  await catStore.$tauri.start()
+  logStep('app-init', 'initialize cat store', { windowLabel: appWindow.label })
+  catStore.init()
+  logStep('app-init', 'start general persistence', { windowLabel: appWindow.label })
+  await generalStore.$tauri.start()
+  logStep('app-init', 'initialize general store', { windowLabel: appWindow.label })
+  await generalStore.init()
+  logStep('app-init', 'start shortcut persistence', { windowLabel: appWindow.label })
+  await shortcutStore.$tauri.start()
+  logStep('app-init', 'start typing stats persistence', { windowLabel: appWindow.label })
+  setTypingStatsPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
+  await typingStatsStore.$tauri.start()
+  markTypingStatsPersistenceHydrated()
+  if (appWindow.label !== WINDOW_LABEL.MAIN) {
+    await pomodoroStore.$tauri.start()
+    pomodoroStore.normalizePersistedState()
+    pomodoroStore.reconcile()
+  }
+  await restoreState()
+  logStep('app-init', 'application state restored', { windowLabel: appWindow.label })
 
   for (const instance of modelStore.subModels.filter(item => item.visible && item.showOnLaunch)) {
     const capacity = await getSubModelRuntimeCapacity(

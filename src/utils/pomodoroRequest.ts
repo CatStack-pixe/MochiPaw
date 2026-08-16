@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { emitTo, listen } from '@tauri-apps/api/event'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { nanoid } from 'nanoid'
 
 import type { PomodoroCommand } from '@/stores/pomodoro'
@@ -19,6 +20,7 @@ export interface PomodoroStatePayload {
 export interface PomodoroCommandRequest {
   command: PomodoroCommand
   requestId: string
+  sourceWindow?: string
   settings?: Partial<PomodoroSettings>
 }
 
@@ -37,6 +39,7 @@ export async function requestPomodoroCommand(
   const request: PomodoroCommandRequest = {
     command,
     requestId: nanoid(),
+    sourceWindow: getCurrentWebviewWindow().label,
     settings,
   }
   let resolveAcknowledgement!: (value: PomodoroCommandAcknowledgement) => void
