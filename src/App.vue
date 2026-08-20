@@ -43,7 +43,7 @@ import { setCoreStoresPersistenceWritable } from './utils/persistence'
 import { startPomodoroCoordinator } from './utils/pomodoroCoordinator'
 import { requestPomodoroCommand } from './utils/pomodoroRequest'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
-import { openSubModelWindow } from './utils/subModelWindow'
+import { cleanupOrphanSubModelWindows, destroySubModelWindow, openSubModelWindow } from './utils/subModelWindow'
 import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
 
 const appStore = useAppStore()
@@ -69,7 +69,26 @@ const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
 setCoreStoresPersistenceWritable(!isSubModelWindow)
 setPomodoroPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
-const idleMemory = new WebviewIdleMemoryController({ setTarget: setWebviewMemoryTarget })
+const idleMemory = new WebviewIdleMemoryController({
+  setTarget: setWebviewMemoryTarget,
+  allowIdleLow: () => document.hidden || appWindow.label === WINDOW_LABEL.PREFERENCE,
+  onIdleLowDecision: (event) => {
+    logInfo('[webview-memory] idle target evaluated', {
+      windowLabel: appWindow.label,
+      ...event,
+      visibility: document.visibilityState,
+      hasFocus: document.hasFocus(),
+    })
+  },
+  onTargetChange: (event) => {
+    logInfo('[webview-memory] target changed', {
+      windowLabel: appWindow.label,
+      ...event,
+      visibility: document.visibilityState,
+      hasFocus: document.hasFocus(),
+    })
+  },
+})
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
 const { darkAlgorithm, defaultAlgorithm } = theme
 const { locale, t } = useI18n()
@@ -235,8 +254,21 @@ async function playPomodoroSound() {
 
 onMounted(async () => {
   idleMemory.start(document.hidden)
+  logInfo('[window] initial focus and visibility state', {
+    windowLabel: appWindow.label,
+    visibility: document.visibilityState,
+    hidden: document.hidden,
+    hasFocus: document.hasFocus(),
+  })
 
   const unlisten = await appWindow.onFocusChanged(({ payload: focused }) => {
+    logInfo('[window] focus changed', {
+      windowLabel: appWindow.label,
+      focused,
+      visibility: document.visibilityState,
+      hidden: document.hidden,
+      hasFocus: document.hasFocus(),
+    })
     if (focused) idleMemory.activate()
   })
 
@@ -255,6 +287,12 @@ onUnmounted(() => {
 })
 
 useEventListener(document, 'visibilitychange', () => {
+  logInfo('[window] visibility changed', {
+    windowLabel: appWindow.label,
+    visibility: document.visibilityState,
+    hidden: document.hidden,
+    hasFocus: document.hasFocus(),
+  })
   idleMemory.setHidden(document.hidden)
 })
 
@@ -334,26 +372,38 @@ onMounted(async () => {
   await restoreState()
   logStep('app-init', 'application state restored', { windowLabel: appWindow.label })
 
-  for (const instance of modelStore.subModels.filter(item => item.visible && item.showOnLaunch)) {
-    const capacity = await getSubModelRuntimeCapacity(
-      modelStore.subModels,
-      modelStore.models,
-      modelStore.currentModel,
-    )
+  if (appWindow.label === WINDOW_LABEL.MAIN) {
+    const cleanedOrphanWindowCount = await cleanupOrphanSubModelWindows(modelStore.subModels)
+    logInfo('[app-init] orphan submodel windows cleaned', {
+      windowLabel: appWindow.label,
+      cleanedOrphanWindowCount,
+    })
+  }
 
-    if (!capacity.allowed) {
-      instance.visible = false
-      error(`[sub-model] skipped ${instance.id}: runtime resource budget exceeded`)
-      continue
-    }
+  if (appWindow.label === WINDOW_LABEL.MAIN) {
+    for (const instance of modelStore.subModels.filter(item => item.visible && item.showOnLaunch)) {
+      const capacity = await getSubModelRuntimeCapacity(
+        modelStore.subModels,
+        modelStore.models,
+        modelStore.currentModel,
+      )
 
-    try {
-      logStep('app-init', 'restore submodel window', { instanceId: instance.id, modelId: instance.modelId })
-      await openSubModelWindow(instance)
-    } catch (reason) {
-      instance.visible = false
-      error(`[sub-model] failed to restore ${instance.id}: ${formatError(reason)}`)
-      logError('[app-init] failed to restore submodel window', { instanceId: instance.id, modelId: instance.modelId, error: reason })
+      if (!capacity.allowed) {
+        instance.visible = false
+        await destroySubModelWindow(instance.id)
+        error(`[sub-model] skipped ${instance.id}: runtime resource budget exceeded`)
+        continue
+      }
+
+      try {
+        logStep('app-init', 'restore submodel window', { instanceId: instance.id, modelId: instance.modelId })
+        await openSubModelWindow(instance)
+      } catch (reason) {
+        instance.visible = false
+        await destroySubModelWindow(instance.id)
+        error(`[sub-model] failed to restore ${instance.id}: ${formatError(reason)}`)
+        logError('[app-init] failed to restore submodel window', { instanceId: instance.id, modelId: instance.modelId, error: reason })
+      }
     }
   }
 

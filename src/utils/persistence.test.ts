@@ -127,3 +127,41 @@ test('keeps typing input paused when the process action succeeds', async () => {
 
   assert.deepEqual(order, ['flush-typing-stats', 'save-all', 'exit'])
 })
+
+test('reuses the in-flight terminal action when invoked concurrently', async () => {
+  const order: string[] = []
+  let releaseSave!: () => void
+
+  const adapter = {
+    flushTypingStats: async () => {
+      order.push('flush-typing-stats')
+    },
+    resumeTypingStats: async () => {
+      order.push('resume-typing-stats')
+    },
+    saveAll: () => new Promise<void>((resolve) => {
+      order.push('save-all')
+      releaseSave = resolve
+    }),
+  }
+
+  const first = runAfterSavingPersistentStores(
+    async () => {
+      order.push('first-action')
+    },
+    adapter,
+  )
+  await new Promise(resolve => setImmediate(resolve))
+
+  const second = runAfterSavingPersistentStores(
+    async () => {
+      order.push('second-action')
+    },
+    adapter,
+  )
+
+  releaseSave()
+  await Promise.all([first, second])
+
+  assert.deepEqual(order, ['flush-typing-stats', 'save-all', 'first-action'])
+})

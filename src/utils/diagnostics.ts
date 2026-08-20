@@ -33,6 +33,8 @@ function formatMessage(message: string, context?: LogContext) {
 }
 
 function writeLog(writer: (message: string) => Promise<void>, message: string, context?: LogContext) {
+  if (typeof window === 'undefined') return
+
   void writer(formatMessage(message, context)).catch((error) => {
     console.warn('[mochi-paw] failed to write diagnostic log:', error)
   })

@@ -28,6 +28,9 @@ use utils::persistence_recovery::{
 
 const MODEL_STORE_SCHEMA_VERSION: u64 = 2;
 
+#[cfg(target_os = "windows")]
+const WEBVIEW2_RENDERING_ARGS: &str = "--disable-features=CalculateNativeWinOcclusion,msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows";
+
 fn migrate_model_store_state(
     state: &mut tauri_plugin_pinia::StoreState,
 ) -> tauri_plugin_pinia::Result<()> {
@@ -88,6 +91,18 @@ fn migrate_model_store_state(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    {
+        // Apply the same no-throttling policy to dynamically-created WebView2
+        // windows, which cannot inherit `additionalBrowserArgs` from config.
+        unsafe {
+            std::env::set_var(
+                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                WEBVIEW2_RENDERING_ARGS,
+            );
+        }
+    }
+
     let app = tauri::Builder::default()
         // This must run before other plugins can open shared resources. It is
         // especially important when a second instance has a different integrity level.

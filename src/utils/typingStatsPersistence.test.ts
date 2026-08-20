@@ -76,6 +76,19 @@ test('does not save when the explicit backend patch fails', async () => {
   assert.equal(saved, false)
 })
 
+test('times out when the typing stats backend never completes', async () => {
+  await assert.rejects(
+    requestTypingStatsStoreSave({ dailyCounts: {}, enabled: true }, {
+      timeoutMs: 5,
+      adapter: {
+        patch: () => new Promise<void>(() => {}),
+        save: async () => {},
+      },
+    }),
+    /Typing statistics persistence timed out/,
+  )
+})
+
 test('restores the snapshot when persistence fails after a mutation', async () => {
   const order: string[] = []
   let state: { dailyCounts: Record<string, number>, enabled: boolean } = {

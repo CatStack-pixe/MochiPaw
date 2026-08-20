@@ -10,6 +10,7 @@ import { error } from '@tauri-apps/plugin-log'
 import type { WINDOW_LABEL } from '../constants'
 
 import { LISTEN_KEY } from '../constants'
+import { logInfo } from '../utils/diagnostics'
 
 export type WindowLabel = typeof WINDOW_LABEL[keyof typeof WINDOW_LABEL]
 export type WebviewMemoryTarget = 'normal' | 'low'
@@ -99,8 +100,14 @@ export async function setTaskbarVisibility(visible: boolean) {
 }
 
 export async function setWebviewMemoryTarget(target: WebviewMemoryTarget): Promise<boolean> {
+  const windowLabel = getCurrentWebviewWindow().label
+
+  logInfo('[webview-memory] target requested', { windowLabel, target })
+
   try {
-    return await invoke<boolean>(COMMAND.SET_WEBVIEW_MEMORY_TARGET, { target })
+    const applied = await invoke<boolean>(COMMAND.SET_WEBVIEW_MEMORY_TARGET, { target })
+    logInfo('[webview-memory] target result', { windowLabel, target, applied })
+    return applied
   } catch (reason) {
     catchWindowError('webview-memory-target')(reason)
     return false

@@ -22,7 +22,8 @@
         "decorations": false,
         "acceptFirstMouse": true,
         "skipTaskbar": true,
-        "maximizable": false
+        "maximizable": false,
+        "additionalBrowserArgs": "--disable-features=CalculateNativeWinOcclusion,msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
       },
       {
         "label": "preference",
@@ -32,7 +33,8 @@
         "hiddenTitle": true,
         "minWidth": 800,
         "minHeight": 600,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "additionalBrowserArgs": "--disable-features=CalculateNativeWinOcclusion,msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows"
       }
     ],
     "security": {

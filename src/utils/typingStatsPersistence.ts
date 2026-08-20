@@ -5,6 +5,9 @@ import { invoke } from '@tauri-apps/api/core'
 import { saveNow } from '@tauri-store/pinia'
 import { nextTick } from 'vue'
 
+import { logDebug, logError, logInfo } from './diagnostics'
+import { withTimeout } from './promise'
+
 const TYPING_STATS_STORE_ID = 'typingStats'
 
 export interface TypingStatsPersistenceAdapter {
@@ -19,7 +22,10 @@ export interface TypingStatsState extends Record<string, unknown> {
 
 interface TypingStatsPersistenceOptions {
   adapter?: TypingStatsPersistenceAdapter
+  timeoutMs?: number
 }
+
+const DEFAULT_PERSISTENCE_TIMEOUT_MS = 10_000
 
 interface TypingStatsMutationTransactionOperations<TSnapshot> {
   apply: () => void | Promise<void>
@@ -43,9 +49,29 @@ export async function requestTypingStatsStoreSave(
     enabled: state.enabled,
   }
 
-  await nextTick()
-  await adapter.patch(TYPING_STATS_STORE_ID, persistentState)
-  await adapter.save(TYPING_STATS_STORE_ID)
+  const context = {
+    storeId: TYPING_STATS_STORE_ID,
+    dailyCountDays: Object.keys(persistentState.dailyCounts).length,
+    enabled: persistentState.enabled,
+    timeoutMs: options.timeoutMs ?? DEFAULT_PERSISTENCE_TIMEOUT_MS,
+  }
+
+  logDebug('[typing-stats] persistence scheduled', context)
+
+  try {
+    await withTimeout((async () => {
+      await nextTick()
+      logDebug('[typing-stats] persistence patch started', context)
+      await adapter.patch(TYPING_STATS_STORE_ID, persistentState)
+      logInfo('[typing-stats] persistence patch completed', context)
+      logDebug('[typing-stats] persistence save started', context)
+      await adapter.save(TYPING_STATS_STORE_ID)
+      logInfo('[typing-stats] persistence save completed', context)
+    })(), context.timeoutMs, 'Typing statistics persistence timed out.')
+  } catch (error) {
+    logError('[typing-stats] persistence failed', { ...context, error })
+    throw error
+  }
 }
 
 export async function executeTypingStatsMutationTransaction<TSnapshot>(
