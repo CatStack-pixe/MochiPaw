@@ -14,12 +14,40 @@ const models = [
   { id: 'custom-new', fingerprint: 'same-content' },
 ]
 
-test('loads the legacy currentModel only for ID and fingerprint migration', () => {
+test('loads the legacy currentModel when the persisted selection still needs migration', () => {
   const legacy = { id: 'custom-old', fingerprint: 'same-content', path: 'C:\\旧目录\\模型' }
   const prepared = prepareModelStoreStateForFrontend({ currentModel: legacy, models })
 
   assert.deepEqual(prepared.currentModel, legacy)
   assert.deepEqual(prepared.models, models)
+})
+
+test('ignores a stale legacy currentModel after stable selection migration completed', () => {
+  const staleLegacy = { id: 'custom-missing', fingerprint: 'same-content', path: 'C:\\missing\\model' }
+  const prepared = prepareModelStoreStateForFrontend({
+    schemaVersion: MODEL_STORE_SCHEMA_VERSION,
+    currentModelId: 'custom-missing',
+    currentModel: staleLegacy,
+    models,
+    selectionMigrationPending: false,
+  })
+
+  assert.equal(prepared.currentModel, undefined)
+  assert.equal(prepared.currentModelId, 'custom-missing')
+  assert.deepEqual(prepared.models, models)
+})
+
+test('keeps the legacy currentModel while an explicit selection migration is pending', () => {
+  const legacy = { id: 'custom-old', fingerprint: 'same-content', path: 'C:\\old\\model' }
+  const prepared = prepareModelStoreStateForFrontend({
+    schemaVersion: MODEL_STORE_SCHEMA_VERSION,
+    currentModelId: 'custom-old',
+    currentModel: legacy,
+    models,
+    selectionMigrationPending: true,
+  })
+
+  assert.deepEqual(prepared.currentModel, legacy)
 })
 
 test('persists only the model whitelist and strips runtime leases', () => {

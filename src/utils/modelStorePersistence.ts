@@ -24,8 +24,11 @@ interface LegacyModelSelection extends ModelSelectionCandidate {}
 
 export function prepareModelStoreStateForFrontend(state: Record<string, unknown>) {
   const prepared = pickPersistedModelStoreState(state)
+  const needsLegacySelection = state.schemaVersion !== MODEL_STORE_SCHEMA_VERSION
+    || !normalizeModelId(state.currentModelId)
+    || state.selectionMigrationPending === true
 
-  if (isRecord(state.currentModel)) {
+  if (needsLegacySelection && isRecord(state.currentModel)) {
     prepared.currentModel = state.currentModel
   }
 
