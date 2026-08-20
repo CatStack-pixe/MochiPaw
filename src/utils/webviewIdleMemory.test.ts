@@ -60,6 +60,23 @@ function createController() {
   return { controller, targets, timers }
 }
 
+function createControllerWithIdlePolicy(allowIdleLow: () => boolean) {
+  const timers = new FakeTimers()
+  const targets: WebviewMemoryTarget[] = []
+  const controller = new WebviewIdleMemoryController({
+    setTarget: async (target) => {
+      targets.push(target)
+      return true
+    },
+    allowIdleLow,
+    now: () => timers.now,
+    setTimeout: timers.setTimeout,
+    clearTimeout: timers.clearTimeout,
+  })
+
+  return { controller, targets, timers }
+}
+
 test('switches to low after 60 seconds of inactivity', () => {
   const { controller, targets, timers } = createController()
   controller.start()
@@ -82,6 +99,17 @@ test('input restores normal and resets the idle timeout', () => {
 
   timers.advanceBy(1)
   assert.deepEqual(targets, ['low', 'normal', 'low'])
+})
+
+test('visible animation windows stay normal during idle time', () => {
+  const { controller, targets, timers } = createControllerWithIdlePolicy(() => false)
+  controller.start()
+
+  timers.advanceBy(WEBVIEW_IDLE_TIMEOUT * 2)
+  assert.deepEqual(targets, [])
+
+  controller.setHidden(true)
+  assert.deepEqual(targets, ['low'])
 })
 
 test('hidden windows switch to low immediately and restore when shown', () => {

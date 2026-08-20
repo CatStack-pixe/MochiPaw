@@ -8,7 +8,8 @@ import { LISTEN_KEY, WINDOW_LABEL } from '@/constants'
 
 import type { TypingStatsState } from './typingStatsPersistence'
 
-import { withTimeout } from './promise'
+import { logDebug, logError, logInfo, logWarn } from './diagnostics'
+import { PromiseTimeoutError, withTimeout } from './promise'
 
 const DEFAULT_TIMEOUT_MS = 15_000
 
@@ -40,6 +41,17 @@ export interface TypingStatsRequestAdapter {
 interface TypingStatsRequestOptions {
   adapter?: TypingStatsRequestAdapter
   timeoutMs?: number
+  source?: string
+}
+
+function getWindowState() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return undefined
+
+  return {
+    visibility: document.visibilityState,
+    hidden: document.hidden,
+    hasFocus: typeof document.hasFocus === 'function' ? document.hasFocus() : undefined,
+  }
 }
 
 const defaultAdapter: TypingStatsRequestAdapter = {
@@ -59,26 +71,60 @@ export async function requestTypingStatsOperation(
   options: TypingStatsRequestOptions = {},
 ) {
   const adapter = options.adapter ?? defaultAdapter
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const request: TypingStatsOperationRequest = {
     operation,
     requestId: nanoid(),
   }
+  const context = {
+    requestId: request.requestId,
+    operation,
+    source: options.source,
+    timeoutMs,
+    window: getWindowState(),
+  }
+
+  logDebug('[typing-stats] request listener setup', context)
   let resolveAcknowledgement!: (acknowledgement: TypingStatsOperationAcknowledgement) => void
   const acknowledgement = new Promise<TypingStatsOperationAcknowledgement>((resolve) => {
     resolveAcknowledgement = resolve
   })
-  const unlisten = await adapter.listen((payload) => {
-    if (payload.requestId !== request.requestId) return
-
-    resolveAcknowledgement(payload)
-  })
+  let unlisten: (() => void | Promise<void>) | undefined
 
   try {
+    unlisten = await adapter.listen((payload) => {
+      if (payload.requestId !== request.requestId) return
+
+      logInfo('[typing-stats] acknowledgement received', {
+        ...context,
+        accepted: payload.accepted,
+        reason: payload.reason,
+      })
+      resolveAcknowledgement(payload)
+    })
+
     return await withTimeout((async () => {
+      logDebug('[typing-stats] request dispatching', context)
       await adapter.emit(request)
+      logInfo('[typing-stats] request emitted', context)
       return await acknowledgement
-    })(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS, 'Typing statistics operation timed out.')
+    })(), timeoutMs, 'Typing statistics operation timed out.')
+  } catch (error) {
+    if (error instanceof PromiseTimeoutError) {
+      logError('[typing-stats] request timed out', { ...context, error, window: getWindowState() })
+    } else {
+      logError('[typing-stats] request failed', { ...context, error, window: getWindowState() })
+    }
+
+    throw error
   } finally {
-    await unlisten()
+    if (unlisten) {
+      try {
+        await unlisten()
+        logDebug('[typing-stats] request listener removed', context)
+      } catch (error) {
+        logWarn('[typing-stats] failed to remove request listener', { ...context, error })
+      }
+    }
   }
 }

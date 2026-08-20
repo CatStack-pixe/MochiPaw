@@ -16,6 +16,7 @@ import type { ExpressionInfo, MotionInfo } from '@/vendor/easy-live2d'
 
 import { i18n } from '@/locales'
 import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
+import { RenderDiagnostics } from '@/utils/renderDiagnostics'
 import { Config, CubismSetting, Live2DSprite, Priority } from '@/vendor/easy-live2d'
 
 import { join } from './path'
@@ -261,6 +262,7 @@ class Live2d {
   private loadVersion = 0
   private maxFPS = 30
   private renderingEnabled = true
+  private renderDiagnostics: RenderDiagnostics | null = null
   public model: Live2DSprite | null = null
 
   constructor() { }
@@ -293,6 +295,21 @@ class Live2d {
       await this.appInitPromise
       this.app.ticker.maxFPS = this.maxFPS
       this.app.stop()
+      this.renderDiagnostics = new RenderDiagnostics({
+        targetFPS: this.maxFPS,
+        onReport: (snapshot) => {
+          logInfo('[live2d] render statistics', {
+            ...snapshot,
+            visibility: document.visibilityState,
+            hidden: document.hidden,
+            hasFocus: document.hasFocus(),
+            renderingEnabled: this.renderingEnabled,
+            modelLoaded: Boolean(this.model),
+            tickerStarted: this.app?.ticker.started ?? false,
+          })
+        },
+      })
+      this.app.ticker.add(this.recordRenderFrame)
       logStep('live2d', 'Pixi application initialized', { maxFPS: this.maxFPS })
     } finally {
       this.appInitPromise = null
@@ -362,7 +379,7 @@ class Live2d {
     logStep('live2d', 'model sprite created and attached', context)
     // Live2DSprite resolves `ready` from its render callback. The app ticker is
     // intentionally stopped while idle, so it must run before awaiting ready.
-    app.start()
+    this.startTicker('model-load')
     logStep('live2d', 'Pixi ticker started for model ready', context)
 
     try {
@@ -374,7 +391,7 @@ class Live2d {
       )
 
       if (!this.renderingEnabled) {
-        app.stop()
+        this.stopTicker('rendering-disabled-after-load')
         logTrace('[live2d] stopped ticker because rendering is disabled', context)
       }
 
@@ -462,6 +479,8 @@ class Live2d {
     logStep('live2d', 'destroy renderer', { loadVersion: this.loadVersion })
     this.destroyCurrentModel()
     this.app?.destroy(false)
+    this.renderDiagnostics?.stop()
+    this.renderDiagnostics = null
     this.app = null
     this.appInitPromise = null
   }
@@ -475,7 +494,7 @@ class Live2d {
     logTrace('[live2d] destroy current model', { hadModel: Boolean(model) })
 
     this.destroySprite(model)
-    this.app?.stop()
+    this.stopTicker('model-destroyed')
   }
 
   private destroySprite(model: Live2DSprite | null) {
@@ -496,7 +515,7 @@ class Live2d {
     this.model.y = viewportSize.height / 2
     this.model.anchor.set(0.5)
     if (this.renderingEnabled) {
-      this.app?.start()
+      this.startTicker('model-resized')
     }
   }
 
@@ -555,6 +574,8 @@ class Live2d {
 
   public setMaxFPS(fps: number) {
     this.maxFPS = fps
+    this.renderDiagnostics?.setTargetFPS(fps)
+    logInfo('[live2d] max FPS changed', { maxFPS: fps })
 
     if (this.app?.ticker) {
       this.app.ticker.maxFPS = fps
@@ -565,13 +586,43 @@ class Live2d {
     this.renderingEnabled = enabled
 
     if (!enabled) {
-      this.app?.stop()
+      this.stopTicker('rendering-disabled')
       return
     }
 
     if (this.model) {
-      this.app?.start()
+      this.startTicker('rendering-enabled')
     }
+  }
+
+  private startTicker(reason: string) {
+    this.app?.start()
+    this.renderDiagnostics?.start()
+    logTrace('[live2d] ticker started', {
+      reason,
+      maxFPS: this.maxFPS,
+      visibility: document.visibilityState,
+      hidden: document.hidden,
+      hasFocus: document.hasFocus(),
+      tickerStarted: this.app?.ticker.started ?? false,
+    })
+  }
+
+  private stopTicker(reason: string) {
+    this.app?.stop()
+    this.renderDiagnostics?.stop()
+    logTrace('[live2d] ticker stopped', {
+      reason,
+      maxFPS: this.maxFPS,
+      visibility: document.visibilityState,
+      hidden: document.hidden,
+      hasFocus: document.hasFocus(),
+      tickerStarted: this.app?.ticker.started ?? false,
+    })
+  }
+
+  private readonly recordRenderFrame = (ticker: Ticker) => {
+    this.renderDiagnostics?.recordFrame(ticker.deltaMS)
   }
 
   private setupFallbackPhysics(modelJSON: CubismModelJson) {

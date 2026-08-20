@@ -8,6 +8,14 @@ export const WEBVIEW_MOUSE_MOVE_THROTTLE = 1_000
 
 export interface WebviewIdleMemoryOptions {
   setTarget: (target: WebviewMemoryTarget) => Promise<boolean>
+  allowIdleLow?: () => boolean
+  onTargetChange?: (event: {
+    from: WebviewMemoryTarget
+    to: WebviewMemoryTarget
+    reason: string
+    hidden: boolean
+  }) => void
+  onIdleLowDecision?: (event: { allowed: boolean, hidden: boolean }) => void
   idleTimeout?: number
   mouseMoveThrottle?: number
   now?: () => number
@@ -17,6 +25,9 @@ export interface WebviewIdleMemoryOptions {
 
 export class WebviewIdleMemoryController {
   private readonly setTarget: WebviewIdleMemoryOptions['setTarget']
+  private readonly allowIdleLow: NonNullable<WebviewIdleMemoryOptions['allowIdleLow']>
+  private readonly onTargetChange: WebviewIdleMemoryOptions['onTargetChange']
+  private readonly onIdleLowDecision: WebviewIdleMemoryOptions['onIdleLowDecision']
   private readonly idleTimeout: number
   private readonly mouseMoveThrottle: number
   private readonly now: () => number
@@ -30,6 +41,9 @@ export class WebviewIdleMemoryController {
 
   constructor(options: WebviewIdleMemoryOptions) {
     this.setTarget = options.setTarget
+    this.allowIdleLow = options.allowIdleLow ?? (() => true)
+    this.onTargetChange = options.onTargetChange
+    this.onIdleLowDecision = options.onIdleLowDecision
     this.idleTimeout = options.idleTimeout ?? WEBVIEW_IDLE_TIMEOUT
     this.mouseMoveThrottle = options.mouseMoveThrottle ?? WEBVIEW_MOUSE_MOVE_THROTTLE
     this.now = options.now ?? Date.now
@@ -43,7 +57,7 @@ export class WebviewIdleMemoryController {
     this.hidden = hidden
 
     if (hidden) {
-      this.changeTarget('low')
+      this.changeTarget('low', 'start-hidden')
     } else {
       this.scheduleIdleTarget()
     }
@@ -52,7 +66,7 @@ export class WebviewIdleMemoryController {
   activity() {
     if (this.disposed || this.hidden) return
 
-    this.changeTarget('normal')
+    this.changeTarget('normal', 'activity')
     this.scheduleIdleTarget()
   }
 
@@ -74,7 +88,7 @@ export class WebviewIdleMemoryController {
 
     if (hidden) {
       this.clearIdleTimer()
-      this.changeTarget('low')
+      this.changeTarget('low', 'visibility-hidden')
     } else {
       this.activity()
     }
@@ -84,7 +98,8 @@ export class WebviewIdleMemoryController {
     if (this.disposed) return
 
     this.hidden = false
-    this.activity()
+    this.changeTarget('normal', 'focus')
+    this.scheduleIdleTarget()
   }
 
   dispose() {
@@ -98,7 +113,14 @@ export class WebviewIdleMemoryController {
     this.clearIdleTimer()
     this.idleTimer = this.scheduleTimeout(() => {
       this.idleTimer = undefined
-      this.changeTarget('low')
+      const allowed = this.allowIdleLow()
+
+      this.onIdleLowDecision?.({ allowed, hidden: this.hidden })
+      if (allowed) {
+        this.changeTarget('low', 'idle-timeout')
+      } else {
+        this.scheduleIdleTarget()
+      }
     }, this.idleTimeout)
   }
 
@@ -109,10 +131,17 @@ export class WebviewIdleMemoryController {
     this.idleTimer = undefined
   }
 
-  private changeTarget(target: WebviewMemoryTarget) {
+  private changeTarget(target: WebviewMemoryTarget, reason: string) {
     if (this.target === target) return
 
+    const previousTarget = this.target
     this.target = target
+    this.onTargetChange?.({
+      from: previousTarget,
+      to: target,
+      reason,
+      hidden: this.hidden,
+    })
     void this.setTarget(target).catch(() => false)
   }
 }
