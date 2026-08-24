@@ -40,12 +40,12 @@ test('marks an unreadable custom model directory as an incomplete scan', async (
   assert.deepEqual(result, { modelFile: undefined, succeeded: false })
 })
 
-test('distinguishes a readable directory without a model file from an I/O failure', async () => {
+test('marks a readable directory without a model file as an incomplete scan', async () => {
   const result = await inspectStoredModelDirectory('C:\\应用 数据\\custom-models\\empty', async () => [
     { isFile: true, name: 'readme.txt' },
   ])
 
-  assert.deepEqual(result, { modelFile: undefined, succeeded: true })
+  assert.deepEqual(result, { modelFile: undefined, succeeded: false })
 })
 
 test('uses custom, metadata, and internal model names in priority order', () => {

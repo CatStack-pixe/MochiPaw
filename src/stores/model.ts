@@ -452,6 +452,7 @@ async function discoverStoredCustomModels(customModelsPath: string) {
     const { modelFile } = inspection
 
     if (!modelFile) {
+      succeeded = false
       logTrace('[model-persistence] skipped custom model directory without model JSON', { modelPath })
       continue
     }
@@ -541,7 +542,7 @@ export async function inspectStoredModelDirectory(
 
     return {
       modelFile: modelFile ? join(modelPath, modelFile.name) : undefined,
-      succeeded: true,
+      succeeded: Boolean(modelFile),
     }
   } catch {
     return { modelFile: undefined, succeeded: false }
