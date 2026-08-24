@@ -222,9 +222,11 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          cp release-metadata/latest-v2.json release-metadata/latest.json
           gh release upload "$RELEASE_TAG" release-metadata/latest-v2.json --clobber
-          gh release upload "$RELEASE_TAG" release-metadata/latest.json --clobber
+          # latest.json was signed with the retired 1.1.x updater key. Do not
+          # alias the new signature under that name: 1.1.x clients must cross
+          # the key-rotation boundary with one manual 1.2.0 installation.
+          gh release delete-asset "$RELEASE_TAG" latest.json --yes || true
 
       - name: Verify release assets and publish
         env:
@@ -239,5 +241,5 @@ jobs:
           test -n "$release_id"
           assets="$(gh api "repos/$REPOSITORY/releases/$release_id/assets?per_page=100")"
           test "$(jq '[.[].name | select(. == "latest-v2.json")] | length' <<< "$assets")" -eq 1
-          test "$(jq '[.[].name | select(. == "latest.json")] | length' <<< "$assets")" -eq 1
+          test "$(jq '[.[].name | select(. == "latest.json")] | length' <<< "$assets")" -eq 0
           gh release edit "$RELEASE_TAG" --draft=false

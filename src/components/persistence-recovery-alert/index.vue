@@ -27,6 +27,7 @@ const storeNames = computed<Partial<Record<PersistenceStoreId, string>>>(() => (
   cat: t('components.persistenceRecovery.stores.cat'),
   general: t('components.persistenceRecovery.stores.general'),
   model: t('components.persistenceRecovery.stores.model'),
+  pomodoro: t('components.persistenceRecovery.stores.pomodoro'),
   shortcut: t('components.persistenceRecovery.stores.shortcut'),
   typingStats: t('components.persistenceRecovery.stores.typingStats'),
 }))

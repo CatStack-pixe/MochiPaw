@@ -424,6 +424,7 @@
         "cat": "Cat settings",
         "general": "General settings",
         "model": "Model settings",
+        "pomodoro": "Pomodoro",
         "shortcut": "Shortcuts",
         "typingStats": "Typing statistics"
       }
