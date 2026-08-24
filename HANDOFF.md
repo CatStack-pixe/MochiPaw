@@ -2,7 +2,7 @@
 
 ## Current Status
 
-- Release preparation (2026-08-24): normalized the pending package/Cargo versions to `1.2.0`, kept both `latest-v2.json` and legacy `latest.json` updater assets so 1.1.6 clients can discover the release, and added Pomodoro to persistence recovery. Focused model/persistence tests (17/17), TypeScript, Rust persistence tests (9/9), release-version validation, and `git diff --check` pass. The changes still need to be committed, reviewed through a GitHub PR, squash-merged, and published as the `v1.2.0` Release.
+- Release preparation (2026-08-24): normalized the package/Cargo versions to `1.2.0`, kept both `latest-v2.json` and legacy `latest.json` updater assets so 1.1.6 clients can discover the release, and added Pomodoro to persistence recovery. PR #97 passed Frontend, Rust Linux, Rust Windows, and Portable Unicode smoke CI, received a findings-first audit with no actionable findings, and was squash-merged as `e4ec2e5`. The `v1.2.0` tag still needs to be moved to that final commit and the GitHub Release workflow completed.
 
 - Upgrade compatibility fix (2026-08-24): added a repeatable `2.1.0` model-store repair migration for installations upgraded from the legacy store format. It removes stale legacy model objects, clears selections no longer present in a successfully persisted catalog, preserves selections when catalog scanning fails, and adds Rust/TypeScript regression coverage. This prevents users from having to delete `com.CatStack.MochiPaw` under `%APPDATA%` after upgrading from the 1.1.6 line.
 
