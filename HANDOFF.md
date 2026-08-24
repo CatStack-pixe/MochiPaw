@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- Release notes format (2026-08-24): rewrote the public v1.2.0 GitHub Release description to match the established `## What's New` format used by prior stable releases, with bold feature headings, user-facing explanations, PR references, and the 1.1.x manual signing-key bridge note.
+
 - Release published (2026-08-24): PR #98 (`fix(release): handle updater key rotation safely`) passed Frontend, Rust Linux, Rust Windows, and Portable Unicode smoke CI, received a findings-first audit with no actionable findings, and was squash-merged as `f5284ad`. The `v1.2.0` annotated tag now points to that final commit. Release workflow run `32721396285` completed all platform builds, signing, packaging, and metadata verification successfully. The public stable GitHub Release is [v1.2.0](https://github.com/CatStack-pixe/MochiPaw/releases/tag/v1.2.0); `latest-v2.json` returns version `1.2.0` and HTTP 200, while the legacy `latest.json` endpoint is intentionally absent because 1.1.x clients use a retired signing key.
 
 - Release audit follow-up (2026-08-24): removed the invalid `latest.json` alias because 1.1.x metadata uses a retired signing key; the release workflow now publishes only `latest-v2.json` and documents the required manual 1.2.0 bridge install. Pomodoro recovery names are localized in all five locales, and incomplete custom-model directories now make discovery non-writable so a transient copy cannot erase the saved model selection. Full frontend tests remain 162/162, TypeScript, focused ESLint, and locale JSON validation pass.
