@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import { logDebug, logError, logInfo, logWarn } from '@/utils/diagnostics'
+
 export type UpdateDistribution
   = 'windows-installer'
     | 'windows-portable'
@@ -54,6 +56,7 @@ async function closeUpdateResource(update: AvailableUpdate) {
     await update.close()
   } catch {
     // The updater may already have consumed the resource during installation.
+    logWarn('[update] failed to close updater resource', { version: update.version })
   }
 }
 
@@ -109,18 +112,29 @@ export class UpdateCheckCoordinator {
   }
 
   private async runCheck(): Promise<UpdateCheckResult> {
+    logDebug('[update] updater check request started')
     const update = await this.adapter.check()
 
-    if (!update) return { status: 'latest' }
+    if (!update) {
+      logInfo('[update] updater reports latest version')
+      return { status: 'latest' }
+    }
 
     let capability: UpdateCapability
     try {
       capability = await this.adapter.getCapability()
     } catch (error) {
       await disposeUpdate(update)
+      logError('[update] capability detection failed', { version: update.version, error })
       throw error
     }
 
+    logInfo('[update] update available', {
+      version: update.version,
+      currentVersion: update.currentVersion,
+      distribution: capability.distribution,
+      installStrategy: capability.installStrategy,
+    })
     return { status: 'available', capability, update }
   }
 }
@@ -158,7 +172,14 @@ export async function fetchGitHubReleaseBody(
       clearTimeout(timeout)
     }
 
-    if (!response.ok) return ''
+    if (!response.ok) {
+      logWarn('[update] release notes request returned non-success status', {
+        version,
+        endpoint,
+        status: response.status,
+      })
+      return ''
+    }
 
     const payload: unknown = await response.json()
     if (!payload || typeof payload !== 'object' || typeof (payload as { body?: unknown }).body !== 'string') {
@@ -166,7 +187,8 @@ export async function fetchGitHubReleaseBody(
     }
 
     return (payload as { body: string }).body
-  } catch {
+  } catch (error) {
+    logWarn('[update] release notes request failed', { version, error })
     return ''
   }
 }
@@ -179,25 +201,31 @@ export async function applyUpdate(
   onDownloadEvent?: (event: UpdateDownloadEvent) => void,
 ) {
   if (capability.installStrategy === 'manual') {
+    logInfo('[update] opening manual download', { version: update.version, distribution: capability.distribution })
     await adapter.openUrl(getUpdateReleaseUrl(repositoryUrl, update.version))
     await disposeUpdate(update)
     return 'opened-download' as const
   }
 
   if (!installedUpdates.has(update) && !downloadedUpdates.has(update)) {
+    logInfo('[update] downloading update', { version: update.version })
     await update.download(onDownloadEvent)
     downloadedUpdates.add(update)
   }
 
   await adapter.runAfterPersisting(async () => {
     if (!installedUpdates.has(update)) {
+      logInfo('[update] installing downloaded update', { version: update.version })
       await update.install()
       downloadedUpdates.delete(update)
       installedUpdates.add(update)
       await closeUpdateResource(update)
     }
 
-    if (!adapter.isWindows) await adapter.relaunch()
+    if (!adapter.isWindows) {
+      logInfo('[update] relaunching after installation', { version: update.version })
+      await adapter.relaunch()
+    }
   })
 
   return 'installed' as const

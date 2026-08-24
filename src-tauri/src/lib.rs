@@ -89,6 +89,19 @@ fn migrate_model_store_state(
     Ok(())
 }
 
+fn repair_model_store_state(
+    state: &mut tauri_plugin_pinia::StoreState,
+) -> tauri_plugin_pinia::Result<()> {
+    // v1.2.0 could record the migration metadata before the frontend had
+    // removed the legacy model object. Re-run the cleanup for those installs.
+    if state.has("currentModelId") {
+        state.remove("currentModel");
+    }
+
+    state.set("schemaVersion", MODEL_STORE_SCHEMA_VERSION);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "windows")]
@@ -163,6 +176,10 @@ pub fn run() {
                     "model",
                     tauri_plugin_pinia::Migration::new("2.0.0", migrate_model_store_state),
                 )
+                .migration(
+                    "model",
+                    tauri_plugin_pinia::Migration::new("2.1.0", repair_model_store_state),
+                )
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -216,7 +233,9 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{MODEL_STORE_SCHEMA_VERSION, migrate_model_store_state};
+    use super::{
+        MODEL_STORE_SCHEMA_VERSION, migrate_model_store_state, repair_model_store_state,
+    };
     use serde_json::json;
     use tauri_plugin_pinia::StoreState;
 
@@ -266,5 +285,45 @@ mod tests {
 
         assert_eq!(state.get("currentModelId"), Some(&json!("new-selection")));
         assert!(!state.has("currentModel"));
+    }
+
+    #[test]
+    fn repairs_stale_legacy_model_after_a_previous_migration() {
+        let mut state = StoreState::new();
+        state.set("schemaVersion", MODEL_STORE_SCHEMA_VERSION);
+        state.set("currentModelId", "removed-model");
+        state.set("currentModelFingerprint", "old-fingerprint");
+        state.set("selectionMigrationPending", true);
+        state.set("currentModel", json!({ "id": "removed-model" }));
+        state.set(
+            "models",
+            json!([{ "id": "preset-standard", "isPreset": true }]),
+        );
+
+        repair_model_store_state(&mut state).unwrap();
+
+        assert!(!state.has("currentModel"));
+        assert_eq!(state.get("currentModelId"), Some(&json!("removed-model")));
+        assert_eq!(
+            state.get("currentModelFingerprint"),
+            Some(&json!("old-fingerprint"))
+        );
+        assert_eq!(state.get("selectionMigrationPending"), Some(&json!(true)));
+        assert_eq!(
+            state.get("schemaVersion"),
+            Some(&json!(MODEL_STORE_SCHEMA_VERSION))
+        );
+    }
+
+    #[test]
+    fn keeps_selection_when_the_persisted_catalog_is_incomplete() {
+        let mut state = StoreState::new();
+        state.set("currentModelId", "custom-model");
+        state.set("currentModel", json!({ "id": "custom-model" }));
+
+        repair_model_store_state(&mut state).unwrap();
+
+        assert!(!state.has("currentModel"));
+        assert_eq!(state.get("currentModelId"), Some(&json!("custom-model")));
     }
 }

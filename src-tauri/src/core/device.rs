@@ -7,13 +7,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc,
     },
     thread,
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, Runtime, command};
+use tauri_plugin_log::log::{debug, error, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DeviceEventKind {
@@ -42,10 +43,12 @@ pub struct DeviceInputStatus {
 }
 
 static IS_LISTENING: AtomicBool = AtomicBool::new(false);
+static DROPPED_EVENTS: AtomicU64 = AtomicU64::new(0);
 
 #[command]
 pub fn get_device_input_status() -> DeviceInputStatus {
-    match select_backend() {
+    let backend = select_backend();
+    let status = match backend {
         InputBackend::Rdev => DeviceInputStatus {
             backend: "rdev".into(),
             available: true,
@@ -86,15 +89,28 @@ pub fn get_device_input_status() -> DeviceInputStatus {
             hover_supported: false,
             error: Some("AppImage packages do not install the Wayland input service.".into()),
         },
+    };
+    debug!(
+        target: "mochi_paw::device",
+        "device input status backend={:?} available={} authorized={} hover_supported={} listening={}",
+        backend_name(&backend), status.available, status.authorized, status.hover_supported,
+        IS_LISTENING.load(Ordering::SeqCst)
+    );
+    if !status.available || !status.authorized {
+        warn!(target: "mochi_paw::device", "device input backend unavailable backend={} reason={}", backend_name(&backend), status.error.as_deref().unwrap_or("unknown"));
     }
+    status
 }
 
 #[command]
 pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Result<(), String> {
+    let backend = select_backend();
+    info!(target: "mochi_paw::device", "device listener start requested backend={}", backend_name(&backend));
     if IS_LISTENING
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
+        debug!(target: "mochi_paw::device", "device listener already running");
         return Ok(());
     }
 
@@ -105,11 +121,14 @@ pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Res
         .name("device-event-emitter".into())
         .spawn(move || {
             while let Ok(device_event) = event_receiver.recv() {
-                let _ = app_handle.emit_to("main", "device-changed", device_event);
+                if let Err(error) = app_handle.emit_to("main", "device-changed", &device_event) {
+                    warn!(target: "mochi_paw::device", "failed to emit device event kind={:?}: {error}", device_event.kind);
+                }
             }
         })
         .map_err(|error| {
             IS_LISTENING.store(false, Ordering::SeqCst);
+            error!(target: "mochi_paw::device", "failed to spawn device event emitter: {error}");
             format!("Failed to spawn device event emitter: {error}")
         })?;
 
@@ -127,17 +146,26 @@ pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Res
             };
 
             IS_LISTENING.store(false, Ordering::SeqCst);
+            if let Err(error) = &result {
+                error!(target: "mochi_paw::device", "device listener stopped with error backend={} error={error}", backend_name(&select_backend()));
+            } else {
+                info!(target: "mochi_paw::device", "device listener stopped backend={}", backend_name(&select_backend()));
+            }
             let _ = startup_sender.send(result);
         })
         .map_err(|error| {
             IS_LISTENING.store(false, Ordering::SeqCst);
+            error!(target: "mochi_paw::device", "failed to spawn device listener: {error}");
             format!("Failed to spawn device listener: {error}")
         })?;
 
     if let Ok(result) = startup_receiver.recv_timeout(Duration::from_millis(300)) {
         result?;
+    } else {
+        debug!(target: "mochi_paw::device", "device listener startup did not complete within 300ms");
     }
 
+    info!(target: "mochi_paw::device", "device listener start accepted backend={}", backend_name(&backend));
     Ok(())
 }
 
@@ -166,12 +194,18 @@ fn listen_rdev(event_sender: mpsc::SyncSender<DeviceEvent>) -> Result<(), String
             },
             _ => return,
         };
-        let _ = event_sender.try_send(device_event);
+        if event_sender.try_send(device_event).is_err() {
+            let dropped = DROPPED_EVENTS.fetch_add(1, Ordering::Relaxed) + 1;
+            if dropped == 1 || dropped % 100 == 0 {
+                warn!(target: "mochi_paw::device", "device event queue full dropped_events={dropped}");
+            }
+        }
     };
 
     listen(callback).map_err(|error| format!("Failed to listen device: {error:?}"))
 }
 
+#[derive(Debug, Clone, Copy)]
 enum InputBackend {
     Rdev,
     #[cfg(target_os = "linux")]
@@ -191,6 +225,16 @@ fn select_backend() -> InputBackend {
     }
 
     InputBackend::Rdev
+}
+
+fn backend_name(backend: &InputBackend) -> &'static str {
+    match backend {
+        InputBackend::Rdev => "rdev",
+        #[cfg(target_os = "linux")]
+        InputBackend::WaylandService => "wayland-service",
+        #[cfg(target_os = "linux")]
+        InputBackend::WaylandAppImage => "wayland-appimage",
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -215,6 +259,7 @@ fn daemon_socket_path() -> Result<std::path::PathBuf, String> {
 fn connect_wayland_service() -> Result<std::os::unix::net::UnixStream, String> {
     let socket_path = daemon_socket_path()?;
     std::os::unix::net::UnixStream::connect(&socket_path).map_err(|error| {
+        warn!(target: "mochi_paw::device", "Wayland input service connection failed socket={} error={error}", socket_path.display());
         format!(
             "Wayland input service is unavailable at {}: {error}",
             socket_path.display()
@@ -236,8 +281,10 @@ fn probe_wayland_service() -> Result<(), String> {
         .map_err(|error| format!("Wayland input service did not confirm this session: {error}"))?;
 
     if line.trim() == r#"{"kind":"Ready"}"# {
+        debug!(target: "mochi_paw::device", "Wayland input service probe succeeded");
         Ok(())
     } else {
+        warn!(target: "mochi_paw::device", "Wayland input service returned unexpected probe response length={}", line.len());
         Err("Wayland input service rejected the active session.".into())
     }
 }
@@ -249,7 +296,10 @@ fn listen_wayland_service(event_sender: mpsc::SyncSender<DeviceEvent>) -> Result
     let mut stream = connect_wayland_service()?;
     stream
         .write_all(b"{\"kind\":\"Subscribe\"}\n")
-        .map_err(|error| format!("failed to subscribe to Wayland input service: {error}"))?;
+        .map_err(|error| {
+            error!(target: "mochi_paw::device", "failed to subscribe to Wayland input service: {error}");
+            format!("failed to subscribe to Wayland input service: {error}")
+        })?;
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
 
@@ -259,16 +309,26 @@ fn listen_wayland_service(event_sender: mpsc::SyncSender<DeviceEvent>) -> Result
             .read_line(&mut line)
             .map_err(|error| format!("Wayland input service disconnected: {error}"))?;
         if bytes == 0 {
+            warn!(target: "mochi_paw::device", "Wayland input service disconnected");
             return Err("Wayland input service disconnected.".into());
         }
         if line.len() > 4096 {
+            warn!(target: "mochi_paw::device", "Wayland input service sent oversized message bytes={bytes}");
             return Err("Wayland input service sent an oversized message.".into());
         }
 
         let event: DaemonMessage = serde_json::from_str(&line)
-            .map_err(|error| format!("Wayland input service sent an invalid message: {error}"))?;
+            .map_err(|error| {
+                warn!(target: "mochi_paw::device", "Wayland input service sent invalid message bytes={bytes} error={error}");
+                format!("Wayland input service sent an invalid message: {error}")
+            })?;
         if let Some(event) = event.into_device_event() {
-            let _ = event_sender.try_send(event);
+            if event_sender.try_send(event).is_err() {
+                let dropped = DROPPED_EVENTS.fetch_add(1, Ordering::Relaxed) + 1;
+                if dropped == 1 || dropped % 100 == 0 {
+                    warn!(target: "mochi_paw::device", "Wayland device event queue full dropped_events={dropped}");
+                }
+            }
         }
     }
 }

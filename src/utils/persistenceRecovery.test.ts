@@ -2,7 +2,15 @@ import assert from 'node:assert/strict'
 // eslint-disable-next-line test/no-import-node-test -- Vitest is not installed; this test runs through tsx's Node test runner.
 import test from 'node:test'
 
-import { formatPersistenceRecoveryReport, normalizePersistenceRecoveryReport } from './persistenceRecovery'
+import {
+  formatPersistenceRecoveryReport,
+  normalizePersistenceRecoveryReport,
+  PERSISTENCE_STORE_IDS,
+} from './persistenceRecovery'
+
+test('includes Pomodoro in the persistence recovery allowlist', () => {
+  assert.ok(PERSISTENCE_STORE_IDS.includes('pomodoro'))
+})
 
 test('normalizes recovered stores and backup failures from the backend payload', () => {
   const report = normalizePersistenceRecoveryReport({

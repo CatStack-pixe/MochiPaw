@@ -222,8 +222,9 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          cp release-metadata/latest-v2.json release-metadata/latest.json
           gh release upload "$RELEASE_TAG" release-metadata/latest-v2.json --clobber
-          gh release delete-asset "$RELEASE_TAG" latest.json --yes || true
+          gh release upload "$RELEASE_TAG" release-metadata/latest.json --clobber
 
       - name: Verify release assets and publish
         env:
@@ -238,5 +239,5 @@ jobs:
           test -n "$release_id"
           assets="$(gh api "repos/$REPOSITORY/releases/$release_id/assets?per_page=100")"
           test "$(jq '[.[].name | select(. == "latest-v2.json")] | length' <<< "$assets")" -eq 1
-          test "$(jq '[.[].name | select(. == "latest.json")] | length' <<< "$assets")" -eq 0
+          test "$(jq '[.[].name | select(. == "latest.json")] | length' <<< "$assets")" -eq 1
           gh release edit "$RELEASE_TAG" --draft=false

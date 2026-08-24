@@ -44,7 +44,11 @@ export function prepareModelStoreStateForBackend(
 
   const persisted = pickPersistedModelStoreState(state)
 
-  if (!persistModelCatalog) delete persisted.models
+  if (!persistModelCatalog) {
+    delete persisted.models
+  } else {
+    clearSelectionIfCatalogDoesNotContainIt(persisted)
+  }
 
   return persisted
 }
@@ -100,6 +104,18 @@ function stripModelRuntimeState(value: unknown) {
 
   const { runtimeLease: _, ...persistedModel } = value
   return persistedModel
+}
+
+function clearSelectionIfCatalogDoesNotContainIt(state: Record<string, unknown>) {
+  const currentModelId = normalizeModelId(state.currentModelId)
+  if (!currentModelId || !Array.isArray(state.models)) return
+
+  const found = state.models.some(model => isRecord(model) && model.id === currentModelId)
+  if (found) return
+
+  delete state.currentModelId
+  delete state.currentModelFingerprint
+  delete state.selectionMigrationPending
 }
 
 function normalizeModelId(value: unknown) {

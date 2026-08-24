@@ -17,6 +17,7 @@ import { setPassThrough } from '@/plugins/window'
 import { useAppStore } from '@/stores/app'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
+import { logError, logInfo } from '@/utils/diagnostics'
 import { inBetween } from '@/utils/is'
 import { isMac, isWindows } from '@/utils/platform'
 import { reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
@@ -140,13 +141,17 @@ export function useDevice(options: UseDeviceOptions = {}) {
   }
 
   onMounted(async () => {
-    scaleFactor.value = isMac ? await appWindow.scaleFactor() : 1
+    try {
+      scaleFactor.value = isMac ? await appWindow.scaleFactor() : 1
 
-    appWindow.onScaleChanged(({ payload }) => {
-      if (!isMac) return
+      await appWindow.onScaleChanged(({ payload }) => {
+        if (!isMac) return
 
-      scaleFactor.value = payload.scaleFactor
-    })
+        scaleFactor.value = payload.scaleFactor
+      })
+    } catch (error) {
+      logError('[device] failed to initialize window scale listener', { windowLabel: appWindow.label, error })
+    }
   })
 
   onUnmounted(() => {
@@ -185,7 +190,15 @@ export function useDevice(options: UseDeviceOptions = {}) {
   }, { immediate: true })
 
   const startListening = () => {
-    void invoke(INVOKE_KEY.START_DEVICE_LISTENING).catch(() => undefined)
+    logInfo('[device] starting native listener', { windowLabel: appWindow.label })
+    return invoke(INVOKE_KEY.START_DEVICE_LISTENING)
+      .then(() => {
+        logInfo('[device] native listener start acknowledged', { windowLabel: appWindow.label })
+      })
+      .catch((error) => {
+        logError('[device] native listener start failed', { windowLabel: appWindow.label, error })
+        throw error
+      })
   }
 
   const getSupportedKeys = (key: string) => {

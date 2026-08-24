@@ -158,3 +158,17 @@ test('keeps the persisted catalog untouched after a transient scan failure', () 
     shortcuts: {},
   })
 })
+
+test('clears a removed selection after a successful catalog scan', () => {
+  const persisted = prepareModelStoreStateForBackend({
+    currentModelId: 'removed-model',
+    currentModelFingerprint: 'old-fingerprint',
+    selectionMigrationPending: true,
+    models: [{ id: 'preset-standard' }],
+  }, true)
+
+  assert.deepEqual(persisted, {
+    schemaVersion: MODEL_STORE_SCHEMA_VERSION,
+    models: [{ id: 'preset-standard' }],
+  })
+})
