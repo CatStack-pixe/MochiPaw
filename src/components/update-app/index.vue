@@ -22,6 +22,7 @@ import { useTauriListen } from '@/composables/useTauriListen'
 import { GITHUB_LINK, INVOKE_KEY, LISTEN_KEY } from '@/constants'
 import { showWindow } from '@/plugins/window'
 import { useGeneralStore } from '@/stores/general'
+import { logError, logInfo, logStep, logWarn } from '@/utils/diagnostics'
 import { runAfterSavingPersistentStores } from '@/utils/persistence'
 import {
   applyUpdate,
@@ -106,18 +107,30 @@ async function checkUpdate(visibleMessage = false) {
   if (state.downloading) return
 
   const operationGeneration = updateOperationGate.capture()
+  logStep('update', 'check started', { visibleMessage, operationGeneration })
 
   try {
     const result = await updateChecker.check()
+    logInfo('[update] check completed', {
+      visibleMessage,
+      operationGeneration,
+      status: result.status,
+      version: result.status === 'available' ? result.update.version : undefined,
+      distribution: result.status === 'available' ? result.capability.distribution : undefined,
+      installStrategy: result.status === 'available' ? result.capability.installStrategy : undefined,
+    })
 
     if (state.downloading || !updateOperationGate.isCurrent(operationGeneration)) {
-      if (result.status === 'available') await disposeUpdate(result.update)
+      if (result.status === 'available') {
+        await disposeUpdate(result.update)
+        logWarn('[update] disposed stale check result', { operationGeneration, version: result.update.version })
+      }
       if (visibleMessage) message.destroy(MESSAGE_KEY)
       return
     }
 
     if (result.status === 'available') {
-      void transferUpdateOwnership(state.update, markRaw(result.update), (update) => {
+      await transferUpdateOwnership(state.update, markRaw(result.update), (update) => {
         state.update = update
       })
       state.capability = result.capability
@@ -135,6 +148,7 @@ async function checkUpdate(visibleMessage = false) {
       message.success({ key: MESSAGE_KEY, content: t('components.updateApp.hints.alreadyLatest') })
     }
   } catch (error) {
+    logError('[update] check failed', { visibleMessage, operationGeneration, error })
     if (!visibleMessage) return
 
     message.error({
@@ -161,7 +175,11 @@ function handleCancel() {
   const update = state.update
 
   clearUpdateState()
-  if (update) void disposeUpdate(update)
+  if (update) {
+    void disposeUpdate(update).catch((error) => {
+      logWarn('[update] failed to dispose canceled update', { version: update.version, error })
+    })
+  }
 }
 
 onUnmounted(handleCancel)
@@ -177,6 +195,10 @@ function replaceBody(body: string) {
 async function handleOk() {
   if (state.downloading || !state.update || !state.capability) return
 
+  const version = state.update.version
+  const capability = state.capability
+  logStep('update', 'apply started', { version, ...capability })
+
   try {
     updateOperationGate.invalidateChecks()
     state.downloading = true
@@ -191,18 +213,22 @@ async function handleOk() {
         case 'Started':
           state.totalProgress = progress.data.contentLength
           state.downloadProgress = 0
+          logInfo('[update] download started', { version, contentLength: progress.data.contentLength })
           break
         case 'Progress':
           state.downloadProgress += progress.data.chunkLength
           break
         case 'Finished':
           if (state.totalProgress) state.downloadProgress = state.totalProgress
+          logInfo('[update] download finished', { version, downloadedBytes: state.downloadProgress })
           break
       }
     })
 
+    logInfo('[update] apply completed', { version, result, ...capability })
     if (result === 'opened-download') clearUpdateState()
   } catch (error) {
+    logError('[update] apply failed', { version, ...capability, error })
     message.error(t('components.updateApp.hints.updateFailed', { error: String(error) }))
   } finally {
     Object.assign(state, {

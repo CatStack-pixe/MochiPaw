@@ -14,6 +14,7 @@ import type { GamepadInputEvent } from '@/utils/subModelRuntime'
 
 import { INVOKE_KEY, LISTEN_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
+import { logError, logInfo } from '@/utils/diagnostics'
 import live2d from '@/utils/live2d'
 
 import { useModel } from './useModel'
@@ -63,14 +64,20 @@ export function useGamepad(options: UseGamepadOptions = {}) {
   const syncGamepadListener = (isEnabled: boolean) => {
     if (options.listen === false) return Promise.resolve()
 
+    logInfo('[gamepad] syncing native listener', { windowLabel: appWindow.label, enabled: isEnabled, modelId: currentModel.value?.id })
     return invoke(INVOKE_KEY.SET_GAMEPAD_LISTENER_ENABLED, {
       windowLabel: appWindow.label,
       enabled: isEnabled,
+    }).then(() => {
+      logInfo('[gamepad] native listener synchronized', { windowLabel: appWindow.label, enabled: isEnabled })
+    }).catch((error) => {
+      logError('[gamepad] native listener synchronization failed', { windowLabel: appWindow.label, enabled: isEnabled, error })
+      throw error
     })
   }
 
   watch(nativeDemand, (isEnabled) => {
-    void syncGamepadListener(isEnabled)
+    void syncGamepadListener(isEnabled).catch(() => undefined)
   }, { immediate: true })
 
   watch(enabled, (isEnabled) => {
@@ -94,7 +101,7 @@ export function useGamepad(options: UseGamepadOptions = {}) {
   }, { immediate: true })
 
   onUnmounted(() => {
-    void syncGamepadListener(false)
+    void syncGamepadListener(false).catch(() => undefined)
   })
 
   watch(sticks.left, ({ x, y, moved, pressed }) => {

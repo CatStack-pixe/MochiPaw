@@ -12,7 +12,15 @@ use tauri::{Manager, Runtime, plugin::TauriPlugin};
 use tauri_plugin_custom_window::PREFERENCE_WINDOW_LABEL;
 use tauri_plugin_pinia::ManagerExt as _;
 
-const STORE_IDS: [&str; 6] = ["app", "cat", "general", "model", "shortcut", "typingStats"];
+const STORE_IDS: [&str; 7] = [
+    "app",
+    "cat",
+    "general",
+    "model",
+    "pomodoro",
+    "shortcut",
+    "typingStats",
+];
 
 #[cfg(debug_assertions)]
 const STORE_FILE_EXTENSION: &str = "dev.json";
@@ -280,6 +288,23 @@ mod tests {
         assert!(report.is_none());
         assert_eq!(fs::read(valid_path).unwrap(), valid_contents);
         assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn recovers_a_malformed_pomodoro_store() {
+        let root = TestDirectory::new("pomodoro-store");
+        let path = store_path(root.path(), "pomodoro");
+        fs::write(&path, b"{\"truncated\":").unwrap();
+
+        let report = run_with_timestamp(root.path(), 123);
+
+        assert_eq!(report.recovered.len(), 1);
+        assert_eq!(report.recovered[0].store_id, "pomodoro");
+        assert!(!path.exists());
+        assert_eq!(
+            fs::read(&report.recovered[0].backup_path).unwrap(),
+            b"{\"truncated\":"
+        );
     }
 
     #[test]

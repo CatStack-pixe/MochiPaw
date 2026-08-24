@@ -6,6 +6,8 @@ import { listen } from '@tauri-apps/api/event'
 import { noop } from '@vueuse/core'
 import { onMounted, onUnmounted, ref } from 'vue'
 
+import { logError, logInfo } from '@/utils/diagnostics'
+
 export function useTauriListen<T>(...args: Parameters<typeof listen<T>>) {
   const unlisten = ref(noop)
   let resolveReady!: () => void
@@ -16,13 +18,20 @@ export function useTauriListen<T>(...args: Parameters<typeof listen<T>>) {
   onMounted(async () => {
     try {
       unlisten.value = await listen<T>(...args)
+      logInfo('[tauri-listen] subscribed', { event: args[0] })
+    } catch (error) {
+      logError('[tauri-listen] subscription failed', { event: args[0], error })
     } finally {
       resolveReady()
     }
   })
 
   onUnmounted(() => {
-    unlisten.value()
+    try {
+      unlisten.value()
+    } catch (error) {
+      logError('[tauri-listen] unsubscribe failed', { event: args[0], error })
+    }
   })
 
   return {

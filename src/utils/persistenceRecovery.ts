@@ -6,6 +6,7 @@ export const PERSISTENCE_STORE_IDS = [
   'cat',
   'general',
   'model',
+  'pomodoro',
   'shortcut',
   'typingStats',
 ] as const

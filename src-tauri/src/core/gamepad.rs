@@ -14,6 +14,7 @@ use std::{
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, Runtime, command};
+use tauri_plugin_log::log::{debug, error, info, warn};
 
 static IS_LISTENING: AtomicBool = AtomicBool::new(false);
 static LISTENING_SESSION: AtomicU64 = AtomicU64::new(0);
@@ -37,10 +38,12 @@ pub struct GamepadEvent {
 
 #[command]
 pub async fn start_gamepad_listing<R: Runtime>(app_handle: AppHandle<R>) -> Result<(), String> {
+    info!(target: "mochi_paw::gamepad", "gamepad listener start requested");
     if IS_LISTENING
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
+        debug!(target: "mochi_paw::gamepad", "gamepad listener already running");
         return Ok(());
     }
 
@@ -48,6 +51,7 @@ pub async fn start_gamepad_listing<R: Runtime>(app_handle: AppHandle<R>) -> Resu
 
     let gilrs = Gilrs::new().map_err(|err| {
         finish_session(session);
+        error!(target: "mochi_paw::gamepad", "failed to initialize gamepad backend session={session}: {err}");
 
         err.to_string()
     })?;
@@ -61,6 +65,7 @@ pub async fn start_gamepad_listing<R: Runtime>(app_handle: AppHandle<R>) -> Resu
         .spawn(move || listen_for_gamepad_events(app_handle, gilrs, session))
         .map_err(|err| {
             finish_session(session);
+            error!(target: "mochi_paw::gamepad", "failed to spawn gamepad listener session={session}: {err}");
 
             format!("Failed to spawn gamepad listener: {err}")
         })?;
@@ -69,6 +74,7 @@ pub async fn start_gamepad_listing<R: Runtime>(app_handle: AppHandle<R>) -> Resu
 }
 
 fn listen_for_gamepad_events<R: Runtime>(app_handle: AppHandle<R>, mut gilrs: Gilrs, session: u64) {
+    info!(target: "mochi_paw::gamepad", "gamepad listener thread started session={session}");
     while is_session_active(session) {
         let mut received_event = false;
 
@@ -89,7 +95,9 @@ fn listen_for_gamepad_events<R: Runtime>(app_handle: AppHandle<R>, mut gilrs: Gi
                 _ => continue,
             };
 
-            let _ = app_handle.emit_to("main", "gamepad-changed", gamepad_event);
+            if let Err(error) = app_handle.emit_to("main", "gamepad-changed", &gamepad_event) {
+                warn!(target: "mochi_paw::gamepad", "failed to emit gamepad event kind={:?}: {error}", gamepad_event.kind);
+            }
         }
 
         if !received_event {
@@ -98,10 +106,12 @@ fn listen_for_gamepad_events<R: Runtime>(app_handle: AppHandle<R>, mut gilrs: Gi
     }
 
     finish_session(session);
+    info!(target: "mochi_paw::gamepad", "gamepad listener thread stopped session={session}");
 }
 
 #[command]
 pub async fn stop_gamepad_listing() {
+    info!(target: "mochi_paw::gamepad", "gamepad listener stop requested");
     LISTENING_SESSION.fetch_add(1, Ordering::SeqCst);
     IS_LISTENING.store(false, Ordering::SeqCst);
 }
@@ -112,10 +122,12 @@ pub async fn set_gamepad_listener_enabled<R: Runtime>(
     window_label: String,
     enabled: bool,
 ) -> Result<(), String> {
+    debug!(target: "mochi_paw::gamepad", "gamepad listener demand changed window={} enabled={enabled}", window_label);
     let should_start = {
-        let mut demands = LISTENER_DEMANDS
-            .lock()
-            .map_err(|_| "Failed to lock gamepad listener demands".to_string())?;
+        let mut demands = LISTENER_DEMANDS.lock().map_err(|_| {
+            error!(target: "mochi_paw::gamepad", "failed to lock gamepad listener demands");
+            "Failed to lock gamepad listener demands".to_string()
+        })?;
         let was_empty = demands.is_empty();
 
         if enabled {
@@ -128,16 +140,19 @@ pub async fn set_gamepad_listener_enabled<R: Runtime>(
     };
 
     let should_stop = {
-        let demands = LISTENER_DEMANDS
-            .lock()
-            .map_err(|_| "Failed to lock gamepad listener demands".to_string())?;
+        let demands = LISTENER_DEMANDS.lock().map_err(|_| {
+            error!(target: "mochi_paw::gamepad", "failed to lock gamepad listener demands");
+            "Failed to lock gamepad listener demands".to_string()
+        })?;
 
         demands.is_empty()
     };
 
     if should_start {
+        info!(target: "mochi_paw::gamepad", "starting shared gamepad listener");
         start_gamepad_listing(app_handle).await?;
     } else if should_stop {
+        info!(target: "mochi_paw::gamepad", "stopping shared gamepad listener");
         stop_gamepad_listing().await;
     }
 

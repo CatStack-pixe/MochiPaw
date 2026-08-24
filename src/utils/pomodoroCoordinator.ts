@@ -7,6 +7,7 @@ import { toRaw } from 'vue'
 import type { usePomodoroStore } from '@/stores/pomodoro'
 
 import { LISTEN_KEY } from '@/constants'
+import { logError, logWarn } from '@/utils/diagnostics'
 
 import type { PomodoroPhase } from './pomodoroClock'
 import type { PomodoroCommandAcknowledgement, PomodoroCommandRequest, PomodoroStatePayload } from './pomodoroRequest'
@@ -34,7 +35,11 @@ export async function startPomodoroCoordinator(
   let disposed = false
 
   const publish = async () => {
-    if (!disposed) await emit(LISTEN_KEY.POMODORO_STATE_CHANGED, getState(store)).catch(() => undefined)
+    if (disposed) return
+
+    await emit(LISTEN_KEY.POMODORO_STATE_CHANGED, getState(store)).catch((error) => {
+      logWarn('[pomodoro] failed to publish state', { error })
+    })
   }
 
   const announce = async (phases: PomodoroPhase[]) => {
@@ -42,18 +47,22 @@ export async function startPomodoroCoordinator(
       if (store.settings.notificationsEnabled) {
         try {
           await options.notify?.(phase)
-        } catch {
+        } catch (error) {
           // Notification permissions and platform services are optional.
+          logWarn('[pomodoro] notification failed', { phase, error })
         }
       }
       if (store.settings.soundEnabled) {
         try {
           await options.playSound?.()
-        } catch {
+        } catch (error) {
           // Audio output must never stop the timer.
+          logWarn('[pomodoro] sound playback failed', { phase, error })
         }
       }
-      await emit(LISTEN_KEY.POMODORO_STAGE_COMPLETED, { phase }).catch(() => undefined)
+      await emit(LISTEN_KEY.POMODORO_STAGE_COMPLETED, { phase }).catch((error) => {
+        logWarn('[pomodoro] failed to publish completed phase', { phase, error })
+      })
     }
   }
 
@@ -84,6 +93,12 @@ export async function startPomodoroCoordinator(
         } catch (error) {
           accepted = false
           reason = error instanceof Error ? error.message : String(error)
+          logError('[pomodoro] command failed', {
+            command: request.command,
+            requestId: request.requestId,
+            sourceWindow: request.sourceWindow,
+            error,
+          })
         }
 
         const acknowledgement: PomodoroCommandAcknowledgement = {
@@ -95,16 +110,31 @@ export async function startPomodoroCoordinator(
         }
 
         if (request.sourceWindow) {
-          await emitTo(request.sourceWindow, LISTEN_KEY.POMODORO_COMMAND_APPLIED, acknowledgement).catch(() => undefined)
+          await emitTo(request.sourceWindow, LISTEN_KEY.POMODORO_COMMAND_APPLIED, acknowledgement).catch((error) => {
+            logWarn('[pomodoro] failed to send command acknowledgement', {
+              requestId: request.requestId,
+              sourceWindow: request.sourceWindow,
+              error,
+            })
+          })
         } else {
-          await emit(LISTEN_KEY.POMODORO_COMMAND_APPLIED, acknowledgement).catch(() => undefined)
+          await emit(LISTEN_KEY.POMODORO_COMMAND_APPLIED, acknowledgement).catch((error) => {
+            logWarn('[pomodoro] failed to broadcast command acknowledgement', {
+              requestId: request.requestId,
+              error,
+            })
+          })
         }
-      }).catch(() => undefined)
+      }).catch((error) => {
+        logError('[pomodoro] command queue failed', { error })
+      })
     },
   )
 
   const timer = setInterval(() => {
-    void queue.then(reconcile)
+    void queue.then(reconcile).catch((error) => {
+      logError('[pomodoro] reconciliation failed', { error })
+    })
   }, 500)
 
   await publish()

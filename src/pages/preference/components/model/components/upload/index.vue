@@ -378,7 +378,6 @@ async function importFromPath(fromPath: string) {
     importFromSource,
     path => remove(path, { recursive: true }),
     (error) => {
-      console.warn('[mochi-paw] failed to clean temporary model import:', error)
       logError('[model-import] temporary source cleanup failed', { fromPath, sourcePath: source.path, error })
     },
   )
@@ -520,7 +519,6 @@ async function prepareImportSource(fromPath: string) {
     },
     path => remove(path, { recursive: true }),
     (error) => {
-      console.warn('[mochi-paw] failed to clean failed model extraction:', error)
       logError('[model-import] failed extraction cleanup', { fromPath, importPath, error })
     },
   )

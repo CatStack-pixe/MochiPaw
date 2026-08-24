@@ -3,6 +3,7 @@
 
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use tauri_plugin_log::log::{debug, info, warn};
 
 const PORTABLE_MARKER_FILE: &str = ".mochipaw-portable";
 
@@ -72,6 +73,7 @@ impl RuntimeEnvironment {
             None
         };
 
+        debug!(target: "mochi_paw::update", "runtime environment detected os={operating_system:?} app_image={app_image} executable_name={} linux_package={linux_package:?}", executable_path.as_deref().and_then(Path::file_name).and_then(|name| name.to_str()).unwrap_or("unknown"));
         Self {
             operating_system,
             executable_path,
@@ -83,7 +85,10 @@ impl RuntimeEnvironment {
 
 #[tauri::command]
 pub fn get_update_capability() -> UpdateCapability {
-    classify_update_capability(&RuntimeEnvironment::current())
+    let environment = RuntimeEnvironment::current();
+    let capability = classify_update_capability(&environment);
+    info!(target: "mochi_paw::update", "update capability distribution={:?} install_strategy={:?}", capability.distribution, capability.install_strategy);
+    capability
 }
 
 fn classify_update_capability(environment: &RuntimeEnvironment) -> UpdateCapability {
@@ -138,11 +143,20 @@ fn detect_linux_package(executable_path: &Path) -> Option<LinuxPackage> {
 }
 
 fn package_owns_executable(command: &str, arguments: &[&str], executable_path: &Path) -> bool {
-    std::process::Command::new(command)
+    let result = std::process::Command::new(command)
         .args(arguments)
         .arg(executable_path)
-        .output()
-        .is_ok_and(|output| output.status.success())
+        .output();
+    match result {
+        Ok(output) => {
+            debug!(target: "mochi_paw::update", "package detection command={command} success={} status={}", output.status.success(), output.status);
+            output.status.success()
+        }
+        Err(error) => {
+            warn!(target: "mochi_paw::update", "package detection command unavailable command={command} error={error}");
+            false
+        }
+    }
 }
 
 fn current_operating_system() -> OperatingSystem {

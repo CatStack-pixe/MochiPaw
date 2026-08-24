@@ -471,7 +471,7 @@ onMounted(async () => {
       pomodoroNow.value = Date.now()
     }, 250)
     await waitForTypingStatsPersistenceHydration()
-    startListening()
+    void startListening().catch(() => undefined)
     return
   }
 
@@ -667,7 +667,6 @@ async function loadModel(model: Model, canvas: HTMLCanvasElement, loadTrigger: n
       return false
     }
 
-    console.warn('[mochi-paw] failed to load current model:', error)
     logError('[model-load] failed', { ...modelContext, error })
     message.error(String(error))
     throw error

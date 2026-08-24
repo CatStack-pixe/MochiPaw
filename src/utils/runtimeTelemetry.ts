@@ -269,7 +269,6 @@ export function reportRuntimeEventQuietly(model: Model | undefined, eventType: R
   if (!model || model.isPreset) return
   logTrace('[runtime-event] queued quiet event', { modelId: model.id, eventType })
   void reportRuntimeEvent(model, eventType).catch((error) => {
-    console.warn('[mochi-paw] runtime telemetry failed:', error)
     logError('[runtime-event] quiet event failed', { modelId: model.id, eventType, error })
   })
 }
