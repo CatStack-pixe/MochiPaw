@@ -20,6 +20,7 @@ import { useModelStore } from '@/stores/model'
 import { logError, logInfo } from '@/utils/diagnostics'
 import { inBetween } from '@/utils/is'
 import { isMac, isWindows } from '@/utils/platform'
+import { mergeRelativeMouseMovement } from '@/utils/relativeMouse'
 import { reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 
 import { INVOKE_KEY, LISTEN_KEY, WINDOW_LABEL } from '../constants'
@@ -385,10 +386,7 @@ export function useDevice(options: UseDeviceOptions = {}) {
         return scheduleCursorSmoothing()
       case 'MouseRelativeMove':
         if (!listeners.value.mouse) return
-        relativeMouseMove.value = {
-          dx: (relativeMouseMove.value?.dx ?? 0) + value.dx,
-          dy: (relativeMouseMove.value?.dy ?? 0) + value.dy,
-        }
+        relativeMouseMove.value = mergeRelativeMouseMovement(relativeMouseMove.value, value)
         return scheduleRelativeMouseMove()
     }
   }
