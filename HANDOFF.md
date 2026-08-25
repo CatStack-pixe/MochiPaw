@@ -2,6 +2,8 @@
 
 ## Current Status
 
+- Windows Raw Input compatibility implemented (2026-08-25): added a Windows message-window backend in `src-tauri/src/core/device.rs` that registers mouse Raw Input with `RIDEV_INPUTSINK`, parses signed relative movement from `WM_INPUT`, filters absolute Raw Input packets, logs registration/parse/queue/lifecycle failures, and cleans up the registration and window on exit. Windows keeps `rdev` for keyboard and mouse buttons; visible cursors retain absolute `MouseMove` events for desktop hover behavior, while hidden cursors use Raw Input relative movement. Added the `windows-raw-input` status contract, synchronized the frontend virtual cursor when absolute coordinates arrive, and centralized relative movement merging/bounds logic in `src/utils/relativeMouse.ts`. Added regression coverage for signed/zero/malformed/absolute Raw Input, backend status, relative merging, monitor synchronization, and bounds. Verification: `pnpm test` (166/166), `pnpm exec tsc --noEmit --pretty false`, focused ESLint, `cargo test --workspace --all-targets --locked` (38/38), `cargo check --workspace --all-targets --locked`, `cargo check --target x86_64-pc-windows-msvc --workspace --all-targets --locked`, and `git diff --check` passed. Manual Windows game/desktop acceptance remains to be performed on a real interactive session.
+
 - Release notes format (2026-08-24): rewrote the public v1.2.0 GitHub Release description to match the established `## What's New` format used by prior stable releases, with bold feature headings, user-facing explanations, PR references, and the 1.1.x manual signing-key bridge note.
 
 - Release published (2026-08-24): PR #98 (`fix(release): handle updater key rotation safely`) passed Frontend, Rust Linux, Rust Windows, and Portable Unicode smoke CI, received a findings-first audit with no actionable findings, and was squash-merged as `f5284ad`. The `v1.2.0` annotated tag now points to that final commit. Release workflow run `32721396285` completed all platform builds, signing, packaging, and metadata verification successfully. The public stable GitHub Release is [v1.2.0](https://github.com/CatStack-pixe/MochiPaw/releases/tag/v1.2.0); `latest-v2.json` returns version `1.2.0` and HTTP 200, while the legacy `latest.json` endpoint is intentionally absent because 1.1.x clients use a retired signing key.
@@ -405,3 +407,50 @@
 - `src-tauri/src/lib.rs` 在 Tauri 创建 WebView 前设置 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`，覆盖运行时动态创建的 sub-model 窗口。
 - 这是 Windows 专用的浏览器运行参数，目的是让渲染在失焦、被游戏遮挡时仍保持调度；代价是更高的后台 CPU/GPU/功耗，属于用户明确要求的强制策略。
 - 已通过 `pnpm test` (155/155)、`pnpm exec tsc --noEmit --pretty false`、`cargo check --workspace --all-targets --locked`。
+
+## Windows 游戏隐藏鼠标时视角不跟随 (2026-08-25)
+
+### 现象与诊断
+
+- 用户反馈：进入游戏后鼠标指针消失，键盘仍有响应，但鼠标控制的 Live2D 视角不再跟随；鼠标重新出现后立即恢复跟随。
+- `C:\Users\LEGION\Downloads\MochiPaw (2).log` 显示 Live2D 持续以约 58-60 FPS 渲染，模型已加载、ticker 已启动，没有渲染崩溃或卡死证据。
+- 同一时间段主窗口出现 `focused=true -> false` 的焦点切换，之后持续记录 `hasFocus=false`。这解释了窗口状态变化，但不会阻止 Rust 侧的全局键盘监听。
+- Windows 当前走 `src-tauri/src/core/device.rs` 的 `rdev` 后端，`EventType::MouseMove` 只转发绝对屏幕坐标；游戏隐藏/锁定系统光标后，绝对坐标事件不再代表游戏的相对鼠标移动。
+- 键盘仍响应是预期结果：键盘事件与窗口焦点无关；鼠标重新显示后绝对坐标恢复，所以前端 `handleMouseMove` 又能更新视角。
+
+### 当前输入链路
+
+- Rust `DeviceEventKind` 已经包含 `MouseRelativeMove`，前端 `DeviceInputEvent`、`useDevice` 的合并与 `useModel.handleRelativeMouseMove` 已经支持 `{ dx, dy }`。
+- Linux Wayland 服务已有相对移动实现；`useModel.ts` 通过有界虚拟光标和现有鼠标灵敏度参数驱动同一组 Live2D 视角参数。
+- 当前缺口只在 Windows：`InputBackend` 没有 Raw Input 分支，`rdev` 路径也没有产生相对位移事件。
+
+### 交接实现方案
+
+1. 在 `src-tauri/src/core/device.rs` 增加 Windows Raw Input 后端。使用独立的隐藏原生窗口或消息窗口线程，调用 `RegisterRawInputDevices` 注册鼠标设备并使用 `RIDEV_INPUTSINK`，通过消息循环接收 `WM_INPUT`，从 `RAWINPUT` 的 `lLastX/lLastY` 读取相对位移。
+2. Windows 后端继续使用现有 `rdev` 处理键盘和鼠标按键，但丢弃 `rdev` 的绝对 `MouseMove`，避免绝对坐标与 Raw Input 相对位移同时到达前端造成视角跳动。Raw Input 解析出的位移统一发送为现有格式：`{"kind":"MouseRelativeMove","value":{"dx":DX,"dy":DY}}`。
+3. 保持 `start_device_listening` 的单实例和现有事件发射线程模型；Raw Input 窗口线程退出、注册失败或消息解析失败时记录后端名称和错误，并确保 `IS_LISTENING` 能恢复为 `false`，不留下悬挂线程。
+4. 扩展 `InputBackend`、`backend_name`、`get_device_input_status` 和前端 `DeviceInputStatus.backend` 联合类型，增加明确的 Windows 后端名称，例如 `windows-raw-input`。Windows 后端可用时报告 `available=true`、`authorized=true`、`hoverSupported=true`；非 Windows 行为保持不变。
+5. 前端优先复用现有相对输入路径，不新增第二套视角算法。检查 `src/composables/useModel.ts` 的绝对/相对模式切换：收到绝对坐标时同步虚拟光标位置，避免从游戏返回桌面或切换输入模式时出现跳变；继续沿用 `mouseSensitivity`、`mouseMirror`、`ignoreMouse` 和 requestAnimationFrame 合并逻辑。
+6. 在 Raw Input 注册和释放处补充诊断日志，至少记录后端选择、注册结果、窗口线程启动/退出、解析失败、累计丢弃事件数；不要逐条记录高频鼠标移动，避免日志本身影响游戏场景性能。
+
+### 依赖与涉及文件
+
+- `src-tauri/src/core/device.rs`：Windows 后端、Raw Input 消息循环、后端状态和生命周期。
+- `Cargo.toml` / `src-tauri/Cargo.toml`：为现有 `windows` crate 增加 Raw Input 所需的 Windows API feature；不新增第三方输入库，优先复用当前依赖。
+- `src/composables/useDeviceInputStatus.ts`：加入 Windows 后端名称的类型声明。
+- `src/composables/useModel.ts`：只补充绝对坐标与虚拟相对光标的切换同步；不改变现有 Live2D 参数映射。
+- `src-tauri/src/core/device.rs` 测试模块及必要的前端测试：覆盖 Raw Input 数据转换和事件分发，不在单元测试中依赖真实鼠标设备。
+
+### 测试与验收
+
+- Rust 单元测试：Raw Input 鼠标数据转换为正负 `dx/dy`、零位移、异常/不完整数据；后端名称和状态字段正确；非 Windows 与 Linux 既有测试保持通过。
+- 前端测试：相对事件合并、灵敏度、边界限制、绝对/相对模式切换时虚拟光标同步；既有测试数量和行为不回退。
+- 静态验证：`pnpm test`、`pnpm exec tsc --noEmit --pretty false`、目标 Windows 的 `cargo test --workspace --all-targets --locked`、`cargo check --workspace --all-targets --locked`、`git diff --check`。
+- Windows 手动验收：桌面移动鼠标时模型正常跟随；进入窗口化或无边框游戏并隐藏/锁定鼠标后，持续移动鼠标仍能改变视角；键盘按键、鼠标按键、Cat Lock、鼠标穿透、Game Mode 和鼠标灵敏度均不回归；退出游戏后桌面绝对坐标跟随恢复且无明显跳变。
+- 至少验证普通权限游戏和管理员权限游戏各一次；若权限级别导致 Raw Input 无法接收，必须在状态日志中明确失败原因，不得静默退回会产生错误视角的绝对 MouseMove。
+
+### 当前状态
+
+- Windows Raw Input 修复已实现并通过自动化验证。Windows 在光标可见时继续使用绝对坐标以保留桌面跟随和悬停行为，在游戏隐藏光标时切换到 Raw Input 相对位移；键盘和鼠标按键仍由 `rdev` 提供。
+- 尚需在真实交互环境完成桌面、窗口化/无边框游戏、普通权限游戏和管理员权限游戏的手动验收，并确认 Cat Lock、鼠标穿透、Game Mode 和鼠标灵敏度无回归。
+- 本次只创建本地提交，不推送、不创建 PR，不执行 label、远程 review 或 squash merge。

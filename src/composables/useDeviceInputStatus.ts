@@ -8,7 +8,7 @@ import { INVOKE_KEY } from '@/constants'
 import { logError, logInfo } from '@/utils/diagnostics'
 
 export interface DeviceInputStatus {
-  backend: 'rdev' | 'wayland-service' | 'wayland-appimage'
+  backend: 'rdev' | 'windows-raw-input' | 'wayland-service' | 'wayland-appimage'
   available: boolean
   authorized: boolean
   hoverSupported: boolean

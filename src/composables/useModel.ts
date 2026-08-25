@@ -18,6 +18,7 @@ import { logError, logStep, logTrace } from '@/utils/diagnostics'
 import { getCursorMonitor } from '@/utils/monitor'
 import { applyMouseSensitivity } from '@/utils/mouseSensitivity'
 import { isMac } from '@/utils/platform'
+import { applyRelativeMouseMovement, normalizeCursorPosition } from '@/utils/relativeMouse'
 
 import live2d, { isLive2dLoadCancelledError } from '../utils/live2d'
 
@@ -586,19 +587,20 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
 
     const { size, position } = monitor
 
-    applyMouseLook(
-      (cursorPoint.x - position.x) / size.width,
-      (cursorPoint.y - position.y) / size.height,
-    )
+    relativeLookPosition = normalizeCursorPosition(cursorPoint, {
+      x: position.x,
+      y: position.y,
+      width: size.width,
+      height: size.height,
+    })
+
+    applyMouseLook(relativeLookPosition.x, relativeLookPosition.y)
   }
 
   function handleRelativeMouseMove(dx: number, dy: number) {
-    // Wayland intentionally does not expose global cursor coordinates. Keep a bounded
-    // virtual cursor so relative motion still drives the same Live2D look parameters.
-    relativeLookPosition = {
-      x: Math.min(1, Math.max(0, relativeLookPosition.x + dx / 240)),
-      y: Math.min(1, Math.max(0, relativeLookPosition.y + dy / 240)),
-    }
+    // Raw input does not expose global cursor coordinates. Keep a bounded virtual
+    // cursor so relative motion drives the same Live2D look parameters.
+    relativeLookPosition = applyRelativeMouseMovement(relativeLookPosition, dx, dy)
 
     applyMouseLook(relativeLookPosition.x, relativeLookPosition.y)
   }
