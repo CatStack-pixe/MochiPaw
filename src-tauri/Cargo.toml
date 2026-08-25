@@ -5,7 +5,7 @@
 [package]
 name = "mochi-paw"
 default-run = "mochi-paw"
-version = "1.2.0"
+version = "1.2.1-1"
 description = "A Tauri App"
 authors = [ "ayangweb" ]
 edition = "2024"
