@@ -29,6 +29,37 @@ export function normalizeCursorPosition(
   }
 }
 
+export function selectMouseLookBounds(
+  windowRelativeMouseLook: boolean,
+  windowBounds: CursorBounds | undefined,
+  monitorBounds: CursorBounds | undefined,
+) {
+  return windowRelativeMouseLook ? windowBounds : monitorBounds
+}
+
+export function normalizeMouseLookPosition(
+  cursor: { x: number, y: number },
+  windowRelativeMouseLook: boolean,
+  windowBounds: CursorBounds | undefined,
+  monitorBounds: CursorBounds | undefined,
+): NormalizedCursorPosition | undefined {
+  const bounds = selectMouseLookBounds(windowRelativeMouseLook, windowBounds, monitorBounds)
+
+  if (!bounds
+    || !Number.isFinite(cursor.x)
+    || !Number.isFinite(cursor.y)
+    || !Number.isFinite(bounds.x)
+    || !Number.isFinite(bounds.y)
+    || !Number.isFinite(bounds.width)
+    || !Number.isFinite(bounds.height)
+    || bounds.width <= 0
+    || bounds.height <= 0) {
+    return undefined
+  }
+
+  return normalizeCursorPosition(cursor, bounds)
+}
+
 export function applyRelativeMouseMovement(
   position: NormalizedCursorPosition,
   dx: number,

@@ -20,6 +20,10 @@ import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { logError, logInfo } from '@/utils/diagnostics'
 import { inBetween } from '@/utils/is'
+import {
+  getActiveMouseLookSmoothing,
+  getMouseLookInterpolationAlpha,
+} from '@/utils/mouseLookSmoothing'
 import { isMac, isWindows } from '@/utils/platform'
 import { mergeRelativeMouseMovement } from '@/utils/relativeMouse'
 import { reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
@@ -44,7 +48,6 @@ export interface UseDeviceOptions extends ModelRuntimeOptions {
   onInputEvent?: (event: DeviceInputEvent) => void
 }
 
-const DAMPING_DECAY = 0.75
 const RUNTIME_USED_REPORT_INTERVAL = 5 * 60 * 1000
 const appWindow = getCurrentWebviewWindow()
 
@@ -146,7 +149,10 @@ export function useDevice(options: UseDeviceOptions = {}) {
 
     lastCursorSmoothingAt = timestamp
 
-    const alpha = 1 - DAMPING_DECAY ** (deltaMS / (1000 / 60))
+    const alpha = getMouseLookInterpolationAlpha(
+      getActiveMouseLookSmoothing(catStore.model),
+      deltaMS,
+    )
 
     const interpolated = {
       x: current.x + (destination.x - current.x) * alpha,
@@ -345,10 +351,10 @@ export function useDevice(options: UseDeviceOptions = {}) {
     const y = cursorPoint.y * scaleFactor.value
     const physicalCursorPoint = new PhysicalPosition(x, y)
 
-    if (windowBounds) {
-      handleMouseMove(physicalCursorPoint, windowBounds)
-    } else {
+    if (catStore.model.windowRelativeMouseLook && !windowBounds) {
       void refreshWindowBounds()
+    } else {
+      void handleMouseMove(physicalCursorPoint, windowBounds)
     }
 
     if (!options.enableWindowHover || !catStore.window.hideOnHover) return

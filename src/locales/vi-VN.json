@@ -80,9 +80,11 @@
         "title": "Mèo",
         "labels": {
           "modelSettings": "Cài đặt Mô hình",
+          "windowRelativeMouseLook": "Góc nhìn chuột theo cửa sổ",
           "mirrorMode": "Chế độ gương",
           "mouseMirror": "Phản chiếu chuột",
           "mouseSensitivity": "Độ nhạy theo chuột",
+          "mouseLookSmoothing": "Độ mượt góc nhìn chuột",
           "ignoreMouse": "Bỏ qua sự kiện chuột",
           "windowSettings": "Cài đặt Cửa sổ",
           "passThrough": "Khóa mèo",
@@ -102,9 +104,11 @@
           "typingBehaviorGroup": "Nh?m ng?u nhi?n"
         },
         "hints": {
+          "windowRelativeMouseLook": "Khi bật, góc nhìn chuột được tính theo ranh giới cửa sổ mèo; khi tắt, góc nhìn được tính theo ranh giới màn hình.",
           "mirrorMode": "Bật để lật ngang mô hình.",
           "mouseMirror": "Khi bật, chuột của mô hình sẽ phản chiếu theo chuyển động chuột thực tế.",
           "mouseSensitivity": "Điều chỉnh mức độ mô hình phản hồi theo chuyển động chuột. 100% giữ nguyên phản hồi mặc định.",
+          "mouseLookSmoothing": "Điều chỉnh độ mượt khi góc nhìn bám theo chuột: 0% phản hồi nhanh nhất, 75% giữ cảm giác hiện tại và 100% mượt nhất nhưng có độ trễ rõ hơn.",
           "ignoreMouse": "Khi bật, mô hình sẽ không phản hồi sự kiện chuột. Hữu ích cho chế độ bàn phím hoặc chế độ tay cầm.",
           "motionSound": "Khi bật, mô hình sẽ phát các âm thanh tương ứng khi thực hiện hành động (nếu tồn tại).",
           "behavior": "Khi bật, các hành động và biểu cảm có thể được cấu hình và kích hoạt.",

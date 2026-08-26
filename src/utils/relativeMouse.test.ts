@@ -5,7 +5,35 @@ import assert from 'node:assert/strict'
 // eslint-disable-next-line test/no-import-node-test -- Vitest is not installed; this test runs through tsx's Node test runner.
 import test from 'node:test'
 
-import { applyRelativeMouseMovement, mergeRelativeMouseMovement, normalizeCursorPosition } from './relativeMouse'
+import {
+  applyRelativeMouseMovement,
+  mergeRelativeMouseMovement,
+  normalizeCursorPosition,
+  normalizeMouseLookPosition,
+} from './relativeMouse'
+
+test('selects window or monitor bounds for the corresponding mouse-look algorithm', () => {
+  const windowBounds = { x: 1000, y: 500, width: 500, height: 500 }
+  const monitorBounds = { x: 0, y: 0, width: 2000, height: 1000 }
+
+  assert.deepEqual(
+    normalizeMouseLookPosition({ x: 1250, y: 750 }, true, windowBounds, monitorBounds),
+    { x: 0.5, y: 0.5 },
+  )
+  assert.deepEqual(
+    normalizeMouseLookPosition({ x: 1000, y: 500 }, false, windowBounds, monitorBounds),
+    { x: 0.5, y: 0.5 },
+  )
+})
+
+test('keeps mouse-look normalization defensive when the selected bounds are missing', () => {
+  const windowBounds = { x: 1000, y: 500, width: 500, height: 500 }
+  const monitorBounds = { x: 0, y: 0, width: 2000, height: 1000 }
+
+  assert.equal(normalizeMouseLookPosition({ x: 1250, y: 750 }, true, undefined, monitorBounds), undefined)
+  assert.equal(normalizeMouseLookPosition({ x: 1000, y: 500 }, false, windowBounds, undefined), undefined)
+  assert.equal(normalizeMouseLookPosition({ x: 0, y: 0 }, true, { x: 0, y: 0, width: 0, height: 100 }, monitorBounds), undefined)
+})
 
 test('normalizes an absolute cursor position relative to the pet window', () => {
   assert.deepEqual(normalizeCursorPosition(
