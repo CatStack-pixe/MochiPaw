@@ -26,11 +26,13 @@ and commercial licensing information.
 
 ## Features
 
-- Desktop Live2D pet with transparent always-on-top window.
-- Keyboard, gamepad, and standard preset model modes.
-- Model import and management.
-- Tray menu, preferences window, autostart, shortcuts, and update entry points.
-- Windows administrator status and process metrics helpers.
+- Customizable Live2D desktop pet in a transparent, always-on-top window.
+- Keyboard, mouse, and gamepad input that drives typing behaviors, motions, and expressions.
+- Import, organize, rename, and manage multiple Live2D models and desktop pets.
+- Built-in Pomodoro timer and daily typing statistics.
+- Tray controls, preferences, global shortcuts, autostart, and update management.
+- Windows compatibility features, including game mode, Raw Input support, administrator status, and process diagnostics.
+- Cross-platform support for Windows, macOS, and Linux.
 
 ## Requirements
 
