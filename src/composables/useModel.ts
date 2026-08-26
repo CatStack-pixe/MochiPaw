@@ -11,11 +11,11 @@ import { isNil, round } from 'es-toolkit'
 import { computed, ref } from 'vue'
 
 import type { Model, ModelBehaviorGroup, ModelBehaviorRef, ModelMotionInfo } from '@/stores/model'
+import type { CursorBounds } from '@/utils/relativeMouse'
 
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { logError, logStep, logTrace } from '@/utils/diagnostics'
-import { getCursorMonitor } from '@/utils/monitor'
 import { applyMouseSensitivity } from '@/utils/mouseSensitivity'
 import { isMac } from '@/utils/platform'
 import { applyRelativeMouseMovement, normalizeCursorPosition } from '@/utils/relativeMouse'
@@ -580,19 +580,10 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
     live2d.setLookTarget(lookTargetX, lookTargetY)
   }
 
-  async function handleMouseMove(cursorPoint: PhysicalPosition) {
-    const monitor = await getCursorMonitor(cursorPoint)
+  function handleMouseMove(cursorPoint: PhysicalPosition, windowBounds?: CursorBounds) {
+    if (!windowBounds) return
 
-    if (!monitor) return
-
-    const { size, position } = monitor
-
-    relativeLookPosition = normalizeCursorPosition(cursorPoint, {
-      x: position.x,
-      y: position.y,
-      width: size.width,
-      height: size.height,
-    })
+    relativeLookPosition = normalizeCursorPosition(cursorPoint, windowBounds)
 
     applyMouseLook(relativeLookPosition.x, relativeLookPosition.y)
   }
