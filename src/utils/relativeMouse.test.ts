@@ -7,15 +7,29 @@ import test from 'node:test'
 
 import { applyRelativeMouseMovement, mergeRelativeMouseMovement, normalizeCursorPosition } from './relativeMouse'
 
-test('normalizes an absolute cursor position for relative input handoff', () => {
+test('normalizes an absolute cursor position relative to the pet window', () => {
   assert.deepEqual(normalizeCursorPosition(
-    { x: 960, y: 540 },
-    { x: 0, y: 0, width: 1920, height: 1080 },
+    { x: 1250, y: 750 },
+    { x: 1000, y: 500, width: 500, height: 500 },
   ), { x: 0.5, y: 0.5 })
 
   assert.deepEqual(normalizeCursorPosition(
     { x: -960, y: 540 },
     { x: -1920, y: 0, width: 1920, height: 1080 },
+  ), { x: 0.5, y: 0.5 })
+})
+
+test('clamps cursor positions outside a window spanning a negative monitor', () => {
+  assert.deepEqual(normalizeCursorPosition(
+    { x: -2200, y: 1400 },
+    { x: -1920, y: 0, width: 1920, height: 1080 },
+  ), { x: 0, y: 1 })
+})
+
+test('uses physical window dimensions for mixed-DPI layouts', () => {
+  assert.deepEqual(normalizeCursorPosition(
+    { x: 2880, y: 900 },
+    { x: 2400, y: 600, width: 960, height: 600 },
   ), { x: 0.5, y: 0.5 })
 })
 

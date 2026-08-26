@@ -11,6 +11,7 @@ import { isNil } from 'es-toolkit'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import type { ModelRuntimeOptions } from '@/composables/useModel'
+import type { CursorBounds } from '@/utils/relativeMouse'
 import type { DeviceInputEvent } from '@/utils/subModelRuntime'
 
 import { setPassThrough } from '@/plugins/window'
@@ -57,6 +58,9 @@ export function useDevice(options: UseDeviceOptions = {}) {
   const smoothedCursorPoint = ref<CursorPoint>()
   const relativeMouseMove = ref<RelativeMouseMove>()
   const scaleFactor = ref(1)
+  let windowBounds: CursorBounds | undefined
+  let windowBoundsRefresh: Promise<void> | undefined
+  let stopWindowBoundsListeners: (() => void)[] = []
   const listeners = options.listeners ?? computed<DeviceListenerOptions>(() => ({
     keyboard: true,
     mouse: true,
@@ -67,6 +71,30 @@ export function useDevice(options: UseDeviceOptions = {}) {
   let cursorSmoothingFrame = 0
   let lastCursorSmoothingAt = 0
   let relativeMouseFrame = 0
+
+  const refreshWindowBounds = () => {
+    if (windowBoundsRefresh) return windowBoundsRefresh
+
+    windowBoundsRefresh = Promise.all([
+      appWindow.outerPosition(),
+      appWindow.outerSize(),
+    ]).then(([position, size]) => {
+      if (size.width <= 0 || size.height <= 0) return
+
+      windowBounds = {
+        x: position.x,
+        y: position.y,
+        width: size.width,
+        height: size.height,
+      }
+    }).catch((error) => {
+      logError('[device] failed to refresh window bounds', { windowLabel: appWindow.label, error })
+    }).finally(() => {
+      windowBoundsRefresh = undefined
+    })
+
+    return windowBoundsRefresh
+  }
 
   const updateMainWindowPassThrough = (passThrough: boolean) => {
     if (isWindows) return setPassThrough(passThrough)
@@ -144,18 +172,53 @@ export function useDevice(options: UseDeviceOptions = {}) {
   onMounted(async () => {
     try {
       scaleFactor.value = isMac ? await appWindow.scaleFactor() : 1
+      await refreshWindowBounds()
 
-      await appWindow.onScaleChanged(({ payload }) => {
-        if (!isMac) return
+      const [stopMoved, stopResized, stopScaleChanged] = await Promise.all([
+        appWindow.onMoved(({ payload }) => {
+          if (!windowBounds) {
+            void refreshWindowBounds()
+            return
+          }
 
-        scaleFactor.value = payload.scaleFactor
-      })
+          windowBounds = { ...windowBounds, x: payload.x, y: payload.y }
+        }),
+        appWindow.onResized(({ payload }) => {
+          if (!windowBounds) {
+            void refreshWindowBounds()
+            return
+          }
+
+          windowBounds = { ...windowBounds, width: payload.width, height: payload.height }
+        }),
+        appWindow.onScaleChanged(({ payload }) => {
+          if (isMac) scaleFactor.value = payload.scaleFactor
+
+          if (!windowBounds) {
+            void refreshWindowBounds()
+            return
+          }
+
+          windowBounds = {
+            ...windowBounds,
+            width: payload.size.width,
+            height: payload.size.height,
+          }
+        }),
+      ])
+
+      stopWindowBoundsListeners = [stopMoved, stopResized, stopScaleChanged]
     } catch (error) {
       logError('[device] failed to initialize window scale listener', { windowLabel: appWindow.label, error })
     }
   })
 
   onUnmounted(() => {
+    for (const stopListening of stopWindowBoundsListeners) {
+      stopListening()
+    }
+
+    stopWindowBoundsListeners = []
     stopCursorSmoothing()
 
     for (const timer of releaseTimers.values()) {
@@ -277,11 +340,16 @@ export function useDevice(options: UseDeviceOptions = {}) {
     }
   })()
 
-  const handleCursorMove = async (cursorPoint: CursorPoint) => {
+  const handleCursorMove = (cursorPoint: CursorPoint) => {
     const x = cursorPoint.x * scaleFactor.value
     const y = cursorPoint.y * scaleFactor.value
+    const physicalCursorPoint = new PhysicalPosition(x, y)
 
-    handleMouseMove(new PhysicalPosition(x, y))
+    if (windowBounds) {
+      handleMouseMove(physicalCursorPoint, windowBounds)
+    } else {
+      void refreshWindowBounds()
+    }
 
     if (!options.enableWindowHover || !catStore.window.hideOnHover) return
 
