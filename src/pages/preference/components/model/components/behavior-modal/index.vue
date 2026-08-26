@@ -244,12 +244,10 @@ watch(modelValue, async (open) => {
 
   modelStore.currentMotions = Object.entries(groupBy(motions, 'group'))
 
-  if (!isEmpty(modelStore.currentExpressions)) {
-    modelStore.currentExpressions = await resolveModelExpressions(
-      modelStore.currentModel.path,
-      modelStore.currentExpressions,
-    )
-  }
+  modelStore.currentExpressions = await resolveModelExpressions(
+    modelStore.currentModel.path,
+    modelStore.currentExpressions,
+  )
 
   ensureBehaviorNames()
 
