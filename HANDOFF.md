@@ -462,3 +462,11 @@
 - Windows Raw Input 修复已实现并通过自动化验证。Windows 在光标可见时继续使用绝对坐标以保留桌面跟随和悬停行为，在游戏隐藏光标时切换到 Raw Input 相对位移；键盘和鼠标按键仍由 `rdev` 提供。
 - 尚需在真实交互环境完成桌面、窗口化/无边框游戏、普通权限游戏和管理员权限游戏的手动验收，并确认 Cat Lock、鼠标穿透、Game Mode 和鼠标灵敏度无回归。
 - 本次只创建本地提交，不推送、不创建 PR，不执行 label、远程 review 或 squash merge。
+
+## Submodel Window Lifecycle Fix (2026-08-26)
+
+- Investigated `C:\Users\LEGION\Downloads\MochiPaw.log`; the run showed repeated hide, destroy, hidden-sync, and stale-open operations for one submodel instance while Live2D remained loaded at about 58 FPS.
+- Prevented hidden preference updates from scheduling redundant synchronization, made hidden-window cleanup and destruction idempotent, and added lifecycle generations so newer show/hide/destroy requests cancel stale opens while a submodel is waiting for runtime readiness.
+- Added `SubModelWindowLifecycle` regression coverage for stale generation invalidation, cancellation notification, and listener disposal.
+- Verification passed: `pnpm test` (169/169), `pnpm exec tsc --noEmit --pretty false`, focused ESLint, full ESLint with only the pre-existing UnoCSS ordering warning, `pnpm build:vite`, and `git diff --check`.
+- PR #102 was created from `fix/submodel-window-lifecycle`, labeled `bug` and `performance`, and received a findings-first audit with no blocking or actionable findings. The PR remains open and unmerged by request.
