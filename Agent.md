@@ -193,3 +193,11 @@ BongoCat 是一个基于 Vue 3 + Vite + Tauri 2 的跨平台桌面宠物应用�
 - 模型文件读取依赖 Tauri `assetProtocol` 和 `convertFileSrc()`，不要直接把本地路径当浏览器 URL。
 - 新增 UI 文案时同步所有 `src/locales/*.json`，否则语言切换可能出现缺失 key。
 - 涉及发布或更新地址时检查 `src-tauri/tauri.conf.json` 的 updater endpoints 和 `.github/workflows/*`。
+
+## 当前项目状态
+
+- 2026-08-26 修复模型编辑页表情列表为空：偏好窗口中的 `currentExpressions` 属于未持久化的运行时状态，首次打开编辑弹窗时可能为空；`src/utils/live2d.ts` 现在会从当前模型 JSON 的 `FileReferences.Expressions` 回退构建表情条目，`behavior-modal` 会始终执行解析。
+- 表情条目解析抽到 `src/utils/modelExpressions.ts`，并由 `src/utils/modelExpressions.test.ts` 覆盖带名称、仅文件名和缺少表情引用的模型 JSON。
+- 已验证：`pnpm test`（173/173）、`pnpm exec tsc --noEmit -p tsconfig.json`、相关文件 ESLint、`pnpm build:vite` 均通过。
+- 用户导入的旧版键鼠模型 JSON 本身包含 `Expressions` 和对应 `exp3.json` 文件；本次现象的根因是编辑页未在运行时列表为空时读取模型 JSON，不是导入复制阶段丢失文件。
+- 2026-08-26 预发布准备：`release/v1.2.1-3` 将本次表情编辑页修复与 `1.2.1-3` 版本元数据合并，目标 GitHub Release 为 `MochiPaw v1.2.1-3`，沿用上一预览版的 `## What's New` 说明格式。
