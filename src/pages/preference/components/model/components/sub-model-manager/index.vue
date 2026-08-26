@@ -108,7 +108,11 @@ function toggleExpanded(instanceId: string) {
 }
 
 async function notifyInstance(instance: SubModelInstance) {
+  if (!instance.visible) return
+
   await nextTick()
+
+  if (!instance.visible) return
 
   await syncSubModelWindow(instance)
 }

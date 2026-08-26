@@ -11,12 +11,17 @@ import type { SubModelInstance } from '@/stores/model'
 import { LISTEN_KEY } from '@/constants'
 import { logError, logInfo, logStep, logTrace, logWarn } from '@/utils/diagnostics'
 
+import { SubModelWindowLifecycle } from './subModelWindowLifecycle'
+
 const SUB_MODEL_WINDOW_PREFIX = 'sub-model-'
 const DEFAULT_SIZE = 300
 const WINDOW_READY_TIMEOUT = 10_000
 let windowOpenQueue = Promise.resolve()
 const runtimeStates = new Map<string, SubModelInteractionState>()
 const lifecycleQueues = new Map<string, Promise<unknown>>()
+const lifecycle = new SubModelWindowLifecycle()
+const destroyedWindowLabels = new Set<string>()
+const destroyingWindowTasks = new Map<string, Promise<boolean>>()
 
 export interface SubModelInteractionState {
   modelReady: boolean
@@ -101,8 +106,10 @@ export function getSubModelWindowLabel(instanceId: string) {
 }
 
 export async function openSubModelWindow(instance: SubModelInstance) {
+  const generation = lifecycle.begin(instance.id)
+
   return enqueueWindowOperation(instance.id, () => {
-    const task = windowOpenQueue.then(() => openSubModelWindowNow(instance))
+    const task = windowOpenQueue.then(() => openSubModelWindowNow(instance, generation))
 
     windowOpenQueue = task.then(() => undefined, () => undefined)
 
@@ -110,12 +117,22 @@ export async function openSubModelWindow(instance: SubModelInstance) {
   })
 }
 
-async function openSubModelWindowNow(instance: SubModelInstance) {
+async function openSubModelWindowNow(instance: SubModelInstance, generation: number) {
   const label = getSubModelWindowLabel(instance.id)
 
   if (!instance.visible) {
+    runtimeStates.delete(instance.id)
     logStep('sub-model-window', 'skipped hidden window open', getInstanceContext(instance))
     await destroySubModelWindowNow(instance.id)
+    return
+  }
+
+  if (!lifecycle.isCurrent(instance.id, generation)) {
+    runtimeStates.delete(instance.id)
+    logTrace('[sub-model-window] skipped stale window open', {
+      ...getInstanceContext(instance),
+      generation,
+    })
     return
   }
 
@@ -126,7 +143,13 @@ async function openSubModelWindowNow(instance: SubModelInstance) {
     generation: previousGeneration + 1,
   })
   logStep('sub-model-window', 'begin open', getInstanceContext(instance))
+  destroyedWindowLabels.delete(label)
   const existingWindow = await getWindowSafely(instance.id)
+
+  if (!lifecycle.isCurrent(instance.id, generation) || !instance.visible) {
+    if (existingWindow) await destroyWindowSafely(existingWindow, 'open-cancelled')
+    return
+  }
 
   if (existingWindow) {
     logWarn('[sub-model-window] replacing existing window to restore runtime handshake', {
@@ -135,10 +158,18 @@ async function openSubModelWindowNow(instance: SubModelInstance) {
     await destroyWindowSafely(existingWindow, 'replace-existing')
   }
 
-  const runtimeReady = await listenForSubModelRuntimeReady(instance.id)
+  if (!lifecycle.isCurrent(instance.id, generation) || !instance.visible) {
+    runtimeStates.delete(instance.id)
+    return
+  }
+
+  const cancellation = lifecycle.onChange(instance.id, generation)
+  let runtimeReady: Awaited<ReturnType<typeof listenForSubModelRuntimeReady>> | undefined
   let window: WebviewWindow | undefined
 
   try {
+    runtimeReady = await listenForSubModelRuntimeReady(instance.id)
+    destroyedWindowLabels.delete(label)
     window = new WebviewWindow(label, {
       url: `index.html/#/sub-model?instance=${encodeURIComponent(instance.id)}`,
       title: 'MochiPaw',
@@ -154,17 +185,40 @@ async function openSubModelWindowNow(instance: SubModelInstance) {
       visible: false,
     })
 
-    await Promise.all([waitForWindowCreation(window), runtimeReady.ready])
+    const cancelled = await Promise.race([
+      Promise.all([waitForWindowCreation(window), runtimeReady.ready]).then(() => false),
+      cancellation.promise.then(() => true),
+    ])
+    if (cancelled || !lifecycle.isCurrent(instance.id, generation) || !instance.visible) {
+      await destroyWindowSafely(window, 'open-cancelled')
+      return
+    }
+
     await makeWindowNonInteractive(window, 'runtime-mounted')
 
-    if (!instance.visible) {
-      await destroyWindowSafely(window, 'hidden-during-open')
+    if (!lifecycle.isCurrent(instance.id, generation) || !instance.visible) {
+      await destroyWindowSafely(window, 'open-cancelled')
       return
     }
 
     await syncSubModelWindowNow(instance, window)
+    if (!lifecycle.isCurrent(instance.id, generation) || !instance.visible) {
+      await destroyWindowSafely(window, 'open-cancelled')
+      return
+    }
+
     await window.show()
+    if (!lifecycle.isCurrent(instance.id, generation) || !instance.visible) {
+      await destroyWindowSafely(window, 'open-cancelled')
+      return
+    }
+
     await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, true)
+    if (!lifecycle.isCurrent(instance.id, generation) || !instance.visible) {
+      await destroyWindowSafely(window, 'open-cancelled')
+      return
+    }
+
     await logWindowState(window, 'opened new window', instance)
 
     return window
@@ -173,16 +227,20 @@ async function openSubModelWindowNow(instance: SubModelInstance) {
     logError('[sub-model-window] failed to open new window', { ...getInstanceContext(instance), error })
     throw error
   } finally {
-    runtimeReady.dispose()
+    cancellation.dispose()
+    runtimeReady?.dispose()
   }
 }
 
 export async function hideSubModelWindow(instanceId: string) {
+  lifecycle.begin(instanceId)
   return enqueueWindowOperation(instanceId, () => hideSubModelWindowNow(instanceId))
 }
 
 async function hideSubModelWindowNow(instanceId: string) {
   const label = getSubModelWindowLabel(instanceId)
+  const previousGeneration = runtimeStates.get(instanceId)?.generation ?? 0
+  runtimeStates.set(instanceId, { modelReady: false, renderingEnabled: false, generation: previousGeneration + 1 })
   const window = await getWindowSafely(instanceId)
 
   if (!window) {
@@ -191,8 +249,6 @@ async function hideSubModelWindowNow(instanceId: string) {
   }
 
   logStep('sub-model-window', 'begin hide', { instanceId, label })
-  const previousGeneration = runtimeStates.get(instanceId)?.generation ?? 0
-  runtimeStates.set(instanceId, { modelReady: false, renderingEnabled: false, generation: previousGeneration + 1 })
   await makeWindowNonInteractive(window, 'hide').catch(() => undefined)
   await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, false).catch((error) => {
     logWarn('[sub-model-window] failed to disable rendering before hide', { instanceId, label, error })
@@ -201,6 +257,7 @@ async function hideSubModelWindowNow(instanceId: string) {
 }
 
 export async function destroySubModelWindow(instanceId: string) {
+  lifecycle.begin(instanceId)
   return enqueueWindowOperation(instanceId, () => destroySubModelWindowNow(instanceId))
 }
 
@@ -233,6 +290,10 @@ export async function cleanupOrphanSubModelWindows(instances: readonly Pick<SubM
   const orphanWindows = windows.filter((window) => {
     return window.label.startsWith(SUB_MODEL_WINDOW_PREFIX) && !configuredLabels.has(window.label)
   })
+
+  for (const window of orphanWindows) {
+    lifecycle.begin(window.label.slice(SUB_MODEL_WINDOW_PREFIX.length))
+  }
 
   for (const instanceId of runtimeStates.keys()) {
     if (!configuredLabels.has(getSubModelWindowLabel(instanceId))) runtimeStates.delete(instanceId)
@@ -296,7 +357,7 @@ async function syncSubModelWindowNow(instance: SubModelInstance, existingWindow?
   }
 
   if (!instance.visible) {
-    logWarn('[sub-model-window] destroying hidden window during sync', getInstanceContext(instance))
+    logTrace('[sub-model-window] destroying hidden window during sync', getInstanceContext(instance))
     const previousGeneration = runtimeStates.get(instance.id)?.generation ?? 0
     runtimeStates.set(instance.id, { modelReady: false, renderingEnabled: false, generation: previousGeneration + 1 })
     await destroyWindowSafely(window, 'sync-hidden')
@@ -403,18 +464,35 @@ async function makeWindowNonInteractive(window: WebviewWindow, reason: string) {
 async function destroyWindowSafely(window: WebviewWindow | undefined, reason: string) {
   if (!window) return true
 
-  await makeWindowNonInteractive(window, `${reason}-before-destroy`).catch(() => undefined)
-  await window.hide().catch((error) => {
-    logWarn('[sub-model-window] failed to hide window before destroy', { label: window.label, reason, error })
-  })
+  const label = window.label
+  if (destroyedWindowLabels.has(label)) return true
+
+  const existingTask = destroyingWindowTasks.get(label)
+  if (existingTask) return existingTask
+
+  const task = (async () => {
+    await makeWindowNonInteractive(window, `${reason}-before-destroy`).catch(() => undefined)
+    await window.hide().catch((error) => {
+      logWarn('[sub-model-window] failed to hide window before destroy', { label, reason, error })
+    })
+
+    try {
+      await window.destroy()
+      logInfo('[sub-model-window] destroyed window', { label, reason })
+      return true
+    } catch (error) {
+      logError('[sub-model-window] failed to destroy window', { label, reason, error })
+      return false
+    }
+  })()
+  destroyingWindowTasks.set(label, task)
 
   try {
-    await window.destroy()
-    logInfo('[sub-model-window] destroyed window', { label: window.label, reason })
-    return true
-  } catch (error) {
-    logError('[sub-model-window] failed to destroy window', { label: window.label, reason, error })
-    return false
+    const result = await task
+    if (result) destroyedWindowLabels.add(label)
+    return result
+  } finally {
+    if (destroyingWindowTasks.get(label) === task) destroyingWindowTasks.delete(label)
   }
 }
 
@@ -465,6 +543,8 @@ function enqueueWindowOperation<T>(instanceId: string, operation: () => Promise<
 
 async function getWindowSafely(instanceId: string) {
   const label = getSubModelWindowLabel(instanceId)
+
+  if (destroyedWindowLabels.has(label)) return null
 
   try {
     return await WebviewWindow.getByLabel(label)
