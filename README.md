@@ -1,4 +1,18 @@
-# MochiPaw
+<p align="center">
+  <img src="./public/logo.png" alt="MochiPaw" width="160">
+</p>
+
+<h1 align="center">MochiPaw</h1>
+
+<p align="center">
+  <a href="https://github.com/CatStack-pixe/MochiPaw/releases"><img src="https://img.shields.io/github/downloads/CatStack-pixe/MochiPaw/total?style=flat-square&label=downloads" alt="Downloads"></a>
+  <a href="https://github.com/CatStack-pixe/MochiPaw/releases/latest"><img src="https://img.shields.io/github/v/release/CatStack-pixe/MochiPaw?display_name=tag&style=flat-square&label=latest%20release" alt="Latest Release"></a>
+  <a href="https://github.com/CatStack-pixe/MochiPaw"><img src="https://img.shields.io/github/package-json/v/CatStack-pixe/MochiPaw?style=flat-square&label=version" alt="Version"></a>
+</p>
+
+<p align="center">
+  <a href="./NOTICE.md"><img src="https://img.shields.io/badge/license-MIT%20%2B%20PolyForm%20Noncommercial-blue?style=flat-square" alt="License"></a>
+</p>
 
 MochiPaw is a Tauri + Vue desktop pet app based on
 [BongoCat](https://github.com/ayangweb/BongoCat).
