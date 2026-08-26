@@ -469,4 +469,4 @@
 - Prevented hidden preference updates from scheduling redundant synchronization, made hidden-window cleanup and destruction idempotent, and added lifecycle generations so newer show/hide/destroy requests cancel stale opens while a submodel is waiting for runtime readiness.
 - Added `SubModelWindowLifecycle` regression coverage for stale generation invalidation, cancellation notification, and listener disposal.
 - Verification passed: `pnpm test` (169/169), `pnpm exec tsc --noEmit --pretty false`, focused ESLint, full ESLint with only the pre-existing UnoCSS ordering warning, `pnpm build:vite`, and `git diff --check`.
-- PR delivery is pending; the requested PR must be labeled and reviewed but left unmerged.
+- PR #102 was created from `fix/submodel-window-lifecycle`, labeled `bug` and `performance`, and received a findings-first audit with no blocking or actionable findings. The PR remains open and unmerged by request.
