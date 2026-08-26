@@ -201,3 +201,4 @@ BongoCat 是一个基于 Vue 3 + Vite + Tauri 2 的跨平台桌面宠物应用�
 - 已验证：`pnpm test`（173/173）、`pnpm exec tsc --noEmit -p tsconfig.json`、相关文件 ESLint、`pnpm build:vite` 均通过。
 - 用户导入的旧版键鼠模型 JSON 本身包含 `Expressions` 和对应 `exp3.json` 文件；本次现象的根因是编辑页未在运行时列表为空时读取模型 JSON，不是导入复制阶段丢失文件。
 - 2026-08-26 预发布准备：`release/v1.2.1-3` 将本次表情编辑页修复与 `1.2.1-3` 版本元数据合并，目标 GitHub Release 为 `MochiPaw v1.2.1-3`，沿用上一预览版的 `## What's New` 说明格式。
+- 2026-08-27 已发布 `MochiPaw v1.2.1-3` prerelease：PR #104（表情修复）与 PR #105（发布 workflow 手动触发入口）均已 squash merge；发布 run `32986267571` 成功，Release 包含 24 个资产，`latest-v2.json` 已验证为 `1.2.1-3`。
