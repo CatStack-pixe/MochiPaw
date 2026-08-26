@@ -19,6 +19,7 @@ import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { RenderDiagnostics } from '@/utils/renderDiagnostics'
 import { Config, CubismSetting, Live2DSprite, Priority } from '@/vendor/easy-live2d'
 
+import { readExpressionsFromModelJSON } from './modelExpressions'
 import { join } from './path'
 import { withTimeout } from './promise'
 
@@ -156,11 +157,16 @@ export async function resolveModelMotions(path: string, motions: MotionInfo[]) {
 }
 
 export async function resolveModelExpressions(path: string, expressions: ExpressionInfo[]) {
-  logStep('live2d-resource', 'resolve expressions', { path, expressionCount: expressions.length })
   const modelJSON = await readCubismModelJSON(path)
   const parameterNames = await getParameterNames(path, modelJSON)
+  const sourceExpressions = expressions.length ? expressions : readExpressionsFromModelJSON(modelJSON)
+  logStep('live2d-resource', 'resolve expressions', {
+    path,
+    inputExpressionCount: expressions.length,
+    expressionCount: sourceExpressions.length,
+  })
 
-  return Promise.all(expressions.map(async (expression, index): Promise<ModelExpressionInfo> => {
+  return Promise.all(sourceExpressions.map(async (expression, index): Promise<ModelExpressionInfo> => {
     const expressionConfig = modelJSON.FileReferences?.Expressions?.[index]
 
     if (!expressionConfig?.File) return expression
