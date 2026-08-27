@@ -32,6 +32,8 @@ const COMMAND = {
   SET_GAME_MODE: 'plugin:custom-window|set_game_mode',
 }
 
+let passThroughQueue: Promise<void> = Promise.resolve()
+
 function formatWindowError(error: unknown) {
   if (error instanceof Error) {
     return `${error.name}: ${error.message}`
@@ -69,7 +71,11 @@ export function setAlwaysOnTop(alwaysOnTop: boolean) {
 }
 
 export function setPassThrough(passThrough: boolean) {
-  return invoke(COMMAND.SET_PASS_THROUGH, { passThrough }).catch(catchWindowError('pass-through'))
+  const request = passThroughQueue.then(() => invoke(COMMAND.SET_PASS_THROUGH, { passThrough }))
+
+  passThroughQueue = request.then(() => undefined, () => undefined)
+
+  return request.catch(catchWindowError('pass-through'))
 }
 
 export async function setGameMode(options: GameModeOptions): Promise<boolean> {

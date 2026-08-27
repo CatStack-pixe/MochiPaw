@@ -109,28 +109,19 @@ pub async fn set_pass_through<R: Runtime>(
     window: WebviewWindow<R>,
     pass_through: bool,
 ) -> Result<(), String> {
-    if is_game_mode_active() && is_game_mode_window(&window) {
+    if is_game_mode_window(&window) {
         update_game_mode_pass_through(&window, pass_through);
     }
 
+    let game_mode_active = is_game_mode_active();
     window
         .set_ignore_cursor_events(pass_through)
         .map_err(|error| error.to_string())?;
 
     if is_game_mode_window(&window) {
-        let style_bits = if is_game_mode_active() {
-            GAME_MODE_STYLE_BITS
-        } else {
-            0
-        } | if pass_through {
-            WS_EX_TRANSPARENT.0 as isize
-        } else {
-            0
-        };
-
         update_managed_ex_style(
             window.hwnd().map_err(|error| error.to_string())?,
-            style_bits,
+            managed_ex_style_bits(game_mode_active, pass_through),
         )?;
     }
 
@@ -279,6 +270,7 @@ fn update_game_mode_always_on_top<R: Runtime>(window: &WebviewWindow<R>, always_
         && let Some(settings) = state.settings.as_mut()
     {
         settings.always_on_top = always_on_top;
+        state.generation = state.generation.wrapping_add(1);
     }
 }
 
@@ -291,6 +283,19 @@ fn update_game_mode_pass_through<R: Runtime>(window: &WebviewWindow<R>, pass_thr
         && let Some(settings) = state.settings.as_mut()
     {
         settings.pass_through = pass_through;
+        state.generation = state.generation.wrapping_add(1);
+    }
+}
+
+fn managed_ex_style_bits(game_mode_active: bool, pass_through: bool) -> isize {
+    (if game_mode_active {
+        GAME_MODE_STYLE_BITS
+    } else {
+        0
+    }) | if pass_through {
+        WS_EX_TRANSPARENT.0 as isize
+    } else {
+        0
     }
 }
 
@@ -336,28 +341,17 @@ fn apply_window_game_mode<R: Runtime>(
         return Ok(());
     };
     let hwnd = window.hwnd().map_err(|error| error.to_string())?;
-    if active {
-        let managed_bits = GAME_MODE_STYLE_BITS
-            | if settings.pass_through {
-                WS_EX_TRANSPARENT.0 as isize
-            } else {
-                0
-            };
-        update_managed_ex_style(hwnd, managed_bits)?;
-        set_hwnd_topmost(hwnd, false)?;
-    } else {
-        let managed_bits = if settings.pass_through {
-            WS_EX_TRANSPARENT.0 as isize
-        } else {
-            0
-        };
-        update_managed_ex_style(hwnd, managed_bits)?;
-        set_hwnd_topmost(hwnd, settings.always_on_top)?;
-    }
-
     window
         .set_ignore_cursor_events(settings.pass_through)
         .map_err(|error| error.to_string())?;
+
+    if active {
+        update_managed_ex_style(hwnd, managed_ex_style_bits(true, settings.pass_through))?;
+        set_hwnd_topmost(hwnd, false)?;
+    } else {
+        update_managed_ex_style(hwnd, managed_ex_style_bits(false, settings.pass_through))?;
+        set_hwnd_topmost(hwnd, settings.always_on_top)?;
+    }
 
     Ok(())
 }
@@ -489,10 +483,12 @@ fn apply_webview_memory_target(webview: PlatformWebview, target: WebviewMemoryTa
 #[cfg(test)]
 mod tests {
     use super::{
-        GameModeSettings, normalize_processes, process_entry_name, should_show_without_activation,
+        GAME_MODE_STYLE_BITS, GameModeSettings, managed_ex_style_bits, normalize_processes,
+        process_entry_name, should_show_without_activation,
     };
     use crate::commands::GameModeConfig;
     use windows::Win32::System::Diagnostics::ToolHelp::PROCESSENTRY32W;
+    use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
 
     #[test]
     fn normalizes_processes_case_insensitively_and_ignores_blanks() {
@@ -534,5 +530,19 @@ mod tests {
         assert!(should_show_without_activation(true, true));
         assert!(!should_show_without_activation(false, true));
         assert!(!should_show_without_activation(true, false));
+    }
+
+    #[test]
+    fn managed_styles_keep_game_mode_and_pass_through_bits_independent() {
+        assert_eq!(managed_ex_style_bits(false, false), 0);
+        assert_eq!(
+            managed_ex_style_bits(false, true),
+            WS_EX_TRANSPARENT.0 as isize
+        );
+        assert_eq!(managed_ex_style_bits(true, false), GAME_MODE_STYLE_BITS);
+        assert_eq!(
+            managed_ex_style_bits(true, true),
+            GAME_MODE_STYLE_BITS | WS_EX_TRANSPARENT.0 as isize
+        );
     }
 }
