@@ -7,6 +7,7 @@ import { reactive, ref } from 'vue'
 
 import {
   MOUSE_LOOK_SMOOTHING_DEFAULT,
+  MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT,
   normalizeMouseLookSmoothing,
 } from '@/utils/mouseLookSmoothing'
 import { MOUSE_SENSITIVITY_DEFAULT, normalizeMouseSensitivity } from '@/utils/mouseSensitivity'
@@ -82,7 +83,7 @@ export const useCatStore = defineStore('cat', () => {
     autoReleaseDelay: 3,
     maxFPS: 60,
     ignoreMouse: false,
-    windowRelativeMouseLook: true,
+    windowRelativeMouseLook: MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT,
     mouseLookSmoothing: MOUSE_LOOK_SMOOTHING_DEFAULT,
     legacyMouseLookSmoothing: MOUSE_LOOK_SMOOTHING_DEFAULT,
     mouseSensitivity: MOUSE_SENSITIVITY_DEFAULT,
@@ -105,7 +106,7 @@ export const useCatStore = defineStore('cat', () => {
 
   const init = () => {
     if (typeof model.windowRelativeMouseLook !== 'boolean') {
-      model.windowRelativeMouseLook = true
+      model.windowRelativeMouseLook = MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT
     }
 
     model.mouseLookSmoothing = normalizeMouseLookSmoothing(model.mouseLookSmoothing)
