@@ -212,4 +212,4 @@ BongoCat 是一个基于 Vue 3 + Vite + Tauri 2 的跨平台桌面宠物应用�
 - 修复后重新构建 Windows x64 便捷包：`target/release/bundle/portable/MochiPaw_1.2.1-3_windows_x64_portable.zip`，大小 `9007466` 字节；已验证包含主程序、便携标记和模型资源；SHA-256：`B878EDDCF265912609CC204C99E0E2AEF5B594EEA5734B0B4DA9CC2385A35FDE`。
 - 2026-08-27 根据新日志定位到动态 WebView2 创建错误 `0x8007139F`；对照 `v1.1.9` 移除后续版本给静态窗口和动态子模型窗口注入的 `additionalBrowserArgs` / `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`，避免多 WebView 环境参数冲突。
 - 修复后再次构建 Windows x64 便捷包：`target/release/bundle/portable/MochiPaw_1.2.1-3_windows_x64_portable.zip`，大小 `9007464` 字节；已验证包含主程序、便携标记和模型资源；SHA-256：`9A1A90AAA3B05603893FE19702EF424E64194157EFE892E93F9B638CC15B49E8`。
-- 2026-08-27 已合并 PR #107（鼠标视角算法与平滑度）及 PR #108（按 `v1.1.9` 恢复子模型窗口管道并移除 WebView2 环境参数冲突）；现准备 `v1.2.1` 正式版，正式说明沿用 `v1.2.0` 的 `## What's New` 格式。
+- 2026-08-27 已合并 PR #107（鼠标视角算法与平滑度）、PR #108（按 `v1.1.9` 恢复子模型窗口管道并移除 WebView2 环境参数冲突）及 PR #109（准备 `v1.2.1` 正式版）；已推送标签 `v1.2.1`，发布 run `33039780945` 成功，正式 Release 使用既有 `## What's New` 格式并包含 `latest-v2.json`、Windows 安装包和便捷包。
