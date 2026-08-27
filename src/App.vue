@@ -43,7 +43,7 @@ import { setCoreStoresPersistenceWritable } from './utils/persistence'
 import { startPomodoroCoordinator } from './utils/pomodoroCoordinator'
 import { requestPomodoroCommand } from './utils/pomodoroRequest'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
-import { cleanupOrphanSubModelWindows, destroySubModelWindow, openSubModelWindow } from './utils/subModelWindow'
+import { openSubModelWindow } from './utils/subModelWindow'
 import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
 
 const appStore = useAppStore()
@@ -373,14 +373,6 @@ onMounted(async () => {
   logStep('app-init', 'application state restored', { windowLabel: appWindow.label })
 
   if (appWindow.label === WINDOW_LABEL.MAIN) {
-    const cleanedOrphanWindowCount = await cleanupOrphanSubModelWindows(modelStore.subModels)
-    logInfo('[app-init] orphan submodel windows cleaned', {
-      windowLabel: appWindow.label,
-      cleanedOrphanWindowCount,
-    })
-  }
-
-  if (appWindow.label === WINDOW_LABEL.MAIN) {
     for (const instance of modelStore.subModels.filter(item => item.visible && item.showOnLaunch)) {
       const capacity = await getSubModelRuntimeCapacity(
         modelStore.subModels,
@@ -390,7 +382,6 @@ onMounted(async () => {
 
       if (!capacity.allowed) {
         instance.visible = false
-        await destroySubModelWindow(instance.id)
         error(`[sub-model] skipped ${instance.id}: runtime resource budget exceeded`)
         continue
       }
@@ -400,7 +391,6 @@ onMounted(async () => {
         await openSubModelWindow(instance)
       } catch (reason) {
         instance.visible = false
-        await destroySubModelWindow(instance.id)
         error(`[sub-model] failed to restore ${instance.id}: ${formatError(reason)}`)
         logError('[app-init] failed to restore submodel window', { instanceId: instance.id, modelId: instance.modelId, error: reason })
       }
