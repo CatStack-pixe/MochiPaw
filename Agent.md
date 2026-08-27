@@ -205,3 +205,10 @@ BongoCat 是一个基于 Vue 3 + Vite + Tauri 2 的跨平台桌面宠物应用�
 - 2026-08-27 已实现鼠标视角算法切换与平滑度：`windowRelativeMouseLook` 默认 `true`，`mouseLookSmoothing` 与 `legacyMouseLookSmoothing` 默认均为 `75`；窗口模式使用宠物窗口边界，关闭后恢复显示器边界，两套平滑度独立持久化。
 - 平滑度支持 `0-100%`，`0%` 直接响应，`75%` 保持原 `DAMPING_DECAY = 0.75` 手感，`100%` 使用最高平滑阻尼；已补齐五种语言和相关测试，未修改版本号。
 - 已创建 PR #107（`feat/mouse-look-smoothing`），当前保持 open，尚未合并或发布版本。
+- 2026-08-27 已从 `feat/mouse-look-smoothing` 本地构建 Windows x64 便捷包：`target/release/bundle/portable/MochiPaw_1.2.1-3_windows_x64_portable.zip`，已验证包含主程序、便携标记、托盘和模型资源；SHA-256：`EB66A39B603F64C13E1020382C40AFEAC5C67D5E388AA89D8450796AE5EF9273`。
+- 2026-08-27 根据本地日志修复子桌宠窗口加载竞态：已有标签的窗口先销毁并重新完成 runtime 握手；并发创建遇到重复标签时接管已创建窗口；销毁后等待 Tauri 注册表释放标签，并且不再销毁创建失败的临时句柄。
+- 修复后已重新构建 Windows x64 便捷包：`target/release/bundle/portable/MochiPaw_1.2.1-3_windows_x64_portable.zip`，已验证包含可执行文件、便携标记和模型资源；SHA-256：`B19C67DF5F9C425C29A2AD09410476B7D3C77E15B7B639EA314666A21E0DE4BD`。
+- 2026-08-27 对照 `v1.1.9` 修复子模型管道：恢复已有窗口直接同步并显示、仅在窗口缺失时等待 runtime-ready 后创建的流程；移除后续生命周期代际、启动清理和 runtime 状态门控对创建链路的干预。当前本机持久化 `model.json` 的 `subModels` 为 `[]`，因此不会自动恢复此前已丢失的实例记录。
+- 修复后重新构建 Windows x64 便捷包：`target/release/bundle/portable/MochiPaw_1.2.1-3_windows_x64_portable.zip`，大小 `9007466` 字节；已验证包含主程序、便携标记和模型资源；SHA-256：`B878EDDCF265912609CC204C99E0E2AEF5B594EEA5734B0B4DA9CC2385A35FDE`。
+- 2026-08-27 根据新日志定位到动态 WebView2 创建错误 `0x8007139F`；对照 `v1.1.9` 移除后续版本给静态窗口和动态子模型窗口注入的 `additionalBrowserArgs` / `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`，避免多 WebView 环境参数冲突。
+- 修复后再次构建 Windows x64 便捷包：`target/release/bundle/portable/MochiPaw_1.2.1-3_windows_x64_portable.zip`，大小 `9007464` 字节；已验证包含主程序、便携标记和模型资源；SHA-256：`9A1A90AAA3B05603893FE19702EF424E64194157EFE892E93F9B638CC15B49E8`。

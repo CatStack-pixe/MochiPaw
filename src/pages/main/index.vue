@@ -49,7 +49,6 @@ import { resolveEffectiveMaxFPS } from '@/utils/renderFPS'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { clearObject } from '@/utils/shared'
 import { SubModelInputCoordinator } from '@/utils/subModelRuntime'
-import { destroySubModelWindow, updateSubModelWindowRuntimeState } from '@/utils/subModelWindow'
 import { TypingStatsOperationCoordinator } from '@/utils/typingStatsCoordinator'
 import { executeTypingStatsMutationTransaction, requestTypingStatsStoreSave } from '@/utils/typingStatsPersistence'
 
@@ -157,7 +156,6 @@ let scalingWithShortcut = false
 let scaleSyncTimer: ReturnType<typeof setTimeout> | undefined
 let lastShortcutResizeAt = 0
 let currentModelLoadVersion = 0
-let subModelRuntimeGeneration = 0
 let explicitModelSwitchInProgress = false
 let modelSwitchRequestInProgress = false
 let pomodoroDisplayTimer: ReturnType<typeof setInterval> | undefined
@@ -210,17 +208,10 @@ async function toggleMenuVisibility() {
 
   instance.visible = !instance.visible
   live2d.setRenderingEnabled(instance.visible)
-  if (subModelId) {
-    const generation = ++subModelRuntimeGeneration
-    void updateSubModelWindowRuntimeState(instance, {
-      modelReady: instance.visible && modelStore.modelReady,
-      renderingEnabled: instance.visible,
-    }, generation)
-  }
   await emit(LISTEN_KEY.SUB_MODEL_VISIBILITY_CHANGED, { id: instance.id, visible: instance.visible })
 
   if (!instance.visible) {
-    await destroySubModelWindow(instance.id)
+    await appWindow.destroy()
   }
 }
 
@@ -492,11 +483,6 @@ onMounted(async () => {
 
     instance.visible = false
     live2d.setRenderingEnabled(false)
-    const generation = ++subModelRuntimeGeneration
-    void updateSubModelWindowRuntimeState(instance, {
-      modelReady: false,
-      renderingEnabled: false,
-    }, generation)
     void emit(LISTEN_KEY.SUB_MODEL_VISIBILITY_CHANGED, { id: instance.id, visible: false })
   })
 })
@@ -519,7 +505,6 @@ useEventListener('resize', () => {
 
 async function loadModel(model: Model, canvas: HTMLCanvasElement, loadTrigger: number) {
   const loadVersion = ++currentModelLoadVersion
-  const runtimeGeneration = isSubModel ? ++subModelRuntimeGeneration : undefined
   const modelContext = {
     windowLabel: appWindow.label,
     loadVersion,
@@ -535,18 +520,7 @@ async function loadModel(model: Model, canvas: HTMLCanvasElement, loadTrigger: n
   logInfo('[model-load] started', modelContext)
   logStep('model-load', 'set modelReady=false', modelContext)
 
-  if (isSubModel && subModelId) {
-    const instance = subModel.value
-    if (instance) {
-      await updateSubModelWindowRuntimeState(instance, {
-        modelReady: false,
-        renderingEnabled: false,
-      }, runtimeGeneration)
-    }
-  }
-
   modelStore.modelReady = false
-  let runtimeReady = false
 
   try {
     logStep('model-load', 'prepare runtime lease', modelContext)
@@ -646,17 +620,6 @@ async function loadModel(model: Model, canvas: HTMLCanvasElement, loadTrigger: n
       }
     }
     logInfo('[model-load] completed', modelContext)
-    if (isSubModel && subModelId && loadVersion === currentModelLoadVersion) {
-      const instance = subModel.value
-      if (instance) {
-        if (loadVersion !== currentModelLoadVersion) return false
-        await updateSubModelWindowRuntimeState(instance, {
-          modelReady: true,
-          renderingEnabled: true,
-        }, runtimeGeneration)
-      }
-      runtimeReady = true
-    }
   } catch (error) {
     if (loadVersion !== currentModelLoadVersion) {
       logStep('model-load', 'ignored error from stale load', {
@@ -673,15 +636,6 @@ async function loadModel(model: Model, canvas: HTMLCanvasElement, loadTrigger: n
   } finally {
     if (loadVersion === currentModelLoadVersion) {
       modelStore.modelReady = true
-      if (isSubModel && subModelId && !runtimeReady) {
-        const instance = subModel.value
-        if (instance) {
-          await updateSubModelWindowRuntimeState(instance, {
-            modelReady: false,
-            renderingEnabled: false,
-          }, runtimeGeneration)
-        }
-      }
       logStep('model-load', 'set modelReady=true', modelContext)
     } else {
       logTrace('[model-load] left modelReady to newer load', {
@@ -770,9 +724,6 @@ if (!isSubModel) {
 watch(() => windowSettings.value.passThrough, (value) => {
   if (isWindows && !isSubModel) {
     setPassThrough(value)
-  } else if (isSubModel) {
-    const instance = subModel.value
-    if (instance) void updateSubModelWindowRuntimeState(instance, {})
   } else {
     appWindow.setIgnoreCursorEvents(value)
   }
@@ -848,21 +799,12 @@ useTauriListen<boolean>(LISTEN_KEY.SET_SUB_MODEL_RENDERING, ({ payload }) => {
   if (!isSubModel) return
 
   live2d.setRenderingEnabled(payload)
-  const instance = subModel.value
-  if (instance) {
-    const generation = payload ? subModelRuntimeGeneration : ++subModelRuntimeGeneration
-    void updateSubModelWindowRuntimeState(instance, { renderingEnabled: payload }, generation)
-  }
 })
 
 const subModelConfigListener = useTauriListen<SubModelInstance>(LISTEN_KEY.UPDATE_SUB_MODEL, ({ payload }) => {
   if (!isSubModel || payload.id !== subModelId) return
 
   syncedSubModel.value = payload
-  void updateSubModelWindowRuntimeState(payload, {
-    modelReady: modelStore.modelReady && Boolean(live2d.model),
-    renderingEnabled: Boolean(live2d.model),
-  }, subModelRuntimeGeneration)
 })
 
 const subModelInputListener = useTauriListen<SubModelInputFrame>(LISTEN_KEY.SUB_MODEL_INPUT_FRAME, ({ payload }) => {
