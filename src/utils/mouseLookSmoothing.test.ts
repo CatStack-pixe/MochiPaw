@@ -6,9 +6,14 @@ import {
   getActiveMouseLookSmoothing,
   getMouseLookDampingDecay,
   getMouseLookInterpolationAlpha,
+  MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT,
   normalizeMouseLookSmoothing,
   setActiveMouseLookSmoothing,
 } from './mouseLookSmoothing'
+
+test('defaults mouse look to monitor-relative coordinates', () => {
+  assert.equal(MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT, false)
+})
 
 test('normalizes mouse-look smoothing values within the supported range', () => {
   assert.equal(normalizeMouseLookSmoothing(0), 0)
