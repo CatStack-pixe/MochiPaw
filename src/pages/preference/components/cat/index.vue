@@ -13,12 +13,23 @@ import { useDeviceInputStatus } from '@/composables/useDeviceInputStatus'
 import { returnMainWindowToScreen } from '@/composables/useWindowState'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
+import {
+  getActiveMouseLookSmoothing,
+  MOUSE_LOOK_SMOOTHING_MAX,
+  MOUSE_LOOK_SMOOTHING_MIN,
+  setActiveMouseLookSmoothing,
+} from '@/utils/mouseLookSmoothing'
 import { MOUSE_SENSITIVITY_MAX, MOUSE_SENSITIVITY_MIN } from '@/utils/mouseSensitivity'
 import { isWindows } from '@/utils/platform'
 
 const catStore = useCatStore()
 const modelStore = useModelStore()
 const { status: inputStatus } = useDeviceInputStatus()
+
+const mouseLookSmoothing = computed<number>({
+  get: () => getActiveMouseLookSmoothing(catStore.model),
+  set: value => setActiveMouseLookSmoothing(catStore.model, value),
+})
 
 const hideOnHoverSupported = computed(() => inputStatus.value?.hoverSupported !== false)
 
@@ -49,6 +60,13 @@ const typingBehaviorGroupOptions = computed(() => {
 
 <template>
   <ProList :title="$t('pages.preference.cat.labels.modelSettings')">
+    <ProListItem
+      :description="$t('pages.preference.cat.hints.windowRelativeMouseLook')"
+      :title="$t('pages.preference.cat.labels.windowRelativeMouseLook')"
+    >
+      <Switch v-model:checked="catStore.model.windowRelativeMouseLook" />
+    </ProListItem>
+
     <ProListItem
       :description="$t('pages.preference.cat.hints.mirrorMode')"
       :title="$t('pages.preference.cat.labels.mirrorMode')"
@@ -90,6 +108,40 @@ const typingBehaviorGroupOptions = computed(() => {
             class="w-24"
             :max="MOUSE_SENSITIVITY_MAX"
             :min="MOUSE_SENSITIVITY_MIN"
+          />
+
+          <SpaceAddon>%</SpaceAddon>
+        </SpaceCompact>
+      </Flex>
+    </ProListItem>
+
+    <ProListItem
+      :description="$t('pages.preference.cat.hints.mouseLookSmoothing')"
+      :title="$t('pages.preference.cat.labels.mouseLookSmoothing')"
+      vertical
+    >
+      <Flex
+        align="center"
+        class="gap-4"
+      >
+        <Slider
+          v-model:value="mouseLookSmoothing"
+          class="flex-1 m-0!"
+          :max="MOUSE_LOOK_SMOOTHING_MAX"
+          :min="MOUSE_LOOK_SMOOTHING_MIN"
+          :tooltip="{
+            formatter(value) {
+              return `${value}%`
+            },
+          }"
+        />
+
+        <SpaceCompact>
+          <InputNumber
+            v-model:value="mouseLookSmoothing"
+            class="w-24"
+            :max="MOUSE_LOOK_SMOOTHING_MAX"
+            :min="MOUSE_LOOK_SMOOTHING_MIN"
           />
 
           <SpaceAddon>%</SpaceAddon>

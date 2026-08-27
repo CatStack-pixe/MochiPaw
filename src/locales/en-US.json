@@ -80,9 +80,11 @@
         "title": "Cat",
         "labels": {
           "modelSettings": "Model Settings",
+          "windowRelativeMouseLook": "Window-relative Mouse Look",
           "mirrorMode": "Mirror Mode",
           "mouseMirror": "Mouse Mirror",
           "mouseSensitivity": "Mouse Follow Sensitivity",
+          "mouseLookSmoothing": "Mouse Look Smoothing",
           "ignoreMouse": "Ignore Mouse Events",
           "windowSettings": "Window Settings",
           "passThrough": "Cat Lock",
@@ -102,9 +104,11 @@
           "typingBehaviorGroup": "Random Group"
         },
         "hints": {
+          "windowRelativeMouseLook": "When enabled, mouse look uses the pet window bounds; when disabled, it uses the monitor bounds.",
           "mirrorMode": "When enabled, the model will be mirrored horizontally.",
           "mouseMirror": "When enabled, the mouse will mirror the hand movement.",
           "mouseSensitivity": "Adjust how strongly the model follows mouse movement. 100% keeps the default response.",
+          "mouseLookSmoothing": "Adjust mouse-look follow smoothing: 0% is most responsive, 75% keeps the current feel, and 100% is smoothest with more visible follow delay.",
           "ignoreMouse": "When enabled, the model will not respond to mouse events. Useful for keyboard mode or gamepad mode.",
           "motionSound": "When enabled, the model will play corresponding sound effects when performing actions (if they exist).",
           "behavior": "When enabled, motions and expressions can be configured and triggered.",

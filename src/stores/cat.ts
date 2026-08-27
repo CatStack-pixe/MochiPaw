@@ -5,6 +5,10 @@
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
+import {
+  MOUSE_LOOK_SMOOTHING_DEFAULT,
+  normalizeMouseLookSmoothing,
+} from '@/utils/mouseLookSmoothing'
 import { MOUSE_SENSITIVITY_DEFAULT, normalizeMouseSensitivity } from '@/utils/mouseSensitivity'
 import { persistStateWhenWritable } from '@/utils/persistence'
 
@@ -21,6 +25,9 @@ export interface CatStore {
     autoReleaseDelay: number
     maxFPS: number
     ignoreMouse: boolean
+    windowRelativeMouseLook: boolean
+    mouseLookSmoothing: number
+    legacyMouseLookSmoothing: number
     mouseSensitivity: number
   }
   window: {
@@ -75,6 +82,9 @@ export const useCatStore = defineStore('cat', () => {
     autoReleaseDelay: 3,
     maxFPS: 60,
     ignoreMouse: false,
+    windowRelativeMouseLook: true,
+    mouseLookSmoothing: MOUSE_LOOK_SMOOTHING_DEFAULT,
+    legacyMouseLookSmoothing: MOUSE_LOOK_SMOOTHING_DEFAULT,
     mouseSensitivity: MOUSE_SENSITIVITY_DEFAULT,
   })
 
@@ -94,6 +104,12 @@ export const useCatStore = defineStore('cat', () => {
   })
 
   const init = () => {
+    if (typeof model.windowRelativeMouseLook !== 'boolean') {
+      model.windowRelativeMouseLook = true
+    }
+
+    model.mouseLookSmoothing = normalizeMouseLookSmoothing(model.mouseLookSmoothing)
+    model.legacyMouseLookSmoothing = normalizeMouseLookSmoothing(model.legacyMouseLookSmoothing)
     model.mouseSensitivity = normalizeMouseSensitivity(model.mouseSensitivity)
 
     if (!window.gameMode || !Array.isArray(window.gameMode.processes)) {

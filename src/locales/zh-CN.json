@@ -80,9 +80,11 @@
         "title": "猫咪设置",
         "labels": {
           "modelSettings": "模型设置",
+          "windowRelativeMouseLook": "窗口相对鼠标视角",
           "mirrorMode": "镜像模式",
           "mouseMirror": "鼠标镜像",
           "mouseSensitivity": "鼠标跟随灵敏度",
+          "mouseLookSmoothing": "鼠标视角平滑度",
           "ignoreMouse": "忽略鼠标事件",
           "windowSettings": "窗口设置",
           "passThrough": "猫咪锁定",
@@ -102,9 +104,11 @@
           "typingBehaviorGroup": "随机组"
         },
         "hints": {
+          "windowRelativeMouseLook": "开启后，鼠标视角将根据宠物窗口边界计算；关闭后恢复按显示器边界计算。",
           "mirrorMode": "启用后，模型将水平镜像翻转。",
           "mouseMirror": "启用后，鼠标将镜像跟随手部移动。",
           "mouseSensitivity": "调整模型跟随鼠标移动的响应幅度，100% 保持默认响应。",
+          "mouseLookSmoothing": "调整鼠标视角的跟随平滑度，0% 最跟手，75% 保持当前手感，100% 平滑度最高但跟随延迟更明显。",
           "ignoreMouse": "启用后，模型将不再响应鼠标事件，适用于键盘模式或手柄模式。",
           "motionSound": "启用后，模型执行动作时会播放对应音效（如果存在）。",
           "behavior": "启用后，可以配置和触发模型的动作与表情。",

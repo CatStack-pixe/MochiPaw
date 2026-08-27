@@ -16,9 +16,13 @@ import type { CursorBounds } from '@/utils/relativeMouse'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { logError, logStep, logTrace } from '@/utils/diagnostics'
+import { getCursorMonitor } from '@/utils/monitor'
 import { applyMouseSensitivity } from '@/utils/mouseSensitivity'
 import { isMac } from '@/utils/platform'
-import { applyRelativeMouseMovement, normalizeCursorPosition } from '@/utils/relativeMouse'
+import {
+  applyRelativeMouseMovement,
+  normalizeMouseLookPosition,
+} from '@/utils/relativeMouse'
 
 import live2d, { isLive2dLoadCancelledError } from '../utils/live2d'
 
@@ -580,10 +584,34 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
     live2d.setLookTarget(lookTargetX, lookTargetY)
   }
 
-  function handleMouseMove(cursorPoint: PhysicalPosition, windowBounds?: CursorBounds) {
-    if (!windowBounds) return
+  async function handleMouseMove(cursorPoint: PhysicalPosition, windowBounds?: CursorBounds) {
+    let monitorBounds: CursorBounds | undefined
 
-    relativeLookPosition = normalizeCursorPosition(cursorPoint, windowBounds)
+    if (!catStore.model.windowRelativeMouseLook) {
+      const monitor = await getCursorMonitor(cursorPoint)
+
+      if (monitor) {
+        const { size, position } = monitor
+
+        monitorBounds = {
+          x: position.x,
+          y: position.y,
+          width: size.width,
+          height: size.height,
+        }
+      }
+    }
+
+    const nextPosition = normalizeMouseLookPosition(
+      cursorPoint,
+      catStore.model.windowRelativeMouseLook,
+      windowBounds,
+      monitorBounds,
+    )
+
+    if (!nextPosition) return
+
+    relativeLookPosition = nextPosition
 
     applyMouseLook(relativeLookPosition.x, relativeLookPosition.y)
   }
