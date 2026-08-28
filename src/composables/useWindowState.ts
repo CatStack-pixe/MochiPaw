@@ -12,13 +12,33 @@ import { onMounted, ref } from 'vue'
 
 import { WINDOW_LABEL } from '@/constants'
 import { useAppStore } from '@/stores/app'
+import { logError, logInfo } from '@/utils/diagnostics'
 import { getCursorMonitor } from '@/utils/monitor'
+import { withTimeout } from '@/utils/promise'
 import { getWindowRecoveryPosition } from '@/utils/windowPosition'
 
 export type WindowState = Record<string, Partial<PhysicalPosition & PhysicalSize> | undefined>
 
 const appWindow = getCurrentWebviewWindow()
 const { label } = appWindow
+const WINDOW_STATE_OPERATION_TIMEOUT_MS = 5_000
+
+async function runWindowStateOperation<T>(operation: string, action: () => Promise<T>) {
+  try {
+    return await withTimeout(
+      action(),
+      WINDOW_STATE_OPERATION_TIMEOUT_MS,
+      `Window state ${operation} timed out.`,
+    )
+  } catch (error) {
+    logError('[window-state] restore operation failed', {
+      windowLabel: label,
+      operation,
+      error,
+    })
+    return undefined
+  }
+}
 
 export async function returnMainWindowToScreen() {
   const mainWindow = await WebviewWindow.getByLabel(WINDOW_LABEL.MAIN)
@@ -76,28 +96,47 @@ export function useWindowState(options: { enabled?: boolean } = {}) {
 
     const { x, y, width, height } = appStore.windowState[label] ?? {}
 
-    if (isNumber(x) && isNumber(y)) {
-      const monitors = await availableMonitors()
+    logInfo('[window-state] restore started', {
+      windowLabel: label,
+      hasPosition: isNumber(x) && isNumber(y),
+      hasSize: isNumber(width) && isNumber(height),
+    })
 
-      const monitor = monitors.find((monitor) => {
-        const { position, size } = monitor
+    try {
+      if (isNumber(x) && isNumber(y)) {
+        const monitors = await runWindowStateOperation('list monitors', availableMonitors)
 
-        const inBoundsX = x >= position.x && x <= position.x + size.width
-        const inBoundsY = y >= position.y && y <= position.y + size.height
+        const monitor = monitors?.find((monitor) => {
+          const { position, size } = monitor
 
-        return inBoundsX && inBoundsY
-      })
+          const inBoundsX = x >= position.x && x <= position.x + size.width
+          const inBoundsY = y >= position.y && y <= position.y + size.height
 
-      if (monitor) {
-        await appWindow.setPosition(new PhysicalPosition(x, y))
+          return inBoundsX && inBoundsY
+        })
+
+        if (monitor) {
+          await runWindowStateOperation(
+            'set position',
+            () => appWindow.setPosition(new PhysicalPosition(x, y)),
+          )
+        }
       }
-    }
 
-    if (width && height) {
-      await appWindow.setSize(new PhysicalSize(width, height))
+      if (isNumber(width) && isNumber(height) && width > 0 && height > 0) {
+        await runWindowStateOperation(
+          'set size',
+          () => appWindow.setSize(new PhysicalSize(width, height)),
+        )
+      }
+    } catch (error) {
+      logError('[window-state] restore failed', { windowLabel: label, error })
+    } finally {
+      // A failed restore must not keep the RouterView, and therefore the model
+      // renderer and cross-window listeners, permanently unmounted.
+      isRestored.value = true
+      logInfo('[window-state] restore completed', { windowLabel: label })
     }
-
-    isRestored.value = true
   }
 
   return {
