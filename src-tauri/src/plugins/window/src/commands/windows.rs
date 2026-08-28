@@ -68,14 +68,18 @@ pub async fn show_window<R: Runtime>(
 ) -> Result<(), String> {
     let _ = set_webview_memory_target(window.clone(), WebviewMemoryTarget::Normal).await;
 
-    if should_show_without_activation(is_game_mode_active(), is_game_mode_window(&window)) {
+    if is_game_mode_window(&window)
+        && let Ok(state) = game_mode_state().lock()
+        && should_show_without_activation(state.active, true)
+    {
         show_window_without_activation(&window)?;
-        apply_window_game_mode(&window, true, game_mode_settings())?;
-    } else {
-        window.show().map_err(|error| error.to_string())?;
-        window.unminimize().map_err(|error| error.to_string())?;
-        window.set_focus().map_err(|error| error.to_string())?;
+        apply_window_game_mode(&window, true, state.settings.clone())?;
+        return Ok(());
     }
+
+    window.show().map_err(|error| error.to_string())?;
+    window.unminimize().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())?;
 
     let _ = app_handle;
     Ok(())
@@ -93,13 +97,18 @@ pub async fn set_always_on_top<R: Runtime>(
     window: WebviewWindow<R>,
     always_on_top: bool,
 ) -> Result<(), String> {
-    if is_game_mode_active() && is_game_mode_window(&window) {
-        update_game_mode_always_on_top(&window, always_on_top);
-        return Ok(());
+    if is_game_mode_window(&window) {
+        let mut state = game_mode_state()
+            .lock()
+            .map_err(|_| "game mode state lock poisoned".to_owned())?;
+        update_game_mode_always_on_top(&mut state, always_on_top);
+
+        if state.active {
+            return Ok(());
+        }
     }
 
     set_window_topmost(&window, always_on_top)?;
-    update_game_mode_always_on_top(&window, always_on_top);
     Ok(())
 }
 
@@ -110,22 +119,24 @@ pub async fn set_pass_through<R: Runtime>(
     pass_through: bool,
 ) -> Result<(), String> {
     if is_game_mode_window(&window) {
-        update_game_mode_pass_through(&window, pass_through);
-    }
-
-    let game_mode_active = is_game_mode_active();
-    window
-        .set_ignore_cursor_events(pass_through)
-        .map_err(|error| error.to_string())?;
-
-    if is_game_mode_window(&window) {
+        let mut state = game_mode_state()
+            .lock()
+            .map_err(|_| "game mode state lock poisoned".to_owned())?;
+        update_game_mode_pass_through(&mut state, pass_through);
+        window
+            .set_ignore_cursor_events(pass_through)
+            .map_err(|error| error.to_string())?;
         update_managed_ex_style(
             window.hwnd().map_err(|error| error.to_string())?,
-            managed_ex_style_bits(game_mode_active, pass_through),
+            managed_ex_style_bits(state.active, pass_through),
         )?;
+
+        return Ok(());
     }
 
-    Ok(())
+    window
+        .set_ignore_cursor_events(pass_through)
+        .map_err(|error| error.to_string())
 }
 
 #[command]
@@ -147,17 +158,15 @@ pub async fn set_game_mode<R: Runtime>(
         && !settings.processes.is_empty()
         && configured_process_is_running(&settings.processes).unwrap_or(false);
 
-    {
-        let mut state = game_mode_state()
-            .lock()
-            .map_err(|_| "game mode state lock poisoned".to_owned())?;
-        should_start_worker = state.settings.is_none();
-        state.generation = state.generation.wrapping_add(1);
-        state.active = active;
-        state.settings = Some(settings.clone());
-    }
-
+    let mut state = game_mode_state()
+        .lock()
+        .map_err(|_| "game mode state lock poisoned".to_owned())?;
+    should_start_worker = state.settings.is_none();
+    state.generation = state.generation.wrapping_add(1);
+    state.active = active;
+    state.settings = Some(settings.clone());
     apply_game_mode(&app_handle, active, &settings)?;
+    drop(state);
 
     if should_start_worker {
         spawn_game_mode_worker(app_handle)?;
@@ -220,15 +229,10 @@ fn spawn_game_mode_worker<R: Runtime>(app_handle: AppHandle<R>) -> Result<(), St
                     continue;
                 }
 
-                let state_is_current = match game_mode_state().lock() {
-                    Ok(mut state) if state.generation == generation => {
-                        state.active = active;
-                        true
-                    }
-                    _ => false,
-                };
-
-                if state_is_current {
+                if let Ok(mut state) = game_mode_state().lock()
+                    && state.generation == generation
+                {
+                    state.active = active;
                     let _ = apply_game_mode(&app_handle, active, &settings);
                 }
             }
@@ -237,51 +241,29 @@ fn spawn_game_mode_worker<R: Runtime>(app_handle: AppHandle<R>) -> Result<(), St
         .map_err(|error| format!("failed to spawn game mode detector: {error}"))
 }
 
-fn is_game_mode_active() -> bool {
-    game_mode_state()
-        .lock()
-        .map(|state| state.active)
-        .unwrap_or(false)
-}
-
-fn game_mode_settings() -> Option<GameModeSettings> {
-    game_mode_state()
-        .lock()
-        .ok()
-        .and_then(|state| state.settings.clone())
-}
-
 pub fn apply_current_game_mode<R: Runtime>(window: &WebviewWindow<R>) {
-    if !is_game_mode_active() || !is_game_mode_window(window) {
+    if !is_game_mode_window(window) {
         return;
     }
 
-    if apply_window_game_mode(window, true, game_mode_settings()).is_ok() {
+    let Ok(state) = game_mode_state().lock() else {
+        return;
+    };
+
+    if state.active && apply_window_game_mode(window, true, state.settings.clone()).is_ok() {
         let _ = window.emit(GAME_MODE_CHANGED_EVENT, true);
     }
 }
 
-fn update_game_mode_always_on_top<R: Runtime>(window: &WebviewWindow<R>, always_on_top: bool) {
-    if window.label() != super::MAIN_WINDOW_LABEL {
-        return;
-    }
-
-    if let Ok(mut state) = game_mode_state().lock()
-        && let Some(settings) = state.settings.as_mut()
-    {
+fn update_game_mode_always_on_top(state: &mut GameModeState, always_on_top: bool) {
+    if let Some(settings) = state.settings.as_mut() {
         settings.always_on_top = always_on_top;
         state.generation = state.generation.wrapping_add(1);
     }
 }
 
-fn update_game_mode_pass_through<R: Runtime>(window: &WebviewWindow<R>, pass_through: bool) {
-    if window.label() != super::MAIN_WINDOW_LABEL {
-        return;
-    }
-
-    if let Ok(mut state) = game_mode_state().lock()
-        && let Some(settings) = state.settings.as_mut()
-    {
+fn update_game_mode_pass_through(state: &mut GameModeState, pass_through: bool) {
+    if let Some(settings) = state.settings.as_mut() {
         settings.pass_through = pass_through;
         state.generation = state.generation.wrapping_add(1);
     }
