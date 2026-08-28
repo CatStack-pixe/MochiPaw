@@ -54,3 +54,30 @@ test('treats optional model resources as absent without breaking path redirectio
   assert.equal(setting.getHitAreasCount(), 0)
   assert.doesNotThrow(() => setting.redirectPath(({ file }) => `/models/${file}`))
 })
+
+test('redirects motion sounds alongside motion files without inventing missing sounds', () => {
+  const setting = new CubismSetting({
+    modelJSON: {
+      Version: 3,
+      FileReferences: {
+        Moc: 'model.moc3',
+        Textures: [],
+        Motions: {
+          CAT: [
+            { File: 'wave.motion3.json', Sound: 'wave.flac' },
+            { File: 'idle.motion3.json' },
+          ],
+        },
+      },
+    },
+  })
+
+  setting.redirectPath(({ file }) => `/models/${file}`)
+
+  assert.deepEqual(setting.redirPath.Motions, {
+    CAT: ['/models/wave.motion3.json', '/models/idle.motion3.json'],
+  })
+  assert.deepEqual(setting.redirPath.MotionSounds, {
+    CAT: ['/models/wave.flac'],
+  })
+})

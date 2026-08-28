@@ -143,6 +143,11 @@ export class Live2DModel extends CubismUserModel {
     this._initialized = value
   }
 
+  override release(): void {
+    this.effectCtrl.stopVoice()
+    super.release()
+  }
+
   update(deltaTime: number): void {
     if (!this._ready)
       return
