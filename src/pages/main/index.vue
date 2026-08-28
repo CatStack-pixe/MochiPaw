@@ -723,9 +723,9 @@ if (!isSubModel) {
 
 watch(() => windowSettings.value.passThrough, (value) => {
   if (isWindows && !isSubModel) {
-    setPassThrough(value)
+    void setPassThrough(value)
   } else {
-    appWindow.setIgnoreCursorEvents(value)
+    void appWindow.setIgnoreCursorEvents(value)
   }
 }, { immediate: true })
 
@@ -736,8 +736,9 @@ if (!isSubModel) {
     () => catStore.window.gameMode.enabled,
     () => catStore.window.gameMode.processes,
     () => catStore.window.alwaysOnTop,
-    () => catStore.window.passThrough,
-  ], ([enabled, processes, alwaysOnTop, passThrough]) => {
+  ], ([enabled, processes, alwaysOnTop]) => {
+    const passThrough = catStore.window.passThrough
+
     void setGameMode({ enabled, processes, alwaysOnTop, passThrough }).then((active) => {
       logInfo('[game-mode] configuration applied', {
         windowLabel: appWindow.label,
