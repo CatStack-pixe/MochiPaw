@@ -11,6 +11,8 @@ import { csmVector as CsmVector } from '@Framework/type/csmvector'
 import { sound } from '@pixi/sound'
 import { SoundLoader } from '../loader/SoundLoader'
 
+let nextVoiceAliasId = 0
+
 /**
  * 效果控制器
  * 管理眨眼、呼吸、唇形同步、拖拽跟随
@@ -21,6 +23,8 @@ export class EffectController {
   private _eyeBlinkIds = new CsmVector<CubismIdHandle>()
   private _lipSyncIds = new CsmVector<CubismIdHandle>()
   private _soundLoader = new SoundLoader()
+  private _voiceGeneration = 0
+  private _voiceAliases = new Set<string>()
 
   // 拖拽相关参数 ID
   private _idParamAngleX: CubismIdHandle
@@ -120,16 +124,53 @@ export class EffectController {
       return
     if (immediate)
       this.stopVoice()
-    sound.add('voice', voicePath)
-    await this._soundLoader.start(voicePath)
-    await sound.play('voice')
+
+    const generation = this._voiceGeneration
+    const alias = `voice-${++nextVoiceAliasId}`
+    this._voiceAliases.add(alias)
+    sound.add(alias, voicePath)
+
+    const pcmPromise = this._soundLoader.start(voicePath)
+
+    try {
+      const instance = await sound.play(alias)
+      const cleanup = () => this.cleanupVoice(alias)
+      instance.once('end', cleanup)
+      instance.once('stop', cleanup)
+
+      await pcmPromise
+
+      if (generation !== this._voiceGeneration) {
+        cleanup()
+      }
+    } catch (error) {
+      void pcmPromise.catch(() => false)
+      this.cleanupVoice(alias)
+
+      if (generation === this._voiceGeneration)
+        throw error
+    }
   }
 
   stopVoice(): void {
-    if (sound.exists('voice')) {
-      sound.stop('voice')
-      sound.remove('voice')
+    this._voiceGeneration += 1
+
+    for (const alias of this._voiceAliases) {
+      if (sound.exists(alias)) {
+        sound.stop(alias)
+        if (sound.exists(alias))
+          sound.remove(alias)
+      }
     }
+
+    this._voiceAliases.clear()
     this._soundLoader.releasePcmData()
+  }
+
+  private cleanupVoice(alias: string): void {
+    if (sound.exists(alias)) {
+      sound.remove(alias)
+    }
+    this._voiceAliases.delete(alias)
   }
 }
