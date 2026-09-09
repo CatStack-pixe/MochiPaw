@@ -44,6 +44,7 @@ export interface ModelSize {
 export interface ModelRuntimeOptions {
   currentModel?: Readonly<Ref<Model | undefined>>
   mouseMirror?: Readonly<Ref<boolean>>
+  mouseMirrorY?: Readonly<Ref<boolean>>
   syncWindowScale?: boolean
   resizeWindow?: boolean
 }
@@ -53,6 +54,7 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
   const catStore = useCatStore()
   const currentModel = runtimeOptions.currentModel ?? computed(() => modelStore.currentModel)
   const mouseMirror = runtimeOptions.mouseMirror ?? computed(() => catStore.model.mouseMirror)
+  const mouseMirrorY = runtimeOptions.mouseMirrorY ?? computed(() => catStore.model.mouseMirrorY)
   const modelSize = ref<ModelSize>()
   let typingExpressionTimer: ReturnType<typeof setTimeout> | undefined
   let nextTypingExpressionAt = 0
@@ -538,7 +540,7 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
     const adjustedXRatio = applyMouseSensitivity(xRatio, sensitivity)
     const adjustedYRatio = applyMouseSensitivity(yRatio, sensitivity)
     const lookTargetX = (mouseMirror.value ? -1 : 1) * (1 - 2 * adjustedXRatio)
-    const lookTargetY = 1 - 2 * adjustedYRatio
+    const lookTargetY = (mouseMirrorY.value ? -1 : 1) * (1 - 2 * adjustedYRatio)
 
     for (const id of [
       'ParamMouseX',
@@ -574,7 +576,11 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
         value = max - ratio * (max - min)
       }
 
-      if (!isYAxis && mouseMirror.value) {
+      if ((isXAxis || isZAxis) && mouseMirror.value) {
+        value *= -1
+      }
+
+      if ((isYAxis || isZAxis) && mouseMirrorY.value) {
         value *= -1
       }
 

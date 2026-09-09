@@ -153,6 +153,7 @@ export interface SubModelWindowSettings {
 export interface SubModelAppearanceSettings {
   mirror: boolean
   mouseMirror: boolean
+  mouseMirrorY: boolean
   maxFPS: number
 }
 
@@ -221,6 +222,16 @@ export const useModelStore = defineStore('model', () => {
 
   const init = async () => {
     const modelsPath = await resolveResource('assets/models')
+
+    for (const instance of subModels.value) {
+      instance.appearance ??= {
+        mirror: false,
+        mouseMirror: false,
+        mouseMirrorY: false,
+        maxFPS: 60,
+      }
+      instance.appearance.mouseMirrorY ??= false
+    }
 
     const persistedCustomModels = filter(models.value, { isPreset: false })
     const presetModels = filter(models.value, { isPreset: true })
@@ -345,6 +356,7 @@ export const useModelStore = defineStore('model', () => {
       appearance: {
         mirror: false,
         mouseMirror: false,
+        mouseMirrorY: false,
         maxFPS: 60,
       },
     }
