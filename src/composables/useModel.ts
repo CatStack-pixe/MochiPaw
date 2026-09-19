@@ -17,6 +17,7 @@ import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import { logError, logStep, logTrace } from '@/utils/diagnostics'
 import { getCursorMonitor } from '@/utils/monitor'
+import { getMouseLookParameterValue, mirrorMouseLookPosition } from '@/utils/mouseLook'
 import { applyMouseSensitivity } from '@/utils/mouseSensitivity'
 import { isMac } from '@/utils/platform'
 import {
@@ -537,10 +538,12 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
 
   function applyMouseLook(xRatio: number, yRatio: number) {
     const sensitivity = catStore.model.mouseSensitivity
-    const adjustedXRatio = applyMouseSensitivity(xRatio, sensitivity)
-    const adjustedYRatio = applyMouseSensitivity(yRatio, sensitivity)
-    const lookTargetX = (mouseMirror.value ? -1 : 1) * (1 - 2 * adjustedXRatio)
-    const lookTargetY = (mouseMirrorY.value ? -1 : 1) * (1 - 2 * adjustedYRatio)
+    const position = mirrorMouseLookPosition({
+      x: applyMouseSensitivity(xRatio, sensitivity),
+      y: applyMouseSensitivity(yRatio, sensitivity),
+    }, mouseMirror.value, mouseMirrorY.value)
+    const lookTargetX = 1 - 2 * position.x
+    const lookTargetY = 1 - 2 * position.y
 
     for (const id of [
       'ParamMouseX',
@@ -559,31 +562,8 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
 
       if (isNil(min) || isNil(max)) continue
 
-      const isXAxis = id.endsWith('X')
-      const isYAxis = id.endsWith('Y')
-      const isZAxis = id.endsWith('Z')
-
-      let value: number
-
-      if (isZAxis) {
-        const dragX = 1 - 2 * adjustedXRatio
-        const dragY = 1 - 2 * adjustedYRatio
-
-        value = dragX * dragY * min
-      } else {
-        const ratio = isXAxis ? adjustedXRatio : adjustedYRatio
-
-        value = max - ratio * (max - min)
-      }
-
-      if ((isXAxis || isZAxis) && mouseMirror.value) {
-        value *= -1
-      }
-
-      if ((isYAxis || isZAxis) && mouseMirrorY.value) {
-        value *= -1
-      }
-
+      const axis = id.endsWith('X') ? 'X' : id.endsWith('Y') ? 'Y' : 'Z'
+      const value = getMouseLookParameterValue(axis, { min, max }, position)
       live2d.setParameterValue(id, value)
     }
 

@@ -21,6 +21,7 @@ import {
   prepareModelStoreStateForFrontend,
   resolvePersistedModelSelection,
 } from '@/utils/modelStorePersistence'
+import { normalizeMouseMirrorY } from '@/utils/mouseMirrorSettings'
 import { join } from '@/utils/path'
 import { isCoreStoresPersistenceWritable } from '@/utils/persistence'
 
@@ -230,7 +231,7 @@ export const useModelStore = defineStore('model', () => {
         mouseMirrorY: false,
         maxFPS: 60,
       }
-      instance.appearance.mouseMirrorY ??= false
+      instance.appearance.mouseMirrorY = normalizeMouseMirrorY(instance.appearance.mouseMirrorY)
     }
 
     const persistedCustomModels = filter(models.value, { isPreset: false })

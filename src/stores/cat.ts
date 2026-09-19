@@ -10,6 +10,7 @@ import {
   MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT,
   normalizeMouseLookSmoothing,
 } from '@/utils/mouseLookSmoothing'
+import { normalizeMouseMirrorY } from '@/utils/mouseMirrorSettings'
 import { MOUSE_SENSITIVITY_DEFAULT, normalizeMouseSensitivity } from '@/utils/mouseSensitivity'
 import { persistStateWhenWritable } from '@/utils/persistence'
 
@@ -107,6 +108,8 @@ export const useCatStore = defineStore('cat', () => {
   })
 
   const init = () => {
+    model.mouseMirrorY = normalizeMouseMirrorY(model.mouseMirrorY)
+
     if (typeof model.windowRelativeMouseLook !== 'boolean') {
       model.windowRelativeMouseLook = MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT
     }
