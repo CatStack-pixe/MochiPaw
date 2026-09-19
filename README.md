@@ -40,6 +40,8 @@ and commercial licensing information.
 - pnpm
 - Rust stable toolchain
 - Tauri desktop build prerequisites for your OS
+- Windows releases include the WebView2 Evergreen bootstrapper. Existing
+  installations are checked before repair and their application data is kept.
 
 Install dependencies:
 
@@ -108,6 +110,24 @@ The archive is written to:
 ```text
 target/release/bundle/portable/MochiPaw_<version>_windows_<arch>_portable.zip
 ```
+
+## Local Diagnostics
+
+Windows startup diagnostics are local-only. The application writes them to
+`logs` beside the executable when that directory is writable. If Windows
+protects the installation directory, it falls back to
+`%TEMP%\\MochiPaw\\logs`.
+
+The directory contains `startup-state.json`, `startup-events.jsonl`, and the
+normal `mochi-paw.log` file. These files record startup phases and local error
+details without uploading anything.
+
+Windows installers embed the WebView2 bootstrapper and verify a minimum
+runtime version during installation. The minimum is a floor rather than an
+exact version, so newer Evergreen runtimes (for example `151.0.4129.107`) are
+accepted. Upgrades do not remove MochiPaw data or models. Portable builds
+cannot install system components; if WebView2 startup fails, run the Windows
+installer again to repair the runtime.
 
 If a release executable already exists and you only want to recreate the zip:
 

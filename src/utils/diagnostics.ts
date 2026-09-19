@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { getName, getTauriVersion, getVersion } from '@tauri-apps/api/app'
-import { appLogDir } from '@tauri-apps/api/path'
+import { invoke } from '@tauri-apps/api/core'
 import { debug as writeDebug, error as writeError, info as writeInfo, trace as writeTrace, warn as writeWarn } from '@tauri-apps/plugin-log'
 import { arch, hostname, platform, version } from '@tauri-apps/plugin-os'
 
@@ -92,7 +92,7 @@ export async function logStartupDiagnostics(windowLabel: string) {
     readAsync('appName', getName),
     readAsync('appVersion', getVersion),
     readAsync('tauriVersion', getTauriVersion),
-    readAsync('appLogDirectory', appLogDir),
+    readAsync('diagnosticsDirectory', () => invoke<string>('get_diagnostics_directory')),
     readAsync('hostname', hostname),
   ])
   const system = {
@@ -130,6 +130,6 @@ export async function logStartupDiagnostics(windowLabel: string) {
     browser,
     window,
   })
-  logDebug('[startup] runtime context collected', { windowLabel, appVersion, appLogDirectory: logDirectory })
+  logDebug('[startup] runtime context collected', { windowLabel, appVersion, diagnosticsDirectory: logDirectory })
   logTrace('[startup] runtime context details', { windowLabel, system, browser, window })
 }

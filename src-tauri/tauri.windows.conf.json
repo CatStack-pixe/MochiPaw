@@ -3,6 +3,11 @@
   "bundle": {
     "windows": {
       "digestAlgorithm": "sha256",
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "minimumWebview2Version": "110.0.1531.0",
       "nsis": {
         "languages": [
           "English",

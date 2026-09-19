@@ -9,6 +9,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import { i18n } from './locales'
 import router from './router'
+import { installGlobalErrorHandlers, installVueErrorHandler, markStartupStage, reportFrontendError } from './utils/frontendDiagnostics'
 
 import 'virtual:uno.css'
 import 'antdv-next/dist/reset.css'
@@ -18,4 +19,17 @@ import './assets/css/global.scss'
 const pinia = createPinia()
 pinia.use(createPlugin({ saveOnChange: true }))
 
-createApp(App).use(router).use(pinia).use(i18n).mount('#app')
+// Install these listeners before constructing the app so failures in plugin
+// setup or initial component evaluation are still recorded locally.
+installGlobalErrorHandlers()
+
+const app = createApp(App)
+installVueErrorHandler(app)
+
+try {
+  app.use(router).use(pinia).use(i18n).mount('#app')
+} catch (reason) {
+  reportFrontendError('app mount failed', reason)
+  void markStartupStage('startup-failed')
+  throw reason
+}

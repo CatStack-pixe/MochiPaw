@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
 mod core;
+pub mod diagnostics;
 mod utils;
 
 use core::{
@@ -27,6 +28,16 @@ use utils::persistence_recovery::{
 };
 
 const MODEL_STORE_SCHEMA_VERSION: u64 = 2;
+
+#[tauri::command]
+fn mark_startup_stage(stage: String) {
+    diagnostics::mark_phase(&stage);
+}
+
+#[tauri::command]
+fn get_diagnostics_directory() -> String {
+    diagnostics::log_dir().to_string_lossy().into_owned()
+}
 
 fn migrate_model_store_state(
     state: &mut tauri_plugin_pinia::StoreState,
@@ -101,6 +112,9 @@ fn repair_model_store_state(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    diagnostics::mark_phase("tauri-builder-started");
+    diagnostics::record_webview_preflight();
+
     let app = tauri::Builder::default()
         // This must run before other plugins can open shared resources. It is
         // especially important when a second instance has a different integrity level.
@@ -110,6 +124,22 @@ pub fn run() {
             },
         ))
         .setup(|app| {
+            diagnostics::mark_phase("tauri-setup-started");
+
+            // Pinia and the persistence layer use the app data directory. It
+            // is created before opening windows so a failed first launch can
+            // still leave a predictable data location behind.
+            match app.path().app_data_dir() {
+                Ok(path) => match std::fs::create_dir_all(&path) {
+                    Ok(()) => diagnostics::initialize().record_app_data_directory(&path),
+                    Err(error) => diagnostics::record_error(
+                        "app-data-dir",
+                        &format!("creating {} failed: {error}", path.display()),
+                    ),
+                },
+                Err(error) => diagnostics::record_error("app-data-dir", &error.to_string()),
+            }
+
             let app_handle = app.handle();
 
             std::thread::spawn(|| {
@@ -148,7 +178,9 @@ pub fn run() {
             runtime_installation_identity,
             prepare_dedicated_runtime,
             record_dedicated_runtime_event,
-            take_persistence_recovery_report
+            take_persistence_recovery_report,
+            mark_startup_stage,
+            get_diagnostics_directory
         ])
         .plugin(tauri_plugin_admin_status::init())
         .plugin(tauri_plugin_custom_window::init())
@@ -171,6 +203,13 @@ pub fn run() {
         .plugin(prevent_default::init())
         .plugin(
             tauri_plugin_log::Builder::new()
+                .targets([tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Folder {
+                        path: diagnostics::log_dir().to_path_buf(),
+                        // The plugin adds the `.log` extension itself.
+                        file_name: Some("mochi-paw".to_string()),
+                    },
+                )])
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .level(tauri_plugin_log::log::LevelFilter::Trace)
                 .filter(|metadata| !metadata.target().contains("gilrs"))
@@ -202,8 +241,21 @@ pub fn run() {
             }
             _ => {}
         })
+        // WebView2 creation happens inside Builder::build. Mark the boundary
+        // explicitly so a native failure can be distinguished from frontend
+        // or model initialization failures in the local startup report.
         .build(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|error| {
+            diagnostics::record_error("webview-failed", &error.to_string());
+            let message = format!(
+                "MochiPaw failed to create its WebView2 runtime.\n\n{error}\n\nRun the installer again to repair WebView2."
+            );
+            diagnostics::show_startup_error("MochiPaw WebView2 startup failed", &message);
+            std::process::exit(1);
+        });
+
+    diagnostics::mark_phase("webview-ready");
+    diagnostics::mark_phase("tauri-builder-complete");
 
     app.run(|app_handle, event| match event {
         #[cfg(target_os = "macos")]
@@ -218,9 +270,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        MODEL_STORE_SCHEMA_VERSION, migrate_model_store_state, repair_model_store_state,
-    };
+    use super::{MODEL_STORE_SCHEMA_VERSION, migrate_model_store_state, repair_model_store_state};
     use serde_json::json;
     use tauri_plugin_pinia::StoreState;
 
