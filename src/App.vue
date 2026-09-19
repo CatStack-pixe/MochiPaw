@@ -10,7 +10,6 @@ import { error } from '@tauri-apps/plugin-log'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useEventListener } from '@vueuse/core'
 import { ConfigProvider, theme } from 'antdv-next'
-import { isString } from 'es-toolkit'
 import isURL from 'is-url'
 import { storeToRefs } from 'pinia'
 import { nextTick, onMounted, onUnmounted, watch } from 'vue'
@@ -38,6 +37,7 @@ import {
   useTypingStatsStore,
 } from './stores/typingStats'
 import { logError, logInfo, logStartupDiagnostics, logStep } from './utils/diagnostics'
+import { formatFrontendError, markStartupStage } from './utils/frontendDiagnostics'
 import { requestModelStoreSave } from './utils/modelPersistence'
 import { setCoreStoresPersistenceWritable } from './utils/persistence'
 import { startPomodoroCoordinator } from './utils/pomodoroCoordinator'
@@ -174,17 +174,6 @@ void logStartupDiagnostics(appWindow.label).catch((error) => {
   logError('[startup] diagnostic collection failed', { windowLabel: appWindow.label, error })
 })
 
-function formatError(reason: unknown) {
-  if (reason instanceof Error) {
-    return `${reason.name}: ${reason.message}\n${reason.stack ?? ''}`
-  }
-
-  if (isString(reason)) return reason
-  if (reason == null) return String(reason)
-
-  return JSON.stringify(reason, Object.getOwnPropertyNames(reason)) ?? String(reason)
-}
-
 function handleInputFrame(frame: SubModelInputFrame) {
   const onlyMouseMoves = frame.deviceEvents.length > 0
     && frame.gamepadEvents.length === 0
@@ -253,6 +242,7 @@ async function playPomodoroSound() {
 }
 
 onMounted(async () => {
+  void markStartupStage('frontend-mounted')
   idleMemory.start(document.hidden)
   logInfo('[window] initial focus and visibility state', {
     windowLabel: appWindow.label,
@@ -391,7 +381,7 @@ onMounted(async () => {
         await openSubModelWindow(instance)
       } catch (reason) {
         instance.visible = false
-        error(`[sub-model] failed to restore ${instance.id}: ${formatError(reason)}`)
+        error(`[sub-model] failed to restore ${instance.id}: ${formatFrontendError(reason)}`)
         logError('[app-init] failed to restore submodel window', { instanceId: instance.id, modelId: instance.modelId, error: reason })
       }
     }
@@ -416,10 +406,6 @@ useTauriListen(LISTEN_KEY.HIDE_WINDOW, ({ payload }) => {
 
   idleMemory.setHidden(true)
   hideWindow()
-})
-
-useEventListener('unhandledrejection', ({ reason }) => {
-  error(formatError(reason))
 })
 
 useEventListener('click', (event) => {

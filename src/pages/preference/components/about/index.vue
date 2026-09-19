@@ -5,8 +5,8 @@
 
 <script setup lang="ts">
 import { getTauriVersion } from '@tauri-apps/api/app'
+import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
-import { appLogDir } from '@tauri-apps/api/path'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { openPath, openUrl } from '@tauri-apps/plugin-opener'
 import { arch, platform, version } from '@tauri-apps/plugin-os'
@@ -21,6 +21,7 @@ import ProList from '@/components/pro-list/index.vue'
 import { LISTEN_KEY } from '@/constants'
 import { compactProcessMemory, getProcessMetrics } from '@/plugins/adminStatus'
 import { useAppStore } from '@/stores/app'
+import { logError } from '@/utils/diagnostics'
 
 const appStore = useAppStore()
 const logDir = ref('')
@@ -46,7 +47,11 @@ interface GitHubContributor {
 }
 
 onMounted(async () => {
-  logDir.value = await appLogDir()
+  try {
+    logDir.value = await invoke<string>('get_diagnostics_directory')
+  } catch (error) {
+    logError('[diagnostics] failed to read local directory', { error })
+  }
   void loadContributors()
   await refreshMetrics({ showLoading: true })
   scheduleMetricsRefresh()

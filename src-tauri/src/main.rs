@@ -5,6 +5,21 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    // Initialize diagnostics before the Tauri builder or any plugins run so
+    // early startup failures still leave a local report beside the executable.
+    mochi_paw_lib::diagnostics::initialize();
+
+    if let Some(reason) = mochi_paw_lib::diagnostics::startup_block_reason() {
+        mochi_paw_lib::diagnostics::record_error("webview-platform", &reason);
+        mochi_paw_lib::diagnostics::show_startup_error(
+            "MochiPaw cannot start",
+            &format!(
+                "{reason}\n\nInstall on Windows 10 or Windows Server 2016 (or newer), then try again."
+            ),
+        );
+        return;
+    }
+
     #[cfg(target_os = "windows")]
     if run_admin_relaunch_helper() {
         return;
