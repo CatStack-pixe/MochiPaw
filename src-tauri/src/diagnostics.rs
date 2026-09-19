@@ -445,7 +445,11 @@ fn webview_preflight_details() -> serde_json::Value {
 
     #[cfg(not(target_os = "windows"))]
     {
-        serde_json::json!({ "runtime_directories": [], "runtime_versions": [], "minimum_version": null })
+        serde_json::json!({
+            "runtime_directories": [],
+            "runtime_versions": [],
+            "minimum_version": null,
+        })
     }
 }
 

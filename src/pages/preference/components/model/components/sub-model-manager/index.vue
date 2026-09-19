@@ -476,9 +476,17 @@ async function handleDelete(instance: SubModelInstance) {
               </label>
 
               <label>
-                <span>{{ t('pages.preference.subModel.labels.mouseMirror') }}</span>
+                <span>{{ t('pages.preference.subModel.labels.mouseMirrorX') }}</span>
                 <Switch
                   v-model:checked="instance.appearance.mouseMirror"
+                  @change="notifyInstance(instance)"
+                />
+              </label>
+
+              <label>
+                <span>{{ t('pages.preference.subModel.labels.mouseMirrorY') }}</span>
+                <Switch
+                  v-model:checked="instance.appearance.mouseMirrorY"
                   @change="notifyInstance(instance)"
                 />
               </label>

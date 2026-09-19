@@ -76,9 +76,16 @@ const typingBehaviorGroupOptions = computed(() => {
 
     <ProListItem
       :description="$t('pages.preference.cat.hints.mouseMirror')"
-      :title="$t('pages.preference.cat.labels.mouseMirror')"
+      :title="$t('pages.preference.cat.labels.mouseMirrorX')"
     >
       <Switch v-model:checked="catStore.model.mouseMirror" />
+    </ProListItem>
+
+    <ProListItem
+      :description="$t('pages.preference.cat.hints.mouseMirrorY')"
+      :title="$t('pages.preference.cat.labels.mouseMirrorY')"
+    >
+      <Switch v-model:checked="catStore.model.mouseMirrorY" />
     </ProListItem>
 
     <ProListItem
