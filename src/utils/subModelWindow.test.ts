@@ -21,7 +21,7 @@ const instance: SubModelInstance = {
   createdAt: 1,
   listeners: { keyboard: false, mouse: false, gamepad: false, typingBehavior: false },
   window: { x: -100, y: 200, scale: 1, opacity: 1, radius: 0, passThrough: false, alwaysOnTop: true },
-  appearance: { mirror: false, mouseMirror: false, maxFPS: 60 },
+  appearance: { mirror: false, mouseMirror: false, mouseMirrorY: false, maxFPS: 60 },
 }
 
 function mockRuntime(context: TestContext, os: string, options: {
