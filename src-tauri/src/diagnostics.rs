@@ -18,7 +18,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(not(target_os = "windows"))]
 const LOG_DIRECTORY_NAME: &str = "logs";
+#[cfg(not(target_os = "windows"))]
 const FALLBACK_DIRECTORY_NAME: &str = "MochiPaw";
 const STATE_FILE_NAME: &str = "startup-state.json";
 const EVENTS_FILE_NAME: &str = "startup-events.jsonl";
@@ -510,6 +512,16 @@ fn webview_runtime_version_is_compatible(value: &str) -> bool {
     version >= minimum
 }
 
+#[cfg(target_os = "windows")]
+fn choose_log_dir() -> PathBuf {
+    // main/run validate the local layout before diagnostics are initialized.
+    // Do not silently write to a profile or temp directory if it is unavailable.
+    crate::data_paths::windows_data_paths()
+        .expect("Windows data directory must be validated before diagnostics")
+        .logs()
+}
+
+#[cfg(not(target_os = "windows"))]
 fn choose_log_dir() -> PathBuf {
     let exe_candidate = env::current_exe()
         .ok()
@@ -528,6 +540,7 @@ fn choose_log_dir() -> PathBuf {
     fallback
 }
 
+#[cfg(not(target_os = "windows"))]
 fn ensure_writable_directory(path: &Path) -> bool {
     if fs::create_dir_all(path).is_err() {
         return false;

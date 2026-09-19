@@ -113,10 +113,17 @@ target/release/bundle/portable/MochiPaw_<version>_windows_<arch>_portable.zip
 
 ## Local Diagnostics
 
-Windows startup diagnostics are local-only. The application writes them to
-`logs` beside the executable when that directory is writable. If Windows
-protects the installation directory, it falls back to
-`%TEMP%\\MochiPaw\\logs`.
+Windows installers and portable builds keep application-owned data in `data`
+beside the executable. Models, settings, startup logs, and WebView2 data use
+this directory. The application starts with fresh settings when it is absent;
+it does not read, copy, or remove the previous Roaming data.
+
+See [Windows data layout](docs/windows-data-layout.md) for the versioned format,
+directory permissions, and portable-folder behavior.
+
+Windows startup diagnostics are local-only and are written to `data/logs`.
+If the application directory is not writable, startup reports a data-directory
+error instead of silently switching to a user-profile or temporary directory.
 
 The directory contains `startup-state.json`, `startup-events.jsonl`, and the
 normal `mochi-paw.log` file. These files record startup phases and local error

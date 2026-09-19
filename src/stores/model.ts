@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
-import { appDataDir, resolveResource } from '@tauri-apps/api/path'
+import { resolveResource } from '@tauri-apps/api/path'
 import { exists, mkdir, readDir, readFile, readTextFile } from '@tauri-apps/plugin-fs'
 import { filter, find } from 'es-toolkit/compat'
 import JSON5 from 'json5'
@@ -12,6 +12,7 @@ import { reactive, ref, watch } from 'vue'
 
 import type { ExpressionInfo, MotionInfo } from '@/vendor/easy-live2d'
 
+import { getAppDataDirectory } from '@/utils/appData'
 import { logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { collectCubismResourceReferences, createCubismFingerprint } from '@/utils/modelFingerprint'
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
@@ -236,7 +237,7 @@ export const useModelStore = defineStore('model', () => {
 
     const persistedCustomModels = filter(models.value, { isPreset: false })
     const presetModels = filter(models.value, { isPreset: true })
-    const customModelsPath = join(await appDataDir(), 'custom-models')
+    const customModelsPath = join(await getAppDataDirectory(), 'custom-models')
     const discovery = await discoverStoredCustomModels(customModelsPath)
     const discoveredCustomModels = discovery.models
     modelCatalogPersistenceWritable = discovery.succeeded

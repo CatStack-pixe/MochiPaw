@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import { invoke } from '@tauri-apps/api/core'
 import { PhysicalPosition } from '@tauri-apps/api/dpi'
 import { emitTo, listen } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { platform } from '@tauri-apps/plugin-os'
 import { toRaw } from 'vue'
 
 import type { SubModelInstance } from '@/stores/model'
@@ -43,25 +45,46 @@ async function openSubModelWindowNow(instance: SubModelInstance) {
 
   const runtimeReady = await listenForSubModelRuntimeReady(instance.id)
   let window: WebviewWindow | undefined
+  let creationCancelled = false
+
+  const createWindow = async () => {
+    if (platform() === 'windows') {
+      await invoke('create_sub_model_window', {
+        instanceId: instance.id,
+        x: instance.window.x,
+        y: instance.window.y,
+        alwaysOnTop: instance.window.alwaysOnTop,
+      })
+      window = await WebviewWindow.getByLabel(label) ?? undefined
+      if (!window) throw new Error(`Sub-model window ${label} was not created.`)
+    } else {
+      window = new WebviewWindow(label, {
+        url: `index.html/#/sub-model?instance=${encodeURIComponent(instance.id)}`,
+        title: 'MochiPaw',
+        width: DEFAULT_SIZE,
+        height: DEFAULT_SIZE,
+        x: instance.window.x,
+        y: instance.window.y,
+        shadow: false,
+        transparent: true,
+        decorations: false,
+        alwaysOnTop: instance.window.alwaysOnTop,
+        skipTaskbar: true,
+        maximizable: false,
+        visible: false,
+      })
+
+      await waitForWindowCreation(window)
+    }
+
+    // A slow native creation may finish after runtime initialization timed out.
+    // Destroy that late result too so an invisible window cannot remain alive.
+    if (creationCancelled) await window.destroy().catch(() => undefined)
+  }
 
   try {
-    window = new WebviewWindow(label, {
-      url: `index.html/#/sub-model?instance=${encodeURIComponent(instance.id)}`,
-      title: 'MochiPaw',
-      width: DEFAULT_SIZE,
-      height: DEFAULT_SIZE,
-      x: instance.window.x,
-      y: instance.window.y,
-      shadow: false,
-      transparent: true,
-      decorations: false,
-      alwaysOnTop: instance.window.alwaysOnTop,
-      skipTaskbar: true,
-      maximizable: false,
-      visible: false,
-    })
-
-    await Promise.all([waitForWindowCreation(window), runtimeReady.ready])
+    await Promise.all([createWindow(), runtimeReady.ready])
+    if (!window) throw new Error(`Sub-model window ${label} was not created.`)
 
     if (!instance.visible) {
       await window.destroy()
@@ -73,6 +96,7 @@ async function openSubModelWindowNow(instance: SubModelInstance) {
 
     return window
   } catch (error) {
+    creationCancelled = true
     await window?.destroy().catch(() => undefined)
     throw error
   } finally {

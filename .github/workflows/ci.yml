@@ -120,6 +120,11 @@ jobs:
       - name: Check Rust workspace
         run: cargo check --workspace --all-targets --locked
 
+      - name: Test explicit storage directories
+        env:
+          TAURI_STORE_WORKSPACE: "true"
+        run: cargo test --manifest-path vendor/tauri-store/Cargo.toml --test paths --features unstable-migration
+
       - name: Test Linux input service
         if: matrix.inputd
         run: cargo test -p mochi-paw --features inputd --bin mochi-paw-inputd --locked

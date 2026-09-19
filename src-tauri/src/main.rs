@@ -5,6 +5,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    if run_admin_relaunch_helper() {
+        return;
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Err(error) = mochi_paw_lib::data_paths::windows_data_paths() {
+        mochi_paw_lib::diagnostics::show_startup_error("MochiPaw data directory error", &error);
+        return;
+    }
+
     // Initialize diagnostics before the Tauri builder or any plugins run so
     // early startup failures still leave a local report beside the executable.
     mochi_paw_lib::diagnostics::initialize();
@@ -17,11 +28,6 @@ fn main() {
                 "{reason}\n\nInstall on Windows 10 or Windows Server 2016 (or newer), then try again."
             ),
         );
-        return;
-    }
-
-    #[cfg(target_os = "windows")]
-    if run_admin_relaunch_helper() {
         return;
     }
 

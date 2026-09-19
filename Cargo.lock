@@ -6040,8 +6040,6 @@ dependencies = [
 [[package]]
 name = "tauri-store"
 version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d2373226e4990b400755fbac4f04bcd0a6a145bde2dc04beaa7faeba2e205bd"
 dependencies = [
  "dashmap",
  "futures",
