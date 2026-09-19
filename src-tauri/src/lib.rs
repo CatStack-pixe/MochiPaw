@@ -3,8 +3,13 @@
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
 mod core;
+pub mod data_paths;
 pub mod diagnostics;
 mod utils;
+mod webview_storage;
+
+use data_paths::get_app_data_directory;
+use webview_storage::create_sub_model_window;
 
 use core::{
     device::{get_device_input_status, start_device_listening},
@@ -112,6 +117,23 @@ fn repair_model_store_state(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    if let Err(error) = data_paths::windows_data_paths() {
+        diagnostics::show_startup_error("MochiPaw data directory error", &error);
+        return;
+    }
+
+    let mut context = tauri::generate_context!();
+    webview_storage::configure_context(&mut context);
+
+    let pinia = tauri_plugin_pinia::Builder::default();
+    #[cfg(target_os = "windows")]
+    let pinia = pinia.path(
+        data_paths::windows_data_paths()
+            .expect("validated data root")
+            .pinia(),
+    );
+
     diagnostics::mark_phase("tauri-builder-started");
     diagnostics::record_webview_preflight();
 
@@ -126,10 +148,9 @@ pub fn run() {
         .setup(|app| {
             diagnostics::mark_phase("tauri-setup-started");
 
-            // Pinia and the persistence layer use the app data directory. It
-            // is created before opening windows so a failed first launch can
-            // still leave a predictable data location behind.
-            match app.path().app_data_dir() {
+            // Windows uses only the executable-relative root. Other platforms
+            // retain their existing platform-specific data directory.
+            match get_app_data_directory(app.handle().clone()) {
                 Ok(path) => match std::fs::create_dir_all(&path) {
                     Ok(()) => diagnostics::initialize().record_app_data_directory(&path),
                     Err(error) => diagnostics::record_error(
@@ -139,6 +160,8 @@ pub fn run() {
                 },
                 Err(error) => diagnostics::record_error("app-data-dir", &error.to_string()),
             }
+
+            webview_storage::create_initial_windows(app)?;
 
             let app_handle = app.handle();
 
@@ -180,7 +203,9 @@ pub fn run() {
             record_dedicated_runtime_event,
             take_persistence_recovery_report,
             mark_startup_stage,
-            get_diagnostics_directory
+            get_diagnostics_directory,
+            get_app_data_directory,
+            create_sub_model_window
         ])
         .plugin(tauri_plugin_admin_status::init())
         .plugin(tauri_plugin_custom_window::init())
@@ -188,7 +213,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
-            tauri_plugin_pinia::Builder::default()
+            pinia
                 .migration(
                     "model",
                     tauri_plugin_pinia::Migration::new("2.0.0", migrate_model_store_state),
@@ -244,7 +269,7 @@ pub fn run() {
         // WebView2 creation happens inside Builder::build. Mark the boundary
         // explicitly so a native failure can be distinguished from frontend
         // or model initialization failures in the local startup report.
-        .build(tauri::generate_context!())
+        .build(context)
         .unwrap_or_else(|error| {
             diagnostics::record_error("webview-failed", &error.to_string());
             let message = format!(

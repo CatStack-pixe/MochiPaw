@@ -1,0 +1,77 @@
+[package]
+name = "tauri-store"
+description = "Persistent stores for Tauri"
+version = "0.12.1"
+documentation = "https://docs.rs/tauri-store"
+homepage = "https://tb.dev.br/tauri-store"
+repository = "https://github.com/ferreira-tb/tauri-store"
+authors = ["Andrew Ferreira <andrew.shien2@gmail.com>"]
+license = "MIT"
+readme = "./README.md"
+keywords = ["plugin", "store", "tauri"]
+links = "tauri-store"
+
+[package.edition]
+workspace = true
+
+[package.rust-version]
+workspace = true
+
+[package.categories]
+workspace = true
+
+[package.metadata.docs.rs]
+no-default-features = true
+features = ["plugin", "unstable-migration"]
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+dashmap = "6.1"
+futures = "0.3"
+itertools = "0.14"
+serde = "1.0"
+serde_json = "1.0"
+tauri = "2"
+thiserror = "2.0"
+
+[dependencies.semver]
+version = "1.0"
+optional = true
+features = ["serde"]
+
+[dependencies.tauri-store-macros]
+version = "0.12"
+optional = true
+path = "../tauri-store-macros"
+
+[dependencies.tauri-store-utils]
+version = "0.5"
+path = "../tauri-store-utils"
+
+[dependencies.tokio]
+version = "1.39"
+default-features = false
+features = ["time"]
+
+[build-dependencies.tauri-plugin]
+version = "2.3"
+optional = true
+features = ["build"]
+
+[dev-dependencies]
+anyhow = "1.0"
+
+[dev-dependencies.tauri]
+version = "2"
+features = ["test"]
+
+[features]
+default = ["plugin"]
+plugin = ["dep:tauri-plugin"]
+derive = ["dep:tauri-store-macros"]
+file-sync-all = []
+unstable-migration = ["dep:semver", "tauri-store-utils/version"]

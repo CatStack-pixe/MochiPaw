@@ -4,7 +4,6 @@
 
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
-import { appDataDir } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { open } from '@tauri-apps/plugin-dialog'
 import { copyFile, exists, mkdir, readDir, readFile, readTextFile, remove, stat } from '@tauri-apps/plugin-fs'
@@ -23,6 +22,7 @@ import type {
 
 import { INVOKE_KEY } from '@/constants'
 import { useModelStore } from '@/stores/model'
+import { getAppDataDirectory } from '@/utils/appData'
 import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import {
   collectCubismResourceReferences,
@@ -410,7 +410,7 @@ async function importFromSource(sourcePath: string) {
     }
 
     const id = nanoid()
-    const toPath = join(await appDataDir(), 'custom-models', id)
+    const toPath = join(await getAppDataDirectory(), 'custom-models', id)
     logStep('model-import', 'copy model files', {
       sourcePath,
       modelPath: variant.modelPath,
@@ -507,7 +507,7 @@ async function prepareImportSource(fromPath: string) {
     return { path: sourcePath }
   }
 
-  const importPath = join(await appDataDir(), 'model-imports', nanoid())
+  const importPath = join(await getAppDataDirectory(), 'model-imports', nanoid())
   logStep('model-import', 'extract ZIP', { fromPath, importPath })
 
   return await extractTemporaryImportSource(
