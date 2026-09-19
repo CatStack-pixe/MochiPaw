@@ -161,7 +161,15 @@ pub fn run() {
                 Err(error) => diagnostics::record_error("app-data-dir", &error.to_string()),
             }
 
-            webview_storage::create_initial_windows(app)?;
+            if let Err(error) = webview_storage::create_initial_windows(app) {
+                diagnostics::record_error("webview-failed", &error);
+                diagnostics::show_startup_error(
+                    "MochiPaw WebView2 startup failed",
+                    &format!("{error}\n\nCheck the data/webview directory and the WebView2 runtime."),
+                );
+                return Err(error.into());
+            }
+            diagnostics::mark_phase("webview-ready");
 
             let app_handle = app.handle();
 
@@ -266,9 +274,8 @@ pub fn run() {
             }
             _ => {}
         })
-        // WebView2 creation happens inside Builder::build. Mark the boundary
-        // explicitly so a native failure can be distinguished from frontend
-        // or model initialization failures in the local startup report.
+        // Plugin setup occurs during build; initial Windows webviews are
+        // created later in the event-loop setup hook with the local data root.
         .build(context)
         .unwrap_or_else(|error| {
             diagnostics::record_error("webview-failed", &error.to_string());
@@ -279,7 +286,6 @@ pub fn run() {
             std::process::exit(1);
         });
 
-    diagnostics::mark_phase("webview-ready");
     diagnostics::mark_phase("tauri-builder-complete");
 
     app.run(|app_handle, event| match event {
