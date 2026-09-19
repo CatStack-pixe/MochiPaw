@@ -110,12 +110,14 @@ const {
 } = useModel({
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
+  mouseMirrorY: computed(() => appearanceSettings.value.mouseMirrorY ?? false),
   syncWindowScale: !isSubModel,
   resizeWindow: isSubModel,
 })
 const { startListening, handleInputEvent: handleDeviceInputEvent } = useDevice({
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
+  mouseMirrorY: computed(() => appearanceSettings.value.mouseMirrorY ?? false),
   listeners: listenerSettings,
   enableWindowHover: !isSubModel,
   listen: !isSubModel,
@@ -136,6 +138,7 @@ const gameModeActive = ref(false)
 const { stickActive, handleInputEvent: handleGamepadInputEvent } = useGamepad({
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
+  mouseMirrorY: computed(() => appearanceSettings.value.mouseMirrorY ?? false),
   enabled: gamepadEnabled,
   listen: !isSubModel,
   nativeDemand: isSubModel ? undefined : gamepadNativeDemand,
