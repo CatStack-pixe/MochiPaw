@@ -21,6 +21,11 @@ import {
 } from '@/utils/mouseLookSmoothing'
 import { MOUSE_SENSITIVITY_MAX, MOUSE_SENSITIVITY_MIN } from '@/utils/mouseSensitivity'
 import { isWindows } from '@/utils/platform'
+import {
+  normalizeRelativeMouseSensitivity,
+  RELATIVE_MOUSE_SENSITIVITY_MAX,
+  RELATIVE_MOUSE_SENSITIVITY_MIN,
+} from '@/utils/relativeMouse'
 
 const catStore = useCatStore()
 const modelStore = useModelStore()
@@ -29,6 +34,13 @@ const { status: inputStatus } = useDeviceInputStatus()
 const mouseLookSmoothing = computed<number>({
   get: () => getActiveMouseLookSmoothing(catStore.model),
   set: value => setActiveMouseLookSmoothing(catStore.model, value),
+})
+
+const relativeMouseSensitivity = computed<number>({
+  get: () => normalizeRelativeMouseSensitivity(catStore.model.relativeMouseSensitivity),
+  set: (value) => {
+    catStore.model.relativeMouseSensitivity = normalizeRelativeMouseSensitivity(value)
+  },
 })
 
 const hideOnHoverSupported = computed(() => inputStatus.value?.hoverSupported !== false)
@@ -118,6 +130,43 @@ const typingBehaviorGroupOptions = computed(() => {
           />
 
           <SpaceAddon>%</SpaceAddon>
+        </SpaceCompact>
+      </Flex>
+    </ProListItem>
+
+    <ProListItem
+      :description="$t('pages.preference.cat.hints.relativeMouseSensitivity')"
+      :title="$t('pages.preference.cat.labels.relativeMouseSensitivity')"
+      vertical
+    >
+      <Flex
+        align="center"
+        class="gap-4"
+      >
+        <Slider
+          v-model:value="relativeMouseSensitivity"
+          class="flex-1 m-0!"
+          :max="RELATIVE_MOUSE_SENSITIVITY_MAX"
+          :min="RELATIVE_MOUSE_SENSITIVITY_MIN"
+          :step="0.05"
+          :tooltip="{
+            formatter(value) {
+              return `${value}×`
+            },
+          }"
+        />
+
+        <SpaceCompact>
+          <InputNumber
+            v-model:value="relativeMouseSensitivity"
+            class="w-24"
+            :max="RELATIVE_MOUSE_SENSITIVITY_MAX"
+            :min="RELATIVE_MOUSE_SENSITIVITY_MIN"
+            :precision="2"
+            :step="0.05"
+          />
+
+          <SpaceAddon>×</SpaceAddon>
         </SpaceCompact>
       </Flex>
     </ProListItem>
