@@ -3133,6 +3133,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "windows",
+ "winreg 0.55.0",
  "zip",
 ]
 

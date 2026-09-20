@@ -71,6 +71,7 @@ evdev = "0.13"
 
 [target."cfg(target_os = \"windows\")".dependencies]
 windows = { workspace = true, features = ["Win32_System_Kernel"] }
+winreg = "0.55"
 
 [target."cfg(target_os = \"macos\")".dependencies]
 tauri-nspanel.workspace = true
