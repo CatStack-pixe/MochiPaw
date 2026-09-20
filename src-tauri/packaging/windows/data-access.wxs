@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Directory Id="MochiPawDataDirectoryPath" Name="data">
+        <!-- User data belongs to the user and survives upgrades and uninstall. -->
+        <Component Id="MochiPawDataDirectory"
+                   Guid="39D69FD4-A148-5D99-9DF4-EAAFE3CCFA37"
+                   Permanent="yes">
+          <CreateFolder />
+        </Component>
+      </Directory>
+    </DirectoryRef>
+
+    <!-- Path is the main executable's File Id in Tauri's WiX template. UserSID
+         remains the installing user's SID when the action runs elevated. -->
+    <CustomAction Id="MochiPawPrepareInstallerData"
+                  FileKey="Path"
+                  ExeCommand="--mochi-paw-prepare-installer-data --user-sid &quot;[UserSID]&quot;"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="MochiPawPrepareInstallerData" After="InstallFiles">
+        NOT (REMOVE~="ALL")
+      </Custom>
+    </InstallExecuteSequence>
+  </Fragment>
+</Wix>

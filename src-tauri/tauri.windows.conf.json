@@ -8,6 +8,10 @@
         "silent": true
       },
       "minimumWebview2Version": "110.0.1531.0",
+      "wix": {
+        "fragmentPaths": ["packaging/windows/data-access.wxs"],
+        "componentRefs": ["MochiPawDataDirectory"]
+      },
       "nsis": {
         "languages": [
           "English",
@@ -17,7 +21,8 @@
           "TradChinese"
         ],
         "installMode": "both",
-        "displayLanguageSelector": true
+        "displayLanguageSelector": true,
+        "installerHooks": "packaging/windows/data-access.nsh"
       }
     }
   }

@@ -66,7 +66,7 @@ jobs:
   rust:
     name: Rust (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -122,12 +122,30 @@ jobs:
 
       - name: Test explicit storage directories
         env:
-          TAURI_STORE_WORKSPACE: "true"
+          TAURI_STORE_WORKSPACE: 'true'
         run: cargo test --manifest-path vendor/tauri-store/Cargo.toml --test paths --features unstable-migration
 
       - name: Test Linux input service
         if: matrix.inputd
         run: cargo test -p mochi-paw --features inputd --bin mochi-paw-inputd --locked
+
+      - name: Build isolated Windows installer fixtures
+        if: runner.os == 'Windows'
+        run: python -X utf8 scripts/testInstallerDataAccess.py build
+
+      - name: Test installer data access as an ordinary user
+        if: runner.os == 'Windows'
+        run: python -X utf8 scripts/testInstallerDataAccess.py run
+
+      - name: Upload installer smoke evidence
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-data-access-evidence
+          path: |
+            target/installer-data-smoke/*.log
+            target/installer-data-smoke/*.json
+          if-no-files-found: ignore
 
   portable-smoke:
     name: Portable Unicode smoke

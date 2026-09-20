@@ -6,6 +6,8 @@ mod autostart;
 mod core;
 pub mod data_paths;
 pub mod diagnostics;
+#[cfg(target_os = "windows")]
+pub mod installer_data;
 #[cfg(target_os = "linux")]
 pub mod linux_input;
 #[cfg(target_os = "linux")]
