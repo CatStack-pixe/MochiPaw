@@ -4,7 +4,20 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(any(target_os = "windows", test))]
+mod installer_cli;
+
 fn main() {
+    #[cfg(target_os = "windows")]
+    if let Some(request) = installer_cli::parse(std::env::args_os().skip(1)) {
+        let result = request.and_then(prepare_installer_data);
+        if let Err(error) = result {
+            eprintln!("MochiPaw installer data preparation failed: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
     #[cfg(target_os = "windows")]
     if run_admin_relaunch_helper() {
         return;
@@ -32,6 +45,18 @@ fn main() {
     }
 
     mochi_paw_lib::run()
+}
+
+#[cfg(target_os = "windows")]
+fn prepare_installer_data(user: installer_cli::InstallerUser) -> Result<(), String> {
+    use mochi_paw_lib::installer_data;
+    let sid = match user {
+        installer_cli::InstallerUser::Sid(sid) => sid,
+        installer_cli::InstallerUser::Current => installer_data::current_user_sid()?,
+        installer_cli::InstallerUser::Desktop => installer_data::desktop_user_sid()?,
+    };
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    installer_data::provision(&executable, &sid)
 }
 
 #[cfg(target_os = "windows")]

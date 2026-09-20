@@ -58,12 +58,34 @@ before the desktop pet window is created.
 
 ## Installation and portability
 
-Choose an installation or extraction directory writable by the account running
-the app. Standard accounts generally cannot write beside an executable in
-`Program Files`; that configuration reports a clear startup error. The app does
-not elevate itself merely to write settings and does not silently select a
-different data set. Separate Windows accounts should use separate writable
-installations if they need separate settings.
+Windows MSI and EXE installers prepare the `data` directory for the account that
+will use the app, including installations under `Program Files`. Installation
+grants that account inheritable Modify access to `data` and repairs access to its
+existing files and subdirectories. The installation directory, executable, and
+bundled resources retain their original permissions. The app then starts and
+saves settings with ordinary user permissions.
+
+MSI uses the identity of the user who initiated installation. Interactive EXE
+installation uses the desktop user when elevated, including when another
+administrator supplies credentials for UAC. Start the installer from the desktop
+of the account that will run the app. For an unattended EXE installation without
+a desktop, specify that account's SID with `/MOCHIPAW_USER_SID=S-1-...`; permission
+setup fails if the intended account is unspecified or its identity is unavailable.
+
+Upgrading or repairing the installation at the same location repeats permission
+setup and preserves existing settings and models. If an older installer reports
+`Access denied (os error 5)` for `Program Files/MochiPaw/data`, install the updated
+package over that installation. Custom deny rules continue to apply; the installer
+adds the intended user's access while retaining the existing ACL. Close running
+copies of the app before installation so its data files are available for repair.
+Directory links and hard-linked files in an existing data tree must be resolved
+before permission repair; the installer reports failure instead of changing the
+linked destination's permissions.
+
+Portable archives still require an extraction directory writable by the account
+running the app. Separate Windows accounts should use separate installations if
+they need separate settings. The data location remains beside the executable;
+normal startup uses the same local data and requires no automatic elevation.
 
 Close the app before moving or backing up its entire folder. Keep `data` beside
 the executable. Pinia resolves its directory from the new executable location;

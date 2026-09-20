@@ -160,7 +160,7 @@ pub fn windows_data_paths() -> Result<&'static DataPaths, String> {
             let paths = DataPaths::for_executable(&executable).map_err(|error| error.to_string())?;
             paths.prepare().map_err(|error| {
                 format!(
-                    "The application data directory is not usable:\n{}\n\n{error}\n\nUse a writable installation or portable directory. Existing profile data has not been changed.",
+                    "The application data directory is not usable:\n{}\n\n{error}\n\nFor an installed copy, close MochiPaw and repair it with the latest installer from your Windows account. For a portable copy, use a directory writable by your account. Existing data has not been moved or deleted.",
                     paths.root().display()
                 )
             })?;
