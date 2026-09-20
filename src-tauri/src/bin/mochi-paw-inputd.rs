@@ -2,7 +2,14 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 //! Privileged Linux input relay for MochiPaw Wayland sessions.
-//! It deliberately exposes only normalized key, button, and relative motion events.
+//! It exposes only normalized key, button, and relative motion events.
+
+#[cfg(target_os = "linux")]
+#[path = "../linux_input.rs"]
+mod linux_input;
+#[cfg(target_os = "linux")]
+#[path = "../linux_session.rs"]
+mod linux_session;
 
 #[cfg(not(target_os = "linux"))]
 fn main() {
@@ -11,11 +18,14 @@ fn main() {
 
 #[cfg(target_os = "linux")]
 mod linux {
-    use evdev::{Device, EventType};
+    use crate::{
+        linux_input::EvdevReader,
+        linux_session::{Session, active_graphical_session},
+    };
     use serde::{Deserialize, Serialize};
     use std::{
         fs,
-        io::{self, BufRead, Write},
+        io::{self, Read, Write},
         os::{
             fd::AsRawFd,
             unix::{
@@ -23,25 +33,17 @@ mod linux {
                 net::{UnixListener, UnixStream},
             },
         },
-        path::{Path, PathBuf},
-        process::Command,
-        sync::mpsc,
+        path::Path,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        },
         thread,
-        time::Duration,
+        time::{Duration, Instant},
     };
 
     const SOCKET_NAME: &str = "mochi-paw-inputd.sock";
-
-    #[derive(Debug, PartialEq, Serialize)]
-    #[serde(tag = "kind", content = "value")]
-    enum Message {
-        Ready,
-        KeyboardPress(String),
-        KeyboardRelease(String),
-        MousePress(String),
-        MouseRelease(String),
-        MouseRelativeMove { dx: i32, dy: i32 },
-    }
+    const SESSION_CHECK_INTERVAL: Duration = Duration::from_millis(500);
 
     #[derive(Deserialize)]
     #[serde(tag = "kind")]
@@ -49,90 +51,87 @@ mod linux {
         Subscribe,
     }
 
-    struct Session {
-        uid: u32,
-        runtime_dir: PathBuf,
+    /// Both short-lived probes and long-lived subscriptions are bounded.
+    struct ConnectionSlot(Arc<AtomicUsize>);
+
+    impl ConnectionSlot {
+        fn acquire(counter: &Arc<AtomicUsize>, limit: usize) -> Option<Self> {
+            counter
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
+                    (value < limit).then_some(value + 1)
+                })
+                .ok()
+                .map(|_| Self(Arc::clone(counter)))
+        }
+    }
+
+    impl Drop for ConnectionSlot {
+        fn drop(&mut self) {
+            self.0.fetch_sub(1, Ordering::SeqCst);
+        }
     }
 
     pub fn run() -> Result<(), String> {
+        let connections = Arc::new(AtomicUsize::new(0));
+        let subscribers = Arc::new(AtomicUsize::new(0));
         loop {
-            let session = active_graphical_session()?;
-            let socket_path = session.runtime_dir.join(SOCKET_NAME);
-            let listener = bind_socket(&socket_path, session.uid)?;
-            listener
-                .set_nonblocking(true)
-                .map_err(|error| format!("failed to configure input service socket: {error}"))?;
-
-            loop {
-                match listener.accept() {
-                    Ok((stream, _)) if peer_uid(&stream) == Ok(session.uid) => {
-                        let _ = serve_connection(stream);
-                    }
-                    Ok(_) => {}
-                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(250));
-                    }
-                    Err(error) => return Err(format!("input service socket error: {error}")),
-                }
-
-                // A session switch changes the authorized UID and socket location.
-                if active_graphical_session()
-                    .map(|next| next.uid != session.uid)
-                    .unwrap_or(true)
-                {
-                    break;
-                }
-            }
-
-            let _ = fs::remove_file(socket_path);
+            let Ok(session) = active_graphical_session() else {
+                // At boot and while locked there need not be an eligible session.
+                thread::sleep(SESSION_CHECK_INTERVAL);
+                continue;
+            };
+            serve_session(session, &connections, &subscribers)?;
         }
     }
 
-    fn active_graphical_session() -> Result<Session, String> {
-        let sessions = Command::new("loginctl")
-            .args(["list-sessions", "--no-legend"])
-            .output()
-            .map_err(|error| {
-                format!("loginctl is required to validate the graphical session: {error}")
-            })?;
-
-        for line in String::from_utf8_lossy(&sessions.stdout).lines() {
-            let Some(id) = line.split_whitespace().next() else {
-                continue;
-            };
-            let output = Command::new("loginctl")
-                .args([
-                    "show-session",
-                    id,
-                    "--property=Active",
-                    "--property=Type",
-                    "--property=User",
-                    "--value",
-                ])
-                .output()
-                .map_err(|error| format!("failed to inspect login session: {error}"))?;
-            let fields = String::from_utf8_lossy(&output.stdout)
-                .lines()
-                .map(str::to_owned)
-                .collect::<Vec<_>>();
-
-            if fields.len() < 3
-                || fields[0] != "yes"
-                || !matches!(fields[1].as_str(), "wayland" | "x11")
-            {
-                continue;
+    fn serve_session(
+        session: Session,
+        connections: &Arc<AtomicUsize>,
+        subscribers: &Arc<AtomicUsize>,
+    ) -> Result<(), String> {
+        let socket_path = session.runtime_dir.join(SOCKET_NAME);
+        let listener = bind_socket(&socket_path, session.uid)?;
+        listener
+            .set_nonblocking(true)
+            .map_err(|error| format!("failed to configure input service socket: {error}"))?;
+        let active = Arc::new(AtomicBool::new(true));
+        let mut checked_at = Instant::now();
+        let result = (|| {
+            loop {
+                if checked_at.elapsed() >= SESSION_CHECK_INTERVAL {
+                    if active_graphical_session().ok().as_ref() != Some(&session) {
+                        return Ok(());
+                    }
+                    checked_at = Instant::now();
+                }
+                match listener.accept() {
+                    Ok((stream, _)) if peer_uid(&stream) == Ok(session.uid) => {
+                        if let Some(slot) = ConnectionSlot::acquire(connections, 4) {
+                            let active = Arc::clone(&active);
+                            let subscribers = Arc::clone(subscribers);
+                            thread::Builder::new()
+                                .name("inputd-client".into())
+                                .spawn(move || {
+                                    let _slot = slot;
+                                    let _ = serve_connection(stream, &active, &subscribers);
+                                })
+                                .map_err(|error| {
+                                    format!("failed to start input service client: {error}")
+                                })?;
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                    Err(error) => return Err(format!("input service socket error: {error}")),
+                }
+                thread::sleep(Duration::from_millis(25));
             }
-
-            let uid = fields[2]
-                .parse::<u32>()
-                .map_err(|_| "loginctl returned an invalid session user".to_string())?;
-            let runtime_dir = PathBuf::from(format!("/run/user/{uid}"));
-            if runtime_dir.is_dir() {
-                return Ok(Session { uid, runtime_dir });
-            }
-        }
-
-        Err("no active graphical login session is available".into())
+        })();
+        // Worker polling and bounded socket I/O promptly drop every open evdev fd.
+        active.store(false, Ordering::SeqCst);
+        drop(listener);
+        let _ = fs::remove_file(socket_path);
+        result
     }
 
     fn bind_socket(path: &Path, uid: u32) -> Result<UnixListener, String> {
@@ -141,7 +140,6 @@ mod linux {
             .map_err(|error| format!("failed to bind input service socket: {error}"))?;
         fs::set_permissions(path, fs::Permissions::from_mode(0o600))
             .map_err(|error| format!("failed to secure input service socket: {error}"))?;
-
         let path_bytes = std::ffi::CString::new(path.as_os_str().as_encoded_bytes())
             .map_err(|_| "input service socket path contains a null byte".to_string())?;
         if unsafe { libc::chown(path_bytes.as_ptr(), uid, u32::MAX) } != 0 {
@@ -150,7 +148,6 @@ mod linux {
                 io::Error::last_os_error()
             ));
         }
-
         Ok(listener)
     }
 
@@ -173,189 +170,248 @@ mod linux {
         }
     }
 
-    fn write_message(stream: &mut UnixStream, message: &Message) -> Result<(), String> {
+    fn write_message(stream: &mut UnixStream, message: &impl Serialize) -> Result<(), String> {
         serde_json::to_writer(&mut *stream, message)
             .map_err(|error| format!("failed to encode input event: {error}"))?;
         stream
             .write_all(b"\n")
-            .map_err(|error| format!("failed to deliver input event: {error}"))?;
-        stream
-            .flush()
-            .map_err(|error| format!("failed to flush input event: {error}"))
+            .map_err(|error| format!("failed to deliver input event: {error}"))
     }
 
-    fn serve_connection(mut stream: UnixStream) -> Result<(), String> {
-        write_message(&mut stream, &Message::Ready)?;
-        let mut subscription = String::new();
-        stream
-            .set_read_timeout(Some(Duration::from_secs(1)))
-            .map_err(|error| format!("failed to configure input service client: {error}"))?;
-        std::io::BufReader::new(
-            stream
-                .try_clone()
-                .map_err(|error| format!("failed to read input service client request: {error}"))?,
-        )
-        .read_line(&mut subscription)
-        .map_err(|error| format!("input service client did not subscribe: {error}"))?;
-        if subscription.len() > 4096
-            || !matches!(
-                serde_json::from_str(&subscription),
-                Ok(ClientMessage::Subscribe)
-            )
-        {
-            return Ok(());
+    fn prepare_connection<T>(
+        stream: &mut UnixStream,
+        active: &AtomicBool,
+        open_reader: impl FnOnce() -> Result<T, String>,
+    ) -> Result<T, String> {
+        if !active.load(Ordering::SeqCst) {
+            return Err("the graphical login session is inactive".into());
         }
-        stream
-            .set_read_timeout(None)
-            .map_err(|error| format!("failed to configure input service client: {error}"))?;
-
-        let (sender, receiver) = mpsc::sync_channel(512);
-
-        for path in input_devices()? {
-            let sender = sender.clone();
-            thread::spawn(move || read_device(path, sender));
+        let reader = open_reader()?;
+        if !active.load(Ordering::SeqCst) {
+            return Err("the graphical login session became inactive".into());
         }
-        drop(sender);
+        write_message(stream, &serde_json::json!({"kind": "Ready"}))?;
+        Ok(reader)
+    }
 
-        while let Ok(message) = receiver.recv() {
-            if write_message(&mut stream, &message).is_err() {
-                return Ok(());
+    fn serve_connection(
+        mut stream: UnixStream,
+        active: &AtomicBool,
+        subscribers: &Arc<AtomicUsize>,
+    ) -> Result<(), String> {
+        stream
+            .set_write_timeout(Some(Duration::from_millis(250)))
+            .map_err(|error| format!("failed to configure input service client: {error}"))?;
+        let mut reader = prepare_connection(&mut stream, active, || {
+            let reader = EvdevReader::open()?;
+            if !reader.available() {
+                return Err(reader
+                    .status_error()
+                    .unwrap_or_else(|| "no readable input devices".into()));
+            }
+            Ok(reader)
+        })?;
+        read_subscription(&mut stream, active, Instant::now() + Duration::from_secs(1))?;
+        let Some(_subscription) = ConnectionSlot::acquire(subscribers, 1) else {
+            return Err("an input service subscription is already active".into());
+        };
+        while active.load(Ordering::SeqCst) && !client_disconnected(&stream) {
+            for event in reader.poll_events()? {
+                if !active.load(Ordering::SeqCst) {
+                    return Ok(());
+                }
+                write_message(&mut stream, &event)?;
+            }
+            if !reader.available() {
+                return Err(reader
+                    .status_error()
+                    .unwrap_or_else(|| "no readable input devices remain".into()));
             }
         }
-
         Ok(())
     }
 
-    fn input_devices() -> Result<Vec<PathBuf>, String> {
-        let entries = fs::read_dir("/dev/input")
-            .map_err(|error| format!("cannot read /dev/input: {error}"))?;
-        Ok(entries
-            .filter_map(Result::ok)
-            .map(|entry| entry.path())
-            .filter(|path| {
-                path.file_name()
-                    .is_some_and(|name| name.to_string_lossy().starts_with("event"))
-            })
-            .collect())
-    }
-
-    fn read_device(path: PathBuf, sender: mpsc::SyncSender<Message>) {
-        let Ok(mut device) = Device::open(path) else {
-            return;
-        };
+    fn read_subscription(
+        stream: &mut UnixStream,
+        active: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        let mut subscription = Vec::new();
+        let mut buffer = [0_u8; 512];
         loop {
-            match device.fetch_events() {
-                Ok(events) => {
-                    for event in events {
-                        if let Some(message) =
-                            normalize_event(event.event_type(), event.code(), event.value())
-                        {
-                            if sender.send(message).is_err() {
-                                return;
-                            }
-                        }
-                    }
+            if !active.load(Ordering::SeqCst) {
+                return Err("the graphical login session became inactive".into());
+            }
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err("input service subscription timed out".into());
+            }
+            // A timeout on read_line alone resets for every partial read. Limit
+            // the entire handshake and keep observing session cancellation.
+            stream
+                .set_read_timeout(Some(remaining.min(Duration::from_millis(100))))
+                .map_err(|error| format!("failed to configure input service client: {error}"))?;
+            let length = match stream.read(&mut buffer) {
+                Ok(0) => return Err("input service client disconnected before subscribing".into()),
+                Ok(length) => length,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock
+                            | io::ErrorKind::TimedOut
+                            | io::ErrorKind::Interrupted
+                    ) =>
+                {
+                    continue;
                 }
-                Err(_) => thread::sleep(Duration::from_millis(25)),
+                Err(error) => {
+                    return Err(format!("input service client did not subscribe: {error}"));
+                }
+            };
+            if subscription.len() + length > 4096 {
+                return Err("input service subscription exceeds 4096 bytes".into());
+            }
+            subscription.extend_from_slice(&buffer[..length]);
+            if subscription.contains(&b'\n') {
+                if !active.load(Ordering::SeqCst) {
+                    return Err("the graphical login session became inactive".into());
+                }
+                if Instant::now() >= deadline {
+                    return Err("input service subscription timed out".into());
+                }
+                return match serde_json::from_slice(&subscription) {
+                    Ok(ClientMessage::Subscribe) => Ok(()),
+                    _ => Err("invalid input service subscription".into()),
+                };
             }
         }
     }
 
-    fn normalize_event(kind: EventType, code: u16, value: i32) -> Option<Message> {
-        match kind {
-            EventType::KEY if code == 272 => button_event("Left", value),
-            EventType::KEY if code == 273 => button_event("Right", value),
-            EventType::KEY => key_event(key_name(code)?, value),
-            EventType::RELATIVE if code == 0 && value != 0 => {
-                Some(Message::MouseRelativeMove { dx: value, dy: 0 })
-            }
-            EventType::RELATIVE if code == 1 && value != 0 => {
-                Some(Message::MouseRelativeMove { dx: 0, dy: value })
-            }
-            _ => None,
-        }
-    }
-
-    fn button_event(button: &str, value: i32) -> Option<Message> {
-        match value {
-            1 => Some(Message::MousePress(button.into())),
-            0 => Some(Message::MouseRelease(button.into())),
-            _ => None,
-        }
-    }
-
-    fn key_event(key: &str, value: i32) -> Option<Message> {
-        match value {
-            1 | 2 => Some(Message::KeyboardPress(key.into())),
-            0 => Some(Message::KeyboardRelease(key.into())),
-            _ => None,
-        }
-    }
-
-    // Names deliberately match rdev's debug representation used by existing models.
-    fn key_name(code: u16) -> Option<&'static str> {
-        const LETTERS: [&str; 26] = [
-            "KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP", "KeyA",
-            "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL", "KeyZ", "KeyX", "KeyC",
-            "KeyV", "KeyB", "KeyN", "KeyM",
-        ];
-        match code {
-            2..=11 => Some(
-                [
-                    "Num1", "Num2", "Num3", "Num4", "Num5", "Num6", "Num7", "Num8", "Num9", "Num0",
-                ][(code - 2) as usize],
-            ),
-            16..=25 => Some(LETTERS[(code - 16) as usize]),
-            30..=38 => Some(LETTERS[(code - 30 + 10) as usize]),
-            44..=50 => Some(LETTERS[(code - 44 + 19) as usize]),
-            1 => Some("Escape"),
-            14 => Some("Backspace"),
-            15 => Some("Tab"),
-            28 => Some("Return"),
-            29 => Some("ControlLeft"),
-            42 => Some("ShiftLeft"),
-            54 => Some("ShiftRight"),
-            56 => Some("Alt"),
-            57 => Some("Space"),
-            58 => Some("CapsLock"),
-            69 => Some("NumLock"),
-            97 => Some("ControlRight"),
-            100 => Some("AltGr"),
-            102 => Some("Home"),
-            103 => Some("UpArrow"),
-            104 => Some("PageUp"),
-            105 => Some("LeftArrow"),
-            106 => Some("RightArrow"),
-            107 => Some("End"),
-            108 => Some("DownArrow"),
-            109 => Some("PageDown"),
-            111 => Some("Delete"),
-            125 => Some("MetaLeft"),
-            126 => Some("MetaRight"),
-            59..=68 => Some(
-                ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10"][(code - 59) as usize],
-            ),
-            87 => Some("F11"),
-            88 => Some("F12"),
-            _ => None,
-        }
+    fn client_disconnected(stream: &UnixStream) -> bool {
+        let mut byte = 0_u8;
+        let result = unsafe {
+            libc::recv(
+                stream.as_raw_fd(),
+                (&mut byte as *mut u8).cast(),
+                1,
+                libc::MSG_PEEK | libc::MSG_DONTWAIT,
+            )
+        };
+        // No messages are valid after Subscribe. EOF also releases an idle slot.
+        result >= 0
+            || !matches!(
+                io::Error::last_os_error().kind(),
+                io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+            )
     }
 
     #[cfg(test)]
     mod tests {
-        use super::{Message, key_event};
+        use super::*;
 
         #[test]
-        fn normalizes_key_repeat_as_another_press() {
+        fn ready_is_sent_only_after_a_reader_opens_in_an_active_session() {
+            let (mut server, mut client) = UnixStream::pair().unwrap();
+            let active = AtomicBool::new(true);
+            client.set_nonblocking(true).unwrap();
+            let mut buffer = [0; 128];
+            let result =
+                prepare_connection::<()>(&mut server, &active, || Err("permission denied".into()));
+            assert!(result.is_err());
             assert_eq!(
-                key_event("KeyA", 2),
-                Some(Message::KeyboardPress("KeyA".into()))
+                client.read(&mut buffer).unwrap_err().kind(),
+                io::ErrorKind::WouldBlock
+            );
+            prepare_connection(&mut server, &active, || Ok(())).unwrap();
+            let length = client.read(&mut buffer).unwrap();
+            assert_eq!(&buffer[..length], b"{\"kind\":\"Ready\"}\n");
+        }
+
+        #[test]
+        fn session_change_during_open_prevents_ready() {
+            let (mut server, mut client) = UnixStream::pair().unwrap();
+            let active = AtomicBool::new(true);
+            client.set_nonblocking(true).unwrap();
+            let result = prepare_connection(&mut server, &active, || {
+                active.store(false, Ordering::SeqCst);
+                Ok(())
+            });
+            assert!(result.is_err());
+            assert_eq!(
+                client.read(&mut [0; 128]).unwrap_err().kind(),
+                io::ErrorKind::WouldBlock
             );
         }
 
         #[test]
-        fn ignores_invalid_key_values() {
-            assert_eq!(key_event("KeyA", 3), None);
+        fn subscription_slot_is_bounded_and_released_on_drop() {
+            let counter = Arc::new(AtomicUsize::new(0));
+            let slot = ConnectionSlot::acquire(&counter, 1).unwrap();
+            assert!(ConnectionSlot::acquire(&counter, 1).is_none());
+            drop(slot);
+            assert!(ConnectionSlot::acquire(&counter, 1).is_some());
+        }
+
+        #[test]
+        fn disconnected_idle_clients_are_detected() {
+            let (server, client) = UnixStream::pair().unwrap();
+            assert!(!client_disconnected(&server));
+            drop(client);
+            assert!(client_disconnected(&server));
+        }
+
+        #[test]
+        fn partial_subscription_reads_share_one_deadline() {
+            let (mut server, mut client) = UnixStream::pair().unwrap();
+            let writer = thread::spawn(move || {
+                for byte in b"{\"kind\":\"Subscribe\"}\n" {
+                    if client.write_all(&[*byte]).is_err() {
+                        break;
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                }
+            });
+            let result = read_subscription(
+                &mut server,
+                &AtomicBool::new(true),
+                Instant::now() + Duration::from_millis(50),
+            );
+            drop(server);
+            writer.join().unwrap();
+            assert!(result.unwrap_err().contains("timed out"));
+        }
+
+        #[test]
+        fn session_changes_cancel_incomplete_subscriptions() {
+            let (mut server, mut client) = UnixStream::pair().unwrap();
+            client.write_all(b"{").unwrap();
+            let active = Arc::new(AtomicBool::new(true));
+            let worker_active = Arc::clone(&active);
+            let cancel = thread::spawn(move || {
+                thread::sleep(Duration::from_millis(20));
+                worker_active.store(false, Ordering::SeqCst);
+            });
+            let result = read_subscription(
+                &mut server,
+                &active,
+                Instant::now() + Duration::from_secs(1),
+            );
+            cancel.join().unwrap();
+            assert!(result.unwrap_err().contains("inactive"));
+        }
+
+        #[test]
+        fn complete_subscription_is_accepted() {
+            let (mut server, mut client) = UnixStream::pair().unwrap();
+            client.write_all(b"{\"kind\":\"Subscribe\"}\n").unwrap();
+            assert!(
+                read_subscription(
+                    &mut server,
+                    &AtomicBool::new(true),
+                    Instant::now() + Duration::from_secs(1),
+                )
+                .is_ok()
+            );
         }
     }
 }

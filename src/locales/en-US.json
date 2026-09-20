@@ -141,7 +141,7 @@
           "permissionsSettings": "Permissions Settings",
           "inputMonitoringPermission": "Input Monitoring Permission",
           "administratorPermission": "Administrator",
-          "waylandInput": "Wayland Input Service"
+          "linuxInput": "Linux Input"
         },
         "options": {
           "auto": "System",
@@ -156,24 +156,32 @@
           "administratorPermission": "Running the app as administrator helps capture some system-level keys and input events more reliably.",
           "administratorPermissionGuide": "To capture some system-level keys and input events more reliably, it is recommended to run the app as administrator.\n\nHow to do it:\n1. Exit the app first.\n2. Find the app exe or its shortcut in File Explorer.\n3. Choose how to launch:\n   • One-time: Right-click and choose \"Run as administrator\".\n   • Always (default): Right-click → Properties → Compatibility tab → check \"Run this program as an administrator\" → OK.",
           "administratorRelaunchFailed": "Unable to restart as administrator. Please right-click the app and choose \"Run as administrator\".",
-          "waylandReady": "The installed system service sends normalized keyboard, mouse button, and relative mouse movement only. It does not record, inject, or transmit input.",
-          "waylandUnavailable": "The Wayland input service is unavailable or was not authorized during package installation. Install the DEB or RPM package, then check the system service. X11 continues to use the built-in input backend.",
-          "waylandAppImage": "AppImage does not install a privileged input service, so global input is unavailable on Wayland. No authorization is requested.",
-          "hideOnHoverWayland": "Unavailable on Wayland because global absolute cursor coordinates are not exposed."
+          "waylandUnavailable": "Unlock your active local desktop, connect an input device, and check read access to the required /dev/input/event* devices or the installed input service. After correcting access, choose Retry. New group membership requires signing out and back in.",
+          "hideOnHoverWayland": "Unavailable on Wayland because global absolute cursor coordinates are not exposed.",
+          "inputStatusPending": "Checking the current input backend.",
+          "inputStatusFailed": "Input status could not be read. Retry to check the current backend.",
+          "x11Input": "X11 uses the built-in input backend.",
+          "waylandServiceReady": "The installed input service supplies keyboard, mouse button, and relative mouse movement events. Wayland does not expose global cursor coordinates, so hover hiding is unavailable.",
+          "waylandEvdevReady": "evdev reads keyboard, mouse button, and relative mouse movement events using your existing device permissions. AppImage is supported. Wayland does not expose global cursor coordinates, so hover hiding is unavailable."
         },
         "status": {
           "authorized": "Authorized",
           "adminEnabled": "Enabled",
           "authorize": "Go to Enable",
           "viewGuide": "View Instructions",
-          "unavailable": "Unavailable"
+          "unavailable": "Unavailable",
+          "checking": "Checking",
+          "x11Ready": "X11 ready",
+          "serviceReady": "Service ready",
+          "evdevReady": "evdev ready"
         },
         "buttons": {
           "openNow": "Open Now",
           "openLater": "Open Later",
           "setLater": "Set Up Later",
           "restartAsAdministrator": "Restart as Administrator",
-          "exitApp": "Exit App"
+          "exitApp": "Exit App",
+          "retryInput": "Retry"
         }
       },
       "typingStats": {

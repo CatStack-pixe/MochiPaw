@@ -34,6 +34,8 @@ and commercial licensing information.
 - Windows compatibility features, including game mode, Raw Input support, administrator status, and process diagnostics.
 - Cross-platform support for Windows, macOS, and Linux.
 
+For global keyboard and mouse input on Linux Wayland, see the [input service and evdev setup guide](docs/linux-wayland-input.md). AppImage can use an installed input service or direct evdev with the current user's device read permissions.
+
 ## Requirements
 
 - Node.js 22 or newer
