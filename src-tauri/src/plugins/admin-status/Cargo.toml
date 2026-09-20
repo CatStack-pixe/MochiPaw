@@ -18,4 +18,4 @@ serde.workspace = true
 tauri-plugin.workspace = true
 
 [target."cfg(target_os = \"windows\")".dependencies]
-windows.workspace = true
+windows = { workspace = true, features = ["Win32_System_Com", "Win32_System_Registry"] }

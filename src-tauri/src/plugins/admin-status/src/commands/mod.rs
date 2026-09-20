@@ -54,22 +54,24 @@ pub fn is_running_as_administrator() -> Result<bool, String> {
 }
 
 #[command]
-pub fn relaunch_as_administrator<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+pub async fn relaunch_as_administrator<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        use std::sync::atomic::AtomicBool;
+
+        static RELAUNCH_PENDING: AtomicBool = AtomicBool::new(false);
+
         if is_running_as_administrator()? {
             return Ok(());
         }
 
-        schedule_windows_administrator_relaunch()?;
+        let mut request = RelaunchRequest::begin(&RELAUNCH_PENDING)?;
+        run_elevation_worker(schedule_windows_administrator_relaunch).await?;
 
-        // Give the elevated helper time to receive the UAC approval before
-        // asking Tauri to release the current instance and its plugins.
-        let app_handle = app.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            app_handle.exit(0);
-        });
+        // Only exit after UAC approval and helper creation. The helper waits for
+        // this process to release its windows and plugins before opening the app.
+        request.scheduled = true;
+        app.exit(0);
 
         Ok(())
     }
@@ -79,6 +81,60 @@ pub fn relaunch_as_administrator<R: Runtime>(app: AppHandle<R>) -> Result<(), St
         let _ = app;
         Ok(())
     }
+}
+
+#[cfg(target_os = "windows")]
+struct RelaunchRequest<'a> {
+    pending: &'a std::sync::atomic::AtomicBool,
+    scheduled: bool,
+}
+
+#[cfg(target_os = "windows")]
+impl<'a> RelaunchRequest<'a> {
+    fn begin(pending: &'a std::sync::atomic::AtomicBool) -> Result<Self, String> {
+        use std::sync::atomic::Ordering;
+
+        pending
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| "administrator relaunch is already in progress".to_string())?;
+
+        Ok(Self {
+            pending,
+            scheduled: false,
+        })
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl Drop for RelaunchRequest<'_> {
+    fn drop(&mut self) {
+        if !self.scheduled {
+            self.pending
+                .store(false, std::sync::atomic::Ordering::Release);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn run_elevation_worker(
+    action: impl FnOnce() -> Result<(), String> + Send + 'static,
+) -> Result<(), String> {
+    let (sender, mut receiver) = tauri::async_runtime::channel(1);
+
+    // Shell elevation can wait for UAC or shell extensions. Keep both the UI
+    // event loop and async executor available while it runs. A fresh thread
+    // also guarantees that no other task has initialized it as an MTA.
+    std::thread::Builder::new()
+        .name("administrator-relaunch".to_string())
+        .spawn(move || {
+            let _ = sender.blocking_send(action());
+        })
+        .map_err(|error| format!("starting administrator relaunch worker failed: {error}"))?;
+
+    receiver
+        .recv()
+        .await
+        .ok_or_else(|| "administrator relaunch worker stopped unexpectedly".to_string())?
 }
 
 #[command]
@@ -121,12 +177,26 @@ pub fn compact_process_memory() -> Result<(), String> {
 fn schedule_windows_administrator_relaunch() -> Result<(), String> {
     use std::ffi::OsString;
     use windows::{
-        Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_HIDE},
+        Win32::{
+            System::Com::{COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, CoInitializeEx},
+            UI::{
+                Shell::{
+                    SEE_MASK_FLAG_NO_UI, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW, ShellExecuteExW,
+                },
+                WindowsAndMessaging::SW_HIDE,
+            },
+        },
         core::PCWSTR,
     };
 
-    const SE_ERR_ACCESSDENIED: isize = 5;
     const ADMIN_RELAUNCH_HELPER_ARG: &str = "--mochi-paw-admin-relaunch-helper";
+
+    unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) }
+        .ok()
+        .map_err(|error| {
+            format!("initializing administrator relaunch COM apartment failed: {error}")
+        })?;
+    let _com = ComApartment;
 
     let current_process_id = std::process::id();
     let exe_path = std::env::current_exe().map_err(|error| error.to_string())?;
@@ -146,29 +216,41 @@ fn schedule_windows_administrator_relaunch() -> Result<(), String> {
     let file = to_wide_os_str(exe_path.as_os_str());
     let parameters = join_windows_arguments(&parameters);
     let directory = to_wide_os_str(working_directory.as_os_str());
-    let result = unsafe {
-        ShellExecuteW(
-            None,
-            PCWSTR(operation.as_ptr()),
-            PCWSTR(file.as_ptr()),
-            PCWSTR(parameters.as_ptr()),
-            PCWSTR(directory.as_ptr()),
-            SW_HIDE,
-        )
+    let mut execute_info = SHELLEXECUTEINFOW {
+        cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+        // This short-lived worker has no message loop. Finish shell launch
+        // before returning; security prompts remain enabled by FLAG_NO_UI.
+        fMask: SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI,
+        lpVerb: PCWSTR(operation.as_ptr()),
+        lpFile: PCWSTR(file.as_ptr()),
+        lpParameters: PCWSTR(parameters.as_ptr()),
+        lpDirectory: PCWSTR(directory.as_ptr()),
+        nShow: SW_HIDE.0,
+        ..Default::default()
     };
-    let result_code = result.0 as isize;
 
-    if result_code > 32 {
-        return Ok(());
+    unsafe { ShellExecuteExW(&mut execute_info) }.map_err(elevation_error_message)
+}
+
+#[cfg(target_os = "windows")]
+struct ComApartment;
+
+#[cfg(target_os = "windows")]
+impl Drop for ComApartment {
+    fn drop(&mut self) {
+        unsafe { windows::Win32::System::Com::CoUninitialize() };
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn elevation_error_message(error: windows::core::Error) -> String {
+    use windows::{Win32::Foundation::ERROR_CANCELLED, core::HRESULT};
+
+    if error.code() == HRESULT::from_win32(ERROR_CANCELLED.0) {
+        return "administrator relaunch was cancelled".to_string();
     }
 
-    if result_code == SE_ERR_ACCESSDENIED {
-        return Err("administrator relaunch was cancelled".to_string());
-    }
-
-    Err(format!(
-        "ShellExecuteW runas failed with code {result_code}"
-    ))
+    format!("ShellExecuteExW runas failed: {error}")
 }
 
 #[cfg(target_os = "windows")]
@@ -366,11 +448,98 @@ fn filetime_to_u64(filetime: windows::Win32::Foundation::FILETIME) -> u64 {
 
 #[cfg(all(test, target_os = "windows"))]
 mod tests {
-    use super::{join_windows_arguments, quote_windows_argument};
+    use super::{
+        RelaunchRequest, elevation_error_message, join_windows_arguments, quote_windows_argument,
+        run_elevation_worker,
+    };
     use std::{
         ffi::{OsStr, OsString},
         os::windows::ffi::{OsStrExt, OsStringExt},
     };
+
+    #[test]
+    fn elevation_wait_does_not_block_the_command_future() {
+        use std::{
+            future::Future,
+            pin::pin,
+            sync::mpsc,
+            task::{Context, Poll, Waker},
+            time::Duration,
+        };
+
+        let caller_thread = std::thread::current().id();
+        let (started_sender, started_receiver) = mpsc::channel();
+        let (release_sender, release_receiver) = mpsc::channel();
+        let mut result = pin!(run_elevation_worker(move || {
+            started_sender.send(std::thread::current().id()).unwrap();
+            release_receiver
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap();
+            Ok(())
+        }));
+
+        assert!(matches!(
+            result
+                .as_mut()
+                .poll(&mut Context::from_waker(Waker::noop())),
+            Poll::Pending
+        ));
+        assert_ne!(
+            started_receiver
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap(),
+            caller_thread
+        );
+        release_sender.send(()).unwrap();
+        assert!(tauri::async_runtime::block_on(result).is_ok());
+    }
+
+    #[test]
+    fn elevation_failure_reaches_the_caller() {
+        assert_eq!(
+            tauri::async_runtime::block_on(run_elevation_worker(|| Err("cancelled".to_string()))),
+            Err("cancelled".to_string())
+        );
+    }
+
+    #[test]
+    fn duplicate_relaunch_is_rejected_and_failure_allows_retry() {
+        let pending = std::sync::atomic::AtomicBool::new(false);
+        let first = RelaunchRequest::begin(&pending).unwrap();
+        assert!(RelaunchRequest::begin(&pending).is_err());
+
+        drop(first);
+        assert!(RelaunchRequest::begin(&pending).is_ok());
+    }
+
+    #[test]
+    fn successful_relaunch_remains_pending_until_process_exit() {
+        let pending = std::sync::atomic::AtomicBool::new(false);
+        let mut first = RelaunchRequest::begin(&pending).unwrap();
+        first.scheduled = true;
+        drop(first);
+
+        assert!(RelaunchRequest::begin(&pending).is_err());
+    }
+
+    #[test]
+    fn distinguishes_uac_cancellation_from_launch_failure() {
+        use windows::{
+            Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_CANCELLED},
+            core::{Error, HRESULT},
+        };
+
+        assert_eq!(
+            elevation_error_message(Error::from_hresult(HRESULT::from_win32(ERROR_CANCELLED.0))),
+            "administrator relaunch was cancelled"
+        );
+        assert!(
+            elevation_error_message(Error::from_hresult(HRESULT::from_win32(
+                ERROR_ACCESS_DENIED.0
+            )))
+            .starts_with("ShellExecuteExW runas failed:")
+        );
+    }
 
     #[test]
     fn quotes_unicode_paths_and_shell_metacharacters_as_native_windows_text() {

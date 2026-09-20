@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
+mod autostart;
 mod core;
 pub mod data_paths;
 pub mod diagnostics;
@@ -148,6 +149,10 @@ pub fn run() {
         .setup(|app| {
             diagnostics::mark_phase("tauri-setup-started");
 
+            if let Err(error) = autostart::repair_existing_entry(app.handle()) {
+                diagnostics::record_error("autostart-repair", &error);
+            }
+
             // Windows uses only the executable-relative root. Other platforms
             // retain their existing platform-specific data directory.
             match get_app_data_directory(app.handle().clone()) {
@@ -198,6 +203,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(generate_handler![
+            autostart::get_autostart_enabled,
+            autostart::set_autostart_enabled,
             copy_dir,
             extract_zip,
             start_device_listening,

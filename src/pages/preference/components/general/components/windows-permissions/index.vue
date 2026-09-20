@@ -30,17 +30,17 @@ onMounted(async () => {
 async function showAdministratorGuide() {
   if (restarting.value) return
 
-  const confirmed = await confirm(t('pages.preference.general.hints.administratorPermissionGuide'), {
-    title: t('pages.preference.general.labels.administratorPermission'),
-    okLabel: t('pages.preference.general.buttons.restartAsAdministrator'),
-    cancelLabel: t('pages.preference.general.buttons.setLater'),
-    kind: 'warning',
-  })
-
-  if (!confirmed) return
+  restarting.value = true
 
   try {
-    restarting.value = true
+    const confirmed = await confirm(t('pages.preference.general.hints.administratorPermissionGuide'), {
+      title: t('pages.preference.general.labels.administratorPermission'),
+      okLabel: t('pages.preference.general.buttons.restartAsAdministrator'),
+      cancelLabel: t('pages.preference.general.buttons.setLater'),
+      kind: 'warning',
+    })
+
+    if (!confirmed) return
 
     await runAfterSavingPersistentStores(relaunchAsAdministrator)
   } catch (error) {

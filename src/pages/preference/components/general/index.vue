@@ -4,13 +4,15 @@
  -->
 
 <script setup lang="ts">
-import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
-import { Switch } from 'antdv-next'
-import { watch } from 'vue'
+import { useEventListener } from '@vueuse/core'
+import { message, Switch } from 'antdv-next'
+import { onMounted } from 'vue'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
+import { useAutostart } from '@/composables/useAutostart'
 import { useGeneralStore } from '@/stores/general'
+import { logError } from '@/utils/diagnostics'
 import { isLinux, isMac, isWindows } from '@/utils/platform'
 
 import Language from './components/language/index.vue'
@@ -21,17 +23,28 @@ import WindowsPermissions from './components/windows-permissions/index.vue'
 
 const generalStore = useGeneralStore()
 
-watch(() => generalStore.app.autostart, async (value) => {
-  const enabled = await isEnabled()
+const { enabled, loading, ready, refresh, setEnabled } = useAutostart((value) => {
+  generalStore.app.autostart = value
+})
 
-  if (value && !enabled) {
-    return enable()
-  }
+function reportAutostartError(error: unknown) {
+  logError('[autostart] registration failed', { error })
+  message.error(error instanceof Error ? error.message : String(error))
+}
 
-  if (!value && enabled) {
-    disable()
-  }
-}, { immediate: true })
+onMounted(() => {
+  void refresh().catch(reportAutostartError)
+})
+
+// Preferences is hidden and reused, so mounting alone misses Task Manager
+// changes made while the window is in the background.
+useEventListener('focus', () => {
+  void refresh().catch(reportAutostartError)
+})
+
+function changeAutostart(value: boolean | string | number) {
+  void setEnabled(value === true).catch(reportAutostartError)
+}
 </script>
 
 <template>
@@ -48,7 +61,12 @@ watch(() => generalStore.app.autostart, async (value) => {
 
   <ProList :title="$t('pages.preference.general.labels.appSettings')">
     <ProListItem :title="$t('pages.preference.general.labels.launchOnStartup')">
-      <Switch v-model:checked="generalStore.app.autostart" />
+      <Switch
+        :checked="enabled"
+        :disabled="!ready || loading"
+        :loading="loading"
+        @change="changeAutostart"
+      />
     </ProListItem>
 
     <ProListItem
