@@ -72,7 +72,8 @@ def build():
         "bundle": {
             "createUpdaterArtifacts": False,
             "windows": {
-                "webviewInstallMode": {"type": "skip"},
+                # Remove the inherited bootstrapper-only option through JSON Merge Patch.
+                "webviewInstallMode": {"type": "skip", "silent": None},
                 "wix": {
                     "upgradeCode": str(uuid.uuid4()),
                     "language": "en-US",
