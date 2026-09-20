@@ -10,6 +10,7 @@ import {
   mergeRelativeMouseMovement,
   normalizeCursorPosition,
   normalizeMouseLookPosition,
+  normalizeRelativeMouseSensitivity,
 } from './relativeMouse'
 
 test('selects window or monitor bounds for the corresponding mouse-look algorithm', () => {
@@ -61,10 +62,64 @@ test('uses physical window dimensions for mixed-DPI layouts', () => {
   ), { x: 0.5, y: 0.5 })
 })
 
-test('applies positive and negative relative movement from the synchronized position', () => {
+test('halves the previous relative response by default on both axes', () => {
   assert.deepEqual(
     applyRelativeMouseMovement({ x: 0.5, y: 0.5 }, 24, -48),
-    { x: 0.6, y: 0.3 },
+    { x: 0.55, y: 0.4 },
+  )
+})
+
+test('supports custom multipliers and restores the previous response at 1x', () => {
+  const position = { x: 0.5, y: 0.5 }
+  assert.deepEqual(applyRelativeMouseMovement(position, 24, -48, 1), { x: 0.6, y: 0.3 })
+  assert.deepEqual(applyRelativeMouseMovement(position, 24, -48, 0.25), { x: 0.525, y: 0.45 })
+  const doubled = applyRelativeMouseMovement(position, 24, -48, 2)
+  assert.ok(Math.abs(doubled.x - 0.7) < 1e-12)
+  assert.ok(Math.abs(doubled.y - 0.1) < 1e-12)
+  assert.deepEqual(applyRelativeMouseMovement(position, 24, -48, 0), position)
+  assert.deepEqual(position, { x: 0.5, y: 0.5 })
+})
+
+test('normalizes missing, malformed and out-of-range persisted multipliers', () => {
+  for (const value of [undefined, null, '1', true, {}, Number.NaN, Infinity, -Infinity]) {
+    assert.equal(normalizeRelativeMouseSensitivity(value), 0.5)
+  }
+  assert.equal(normalizeRelativeMouseSensitivity(-1), 0)
+  assert.equal(normalizeRelativeMouseSensitivity(6), 5)
+  for (const value of [0, 0.25, 0.5, 1, 2, 5]) {
+    assert.equal(normalizeRelativeMouseSensitivity(value), value)
+  }
+  assert.deepEqual(
+    applyRelativeMouseMovement({ x: 0.5, y: 0.5 }, 24, -48, Number.NaN),
+    { x: 0.55, y: 0.4 },
+  )
+})
+
+test('scales movement before clamping and retains the full range at half sensitivity', () => {
+  const position = applyRelativeMouseMovement({ x: 0.5, y: 0.5 }, 192, -192)
+  assert.ok(Math.abs(position.x - 0.9) < 1e-12)
+  assert.ok(Math.abs(position.y - 0.1) < 1e-12)
+  assert.deepEqual(
+    applyRelativeMouseMovement({ x: 0.5, y: 0.5 }, 240, -240),
+    { x: 1, y: 0 },
+  )
+})
+
+test('resumes absolute menu tracking independently of the relative multiplier', () => {
+  const bounds = { x: 0, y: 0, width: 1920, height: 1080 }
+  const menuPosition = normalizeMouseLookPosition({ x: 960, y: 540 }, false, undefined, bounds)!
+  assert.deepEqual(applyRelativeMouseMovement(menuPosition, 48, -48), { x: 0.6, y: 0.4 })
+  assert.deepEqual(
+    normalizeMouseLookPosition({ x: 1440, y: 270 }, false, undefined, bounds),
+    { x: 0.75, y: 0.25 },
+  )
+})
+
+test('applies the multiplier once to a frame of accumulated raw movement', () => {
+  const movement = mergeRelativeMouseMovement({ dx: 12, dy: -24 }, { dx: 12, dy: -24 })
+  assert.deepEqual(
+    applyRelativeMouseMovement({ x: 0.5, y: 0.5 }, movement.dx, movement.dy, 0.5),
+    { x: 0.55, y: 0.4 },
   )
 })
 

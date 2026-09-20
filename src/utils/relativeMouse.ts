@@ -15,6 +15,18 @@ export interface CursorBounds {
 
 const RELATIVE_MOUSE_RANGE = 240
 
+export const RELATIVE_MOUSE_SENSITIVITY_MIN = 0
+export const RELATIVE_MOUSE_SENSITIVITY_MAX = 5
+export const RELATIVE_MOUSE_SENSITIVITY_DEFAULT = 0.5
+
+export function normalizeRelativeMouseSensitivity(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return RELATIVE_MOUSE_SENSITIVITY_DEFAULT
+  }
+
+  return Math.min(RELATIVE_MOUSE_SENSITIVITY_MAX, Math.max(RELATIVE_MOUSE_SENSITIVITY_MIN, value))
+}
+
 function clampRatio(value: number) {
   return Math.min(1, Math.max(0, value))
 }
@@ -64,10 +76,15 @@ export function applyRelativeMouseMovement(
   position: NormalizedCursorPosition,
   dx: number,
   dy: number,
+  sensitivity = RELATIVE_MOUSE_SENSITIVITY_DEFAULT,
 ): NormalizedCursorPosition {
+  const multiplier = normalizeRelativeMouseSensitivity(sensitivity)
+
+  // Scale raw deltas before clamping so lower sensitivity still reaches the
+  // model's full range and does not alter absolute desktop/menu coordinates.
   return {
-    x: clampRatio(position.x + dx / RELATIVE_MOUSE_RANGE),
-    y: clampRatio(position.y + dy / RELATIVE_MOUSE_RANGE),
+    x: clampRatio(position.x + dx * multiplier / RELATIVE_MOUSE_RANGE),
+    y: clampRatio(position.y + dy * multiplier / RELATIVE_MOUSE_RANGE),
   }
 }
 

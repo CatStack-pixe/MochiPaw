@@ -605,7 +605,12 @@ export function useModel(runtimeOptions: ModelRuntimeOptions = {}) {
   function handleRelativeMouseMove(dx: number, dy: number) {
     // Raw input does not expose global cursor coordinates. Keep a bounded virtual
     // cursor so relative motion drives the same Live2D look parameters.
-    relativeLookPosition = applyRelativeMouseMovement(relativeLookPosition, dx, dy)
+    relativeLookPosition = applyRelativeMouseMovement(
+      relativeLookPosition,
+      dx,
+      dy,
+      catStore.model.relativeMouseSensitivity,
+    )
 
     applyMouseLook(relativeLookPosition.x, relativeLookPosition.y)
   }

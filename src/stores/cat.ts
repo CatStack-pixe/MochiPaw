@@ -13,6 +13,7 @@ import {
 import { normalizeMouseMirrorY } from '@/utils/mouseMirrorSettings'
 import { MOUSE_SENSITIVITY_DEFAULT, normalizeMouseSensitivity } from '@/utils/mouseSensitivity'
 import { persistStateWhenWritable } from '@/utils/persistence'
+import { normalizeRelativeMouseSensitivity, RELATIVE_MOUSE_SENSITIVITY_DEFAULT } from '@/utils/relativeMouse'
 
 export interface CatStore {
   model: {
@@ -32,6 +33,7 @@ export interface CatStore {
     mouseLookSmoothing: number
     legacyMouseLookSmoothing: number
     mouseSensitivity: number
+    relativeMouseSensitivity: number
   }
   window: {
     visible: boolean
@@ -90,6 +92,7 @@ export const useCatStore = defineStore('cat', () => {
     mouseLookSmoothing: MOUSE_LOOK_SMOOTHING_DEFAULT,
     legacyMouseLookSmoothing: MOUSE_LOOK_SMOOTHING_DEFAULT,
     mouseSensitivity: MOUSE_SENSITIVITY_DEFAULT,
+    relativeMouseSensitivity: RELATIVE_MOUSE_SENSITIVITY_DEFAULT,
   })
 
   const window = reactive<CatStore['window']>({
@@ -117,6 +120,7 @@ export const useCatStore = defineStore('cat', () => {
     model.mouseLookSmoothing = normalizeMouseLookSmoothing(model.mouseLookSmoothing)
     model.legacyMouseLookSmoothing = normalizeMouseLookSmoothing(model.legacyMouseLookSmoothing)
     model.mouseSensitivity = normalizeMouseSensitivity(model.mouseSensitivity)
+    model.relativeMouseSensitivity = normalizeRelativeMouseSensitivity(model.relativeMouseSensitivity)
 
     if (!window.gameMode || !Array.isArray(window.gameMode.processes)) {
       window.gameMode = {
