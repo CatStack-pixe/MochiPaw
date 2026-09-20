@@ -16,6 +16,10 @@ use std::{
 use tauri::{AppHandle, Emitter, Runtime, command};
 use tauri_plugin_log::log::{debug, error, info, warn};
 
+#[cfg(target_os = "linux")]
+#[path = "device_linux.rs"]
+mod linux;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DeviceEventKind {
     MousePress,
@@ -60,7 +64,13 @@ static CURSOR_VISIBILITY_CHECKED_AT: AtomicU64 = AtomicU64::new(0);
 static CURSOR_VISIBILITY_FAILURES: AtomicU64 = AtomicU64::new(0);
 
 #[command]
-pub fn get_device_input_status() -> DeviceInputStatus {
+pub async fn get_device_input_status() -> Result<DeviceInputStatus, String> {
+    tauri::async_runtime::spawn_blocking(device_input_status)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+fn device_input_status() -> DeviceInputStatus {
     let backend = select_backend();
     let status = match backend {
         #[cfg(not(target_os = "windows"))]
@@ -84,38 +94,7 @@ pub fn get_device_input_status() -> DeviceInputStatus {
             }
         }
         #[cfg(target_os = "linux")]
-        InputBackend::WaylandService if IS_LISTENING.load(Ordering::SeqCst) => DeviceInputStatus {
-            backend: "wayland-service".into(),
-            available: true,
-            authorized: true,
-            hover_supported: false,
-            error: None,
-        },
-        #[cfg(target_os = "linux")]
-        InputBackend::WaylandService => match probe_wayland_service() {
-            Ok(_) => DeviceInputStatus {
-                backend: "wayland-service".into(),
-                available: true,
-                authorized: true,
-                hover_supported: false,
-                error: None,
-            },
-            Err(error) => DeviceInputStatus {
-                backend: "wayland-service".into(),
-                available: false,
-                authorized: false,
-                hover_supported: false,
-                error: Some(error),
-            },
-        },
-        #[cfg(target_os = "linux")]
-        InputBackend::WaylandAppImage => DeviceInputStatus {
-            backend: "wayland-appimage".into(),
-            available: false,
-            authorized: false,
-            hover_supported: false,
-            error: Some("AppImage packages do not install the Wayland input service.".into()),
-        },
+        InputBackend::Wayland => linux::status(),
     };
     debug!(
         target: "mochi_paw::device",
@@ -144,6 +123,11 @@ pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Res
     let (event_sender, event_receiver) = mpsc::sync_channel::<DeviceEvent>(1024);
     let (startup_sender, startup_receiver) = mpsc::channel::<Result<(), String>>();
 
+    #[cfg(target_os = "linux")]
+    if matches!(backend, InputBackend::Wayland) {
+        linux::mark_starting();
+    }
+
     thread::Builder::new()
         .name("device-event-emitter".into())
         .spawn(move || {
@@ -168,11 +152,7 @@ pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Res
                 #[cfg(target_os = "windows")]
                 InputBackend::WindowsRawInput => listen_windows(event_sender),
                 #[cfg(target_os = "linux")]
-                InputBackend::WaylandService => listen_wayland_service(event_sender),
-                #[cfg(target_os = "linux")]
-                InputBackend::WaylandAppImage => {
-                    Err("Global input is unavailable for AppImage on Wayland.".into())
-                }
+                InputBackend::Wayland => linux::listen(event_sender, startup_sender.clone()),
             };
 
             IS_LISTENING.store(false, Ordering::SeqCst);
@@ -189,7 +169,12 @@ pub async fn start_device_listening<R: Runtime>(app_handle: AppHandle<R>) -> Res
             format!("Failed to spawn device listener: {error}")
         })?;
 
-    if let Ok(result) = startup_receiver.recv_timeout(Duration::from_millis(300)) {
+    let startup = tauri::async_runtime::spawn_blocking(move || {
+        startup_receiver.recv_timeout(Duration::from_millis(300))
+    })
+    .await
+    .map_err(|error| error.to_string())?;
+    if let Ok(result) = startup {
         result?;
     } else {
         debug!(target: "mochi_paw::device", "device listener startup did not complete within 300ms");
@@ -589,19 +574,13 @@ enum InputBackend {
     #[cfg(target_os = "windows")]
     WindowsRawInput,
     #[cfg(target_os = "linux")]
-    WaylandService,
-    #[cfg(target_os = "linux")]
-    WaylandAppImage,
+    Wayland,
 }
 
 fn select_backend() -> InputBackend {
     #[cfg(target_os = "linux")]
     if is_wayland_session() {
-        return if std::env::var_os("APPIMAGE").is_some() {
-            InputBackend::WaylandAppImage
-        } else {
-            InputBackend::WaylandService
-        };
+        return InputBackend::Wayland;
     }
 
     #[cfg(target_os = "windows")]
@@ -621,9 +600,7 @@ fn backend_name(backend: &InputBackend) -> &'static str {
         #[cfg(target_os = "windows")]
         InputBackend::WindowsRawInput => "windows-raw-input",
         #[cfg(target_os = "linux")]
-        InputBackend::WaylandService => "wayland-service",
-        #[cfg(target_os = "linux")]
-        InputBackend::WaylandAppImage => "wayland-appimage",
+        InputBackend::Wayland => "wayland",
     }
 }
 
@@ -635,133 +612,6 @@ fn is_wayland_session() -> bool {
 
     matches!(std::env::var("XDG_SESSION_TYPE").as_deref(), Ok("wayland"))
         || std::env::var_os("WAYLAND_DISPLAY").is_some()
-}
-
-#[cfg(target_os = "linux")]
-fn daemon_socket_path() -> Result<std::path::PathBuf, String> {
-    let runtime_dir = std::env::var_os("XDG_RUNTIME_DIR").ok_or_else(|| {
-        "XDG_RUNTIME_DIR is unavailable for the active Wayland session.".to_string()
-    })?;
-    Ok(std::path::PathBuf::from(runtime_dir).join("mochi-paw-inputd.sock"))
-}
-
-#[cfg(target_os = "linux")]
-fn connect_wayland_service() -> Result<std::os::unix::net::UnixStream, String> {
-    let socket_path = daemon_socket_path()?;
-    std::os::unix::net::UnixStream::connect(&socket_path).map_err(|error| {
-        warn!(target: "mochi_paw::device", "Wayland input service connection failed socket={} error={error}", socket_path.display());
-        format!(
-            "Wayland input service is unavailable at {}: {error}",
-            socket_path.display()
-        )
-    })
-}
-
-#[cfg(target_os = "linux")]
-fn probe_wayland_service() -> Result<(), String> {
-    use std::io::{BufRead, BufReader};
-
-    let stream = connect_wayland_service()?;
-    stream
-        .set_read_timeout(Some(Duration::from_secs(1)))
-        .map_err(|error| format!("failed to validate Wayland input service: {error}"))?;
-    let mut line = String::new();
-    BufReader::new(stream)
-        .read_line(&mut line)
-        .map_err(|error| format!("Wayland input service did not confirm this session: {error}"))?;
-
-    if line.trim() == r#"{"kind":"Ready"}"# {
-        debug!(target: "mochi_paw::device", "Wayland input service probe succeeded");
-        Ok(())
-    } else {
-        warn!(target: "mochi_paw::device", "Wayland input service returned unexpected probe response length={}", line.len());
-        Err("Wayland input service rejected the active session.".into())
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn listen_wayland_service(event_sender: mpsc::SyncSender<DeviceEvent>) -> Result<(), String> {
-    use std::io::{BufRead, BufReader, Write};
-
-    let mut stream = connect_wayland_service()?;
-    stream
-        .write_all(b"{\"kind\":\"Subscribe\"}\n")
-        .map_err(|error| {
-            error!(target: "mochi_paw::device", "failed to subscribe to Wayland input service: {error}");
-            format!("failed to subscribe to Wayland input service: {error}")
-        })?;
-    let mut reader = BufReader::new(stream);
-    let mut line = String::new();
-
-    loop {
-        line.clear();
-        let bytes = reader
-            .read_line(&mut line)
-            .map_err(|error| format!("Wayland input service disconnected: {error}"))?;
-        if bytes == 0 {
-            warn!(target: "mochi_paw::device", "Wayland input service disconnected");
-            return Err("Wayland input service disconnected.".into());
-        }
-        if line.len() > 4096 {
-            warn!(target: "mochi_paw::device", "Wayland input service sent oversized message bytes={bytes}");
-            return Err("Wayland input service sent an oversized message.".into());
-        }
-
-        let event: DaemonMessage = serde_json::from_str(&line)
-            .map_err(|error| {
-                warn!(target: "mochi_paw::device", "Wayland input service sent invalid message bytes={bytes} error={error}");
-                format!("Wayland input service sent an invalid message: {error}")
-            })?;
-        if let Some(event) = event.into_device_event() {
-            if event_sender.try_send(event).is_err() {
-                let dropped = DROPPED_EVENTS.fetch_add(1, Ordering::Relaxed) + 1;
-                if dropped == 1 || dropped % 100 == 0 {
-                    warn!(target: "mochi_paw::device", "Wayland device event queue full dropped_events={dropped}");
-                }
-            }
-        }
-    }
-}
-
-#[cfg(target_os = "linux")]
-#[derive(Deserialize)]
-#[serde(tag = "kind", content = "value")]
-enum DaemonMessage {
-    Ready,
-    KeyboardPress(String),
-    KeyboardRelease(String),
-    MousePress(String),
-    MouseRelease(String),
-    MouseRelativeMove { dx: i32, dy: i32 },
-}
-
-#[cfg(target_os = "linux")]
-impl DaemonMessage {
-    fn into_device_event(self) -> Option<DeviceEvent> {
-        match self {
-            Self::Ready => None,
-            Self::KeyboardPress(value) => Some(DeviceEvent {
-                kind: DeviceEventKind::KeyboardPress,
-                value: json!(value),
-            }),
-            Self::KeyboardRelease(value) => Some(DeviceEvent {
-                kind: DeviceEventKind::KeyboardRelease,
-                value: json!(value),
-            }),
-            Self::MousePress(value) => Some(DeviceEvent {
-                kind: DeviceEventKind::MousePress,
-                value: json!(value),
-            }),
-            Self::MouseRelease(value) => Some(DeviceEvent {
-                kind: DeviceEventKind::MouseRelease,
-                value: json!(value),
-            }),
-            Self::MouseRelativeMove { dx, dy } => Some(DeviceEvent {
-                kind: DeviceEventKind::MouseRelativeMove,
-                value: json!({ "dx": dx, "dy": dy }),
-            }),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -786,7 +636,7 @@ mod tests {
     fn windows_uses_raw_input_backend() {
         assert!(matches!(select_backend(), InputBackend::WindowsRawInput));
         assert_eq!(backend_name(&select_backend()), "windows-raw-input");
-        let status = get_device_input_status();
+        let status = device_input_status();
         assert_eq!(status.backend, "windows-raw-input");
         assert!(status.available);
         assert!(status.authorized);
@@ -840,21 +690,5 @@ mod tests {
         bytes[0..4].copy_from_slice(&RIM_TYPEMOUSE.0.to_ne_bytes());
         bytes[flags_offset..flags_offset + 2].copy_from_slice(&MOUSE_MOVE_ABSOLUTE.0.to_ne_bytes());
         assert_eq!(parse_raw_input_bytes(&bytes), Ok(None));
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn daemon_ready_message_is_not_emitted() {
-        assert!(DaemonMessage::Ready.into_device_event().is_none());
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn relative_message_is_normalized() {
-        let event = DaemonMessage::MouseRelativeMove { dx: 4, dy: -2 }
-            .into_device_event()
-            .unwrap();
-        assert_eq!(event.kind, DeviceEventKind::MouseRelativeMove);
-        assert_eq!(event.value, json!({ "dx": 4, "dy": -2 }));
     }
 }
