@@ -271,8 +271,17 @@ def exercise(access, root, name, kind):
     uninstalled = False
 
     def msi(action, label, extra=()):
-        command(["msiexec.exe", action, str(package), "/qn", "/norestart",
-                 "/L*V", str(STATE / (label + ".log")), *extra], allowed=(0, 3010))
+        prefix = subprocess.list2cmdline([
+            "msiexec.exe", action, str(package), "/qn", "/norestart",
+            "/L*V!", str(STATE / (label + ".log")),
+        ])
+        # MSI parses properties itself: quote only the value, not NAME=value
+        # as list2cmdline would do. Pass the raw string directly, without a shell.
+        for assignment in extra:
+            property_name, value = assignment.split("=", 1)
+            value = value.replace('"', '""')
+            prefix += f' {property_name}="{value}"'
+        command(prefix, allowed=(0, 3010))
 
     def install(repair=False):
         if kind == "msi":
