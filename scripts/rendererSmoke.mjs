@@ -13,6 +13,7 @@ await mkdir(evidence, { recursive: true })
 const server = await createServer({
   configFile: false,
   appType: 'custom',
+  optimizeDeps: { entries: ['scripts/rendererSmoke.entry.ts'] },
   resolve: { alias: { '@Framework': resolve('src/vendor/easy-live2d/Framework'), '@': resolve('src') } },
   server: { host: '127.0.0.1', port: 0 },
 })

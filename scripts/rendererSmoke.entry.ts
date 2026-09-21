@@ -77,7 +77,15 @@ async function smoke() {
     const buffers = Object.values(modelRenderer._bufferData).filter(Boolean) as WebGLBuffer[]
     ensure(buffers.length > 0 && buffers.every(buffer => gl.isBuffer(buffer)), 'Missing model GPU buffers')
     const shader = CubismShaderManager_WebGL.getInstance().getShader(gl) as any
-    const programs = [...new Set(shader._shaderSets.map((entry: any) => entry.shaderProgram))] as WebGLProgram[]
+    ensure(shader._isShaderLoaded, 'Model shader registration did not finish')
+    const shaderSlots = shader._shaderSets.map((entry: any) => entry.shaderProgram) as Array<WebGLProgram | undefined>
+    // The SDK reserves all color/alpha combinations, then skips Normal/Over
+    // (three mask variants reuse the base shaders). Those final three slots
+    // have no program; they are capacity, not missing or deleted GL resources.
+    ensure(shaderSlots.slice(0, 11).every(program => program && gl.isProgram(program)), 'Missing required base/copy shaders')
+    ensure(shaderSlots.slice(0, -3).every(program => program !== undefined)
+      && shaderSlots.slice(-3).every(program => program === undefined), 'Unexpected unregistered shader slots')
+    const programs = [...new Set(shaderSlots.filter((program): program is WebGLProgram => program !== undefined))]
     ensure(programs.length > 0 && programs.every(program => gl.isProgram(program)), 'Missing model shader programs')
     app.stage.removeChild(sprite)
     sprite.destroy()
