@@ -60,6 +60,24 @@ jobs:
       - name: Build frontend
         run: pnpm build:vite
 
+      - name: Install browser smoke tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/mochipaw-browser" --no-package-lock --ignore-scripts playwright@1.55.1
+          node "$RUNNER_TEMP/mochipaw-browser/node_modules/playwright/cli.js" install --with-deps chromium
+
+      - name: Verify real model rendering and GPU texture release
+        env:
+          BROWSER_TEST_DIR: ${{ runner.temp }}/mochipaw-browser
+        run: node scripts/rendererSmoke.mjs
+
+      - name: Upload renderer smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderer-smoke
+          path: renderer-smoke-results/
+          if-no-files-found: ignore
+
       - name: Check portable packaging script
         run: node --check scripts/packagePortable.mjs
 
@@ -76,6 +94,9 @@ jobs:
             inputd: true
           - name: Windows
             runner: windows-2022
+            inputd: false
+          - name: macOS
+            runner: macos-14
             inputd: false
     steps:
       - name: Checkout repository

@@ -21,28 +21,30 @@ export const NoOffscreenIndex = -1; // オフスクリーンが取得できな�
 /**
  * カラーブレンドのタイプ
  */
-export enum CubismColorBlend {
-  ColorBlend_None = -1,
-  ColorBlend_Normal = Live2DCubismCore.ColorBlendType_Normal,
-  ColorBlend_AddGlow = Live2DCubismCore.ColorBlendType_AddGlow,
-  ColorBlend_Add = Live2DCubismCore.ColorBlendType_Add,
-  ColorBlend_Darken = Live2DCubismCore.ColorBlendType_Darken,
-  ColorBlend_Multiply = Live2DCubismCore.ColorBlendType_Multiply,
-  ColorBlend_ColorBurn = Live2DCubismCore.ColorBlendType_ColorBurn,
-  ColorBlend_LinearBurn = Live2DCubismCore.ColorBlendType_LinearBurn,
-  ColorBlend_Lighten = Live2DCubismCore.ColorBlendType_Lighten,
-  ColorBlend_Screen = Live2DCubismCore.ColorBlendType_Screen,
-  ColorBlend_ColorDodge = Live2DCubismCore.ColorBlendType_ColorDodge,
-  ColorBlend_Overlay = Live2DCubismCore.ColorBlendType_Overlay,
-  ColorBlend_SoftLight = Live2DCubismCore.ColorBlendType_SoftLight,
-  ColorBlend_HardLight = Live2DCubismCore.ColorBlendType_HardLight,
-  ColorBlend_LinearLight = Live2DCubismCore.ColorBlendType_LinearLight,
-  ColorBlend_Hue = Live2DCubismCore.ColorBlendType_Hue,
-  ColorBlend_Color = Live2DCubismCore.ColorBlendType_Color,
-  // Cubism 5.2以前
-  ColorBlend_AddCompatible = Live2DCubismCore.ColorBlendType_AddCompatible,
-  ColorBlend_MultiplyCompatible = Live2DCubismCore.ColorBlendType_MultiplyCompatible
-}
+// Resolve Core constants when rendering starts, not while importing settings.
+// Enumerable forward names preserve shader generation without duplicating SDK values.
+export const CubismColorBlend = {
+  get ColorBlend_None(): number { return -1; },
+  get ColorBlend_Normal(): number { return Live2DCubismCore.ColorBlendType_Normal; },
+  get ColorBlend_AddGlow(): number { return Live2DCubismCore.ColorBlendType_AddGlow; },
+  get ColorBlend_Add(): number { return Live2DCubismCore.ColorBlendType_Add; },
+  get ColorBlend_Darken(): number { return Live2DCubismCore.ColorBlendType_Darken; },
+  get ColorBlend_Multiply(): number { return Live2DCubismCore.ColorBlendType_Multiply; },
+  get ColorBlend_ColorBurn(): number { return Live2DCubismCore.ColorBlendType_ColorBurn; },
+  get ColorBlend_LinearBurn(): number { return Live2DCubismCore.ColorBlendType_LinearBurn; },
+  get ColorBlend_Lighten(): number { return Live2DCubismCore.ColorBlendType_Lighten; },
+  get ColorBlend_Screen(): number { return Live2DCubismCore.ColorBlendType_Screen; },
+  get ColorBlend_ColorDodge(): number { return Live2DCubismCore.ColorBlendType_ColorDodge; },
+  get ColorBlend_Overlay(): number { return Live2DCubismCore.ColorBlendType_Overlay; },
+  get ColorBlend_SoftLight(): number { return Live2DCubismCore.ColorBlendType_SoftLight; },
+  get ColorBlend_HardLight(): number { return Live2DCubismCore.ColorBlendType_HardLight; },
+  get ColorBlend_LinearLight(): number { return Live2DCubismCore.ColorBlendType_LinearLight; },
+  get ColorBlend_Hue(): number { return Live2DCubismCore.ColorBlendType_Hue; },
+  get ColorBlend_Color(): number { return Live2DCubismCore.ColorBlendType_Color; },
+  get ColorBlend_AddCompatible(): number { return Live2DCubismCore.ColorBlendType_AddCompatible; },
+  get ColorBlend_MultiplyCompatible(): number { return Live2DCubismCore.ColorBlendType_MultiplyCompatible; }
+};
+export type CubismColorBlend = number;
 
 /**
  * アルファブレンドのタイプ

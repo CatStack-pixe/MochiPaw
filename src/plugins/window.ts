@@ -3,13 +3,11 @@
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
 import { invoke } from '@tauri-apps/api/core'
-import { emit } from '@tauri-apps/api/event'
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { emit, emitTo } from '@tauri-apps/api/event'
+import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { error } from '@tauri-apps/plugin-log'
 
-import type { WINDOW_LABEL } from '../constants'
-
-import { LISTEN_KEY } from '../constants'
+import { LISTEN_KEY, WINDOW_LABEL } from '../constants'
 import { logInfo } from '../utils/diagnostics'
 
 export type WindowLabel = typeof WINDOW_LABEL[keyof typeof WINDOW_LABEL]
@@ -51,6 +49,10 @@ function catchWindowError(action: string) {
 }
 
 export function showWindow(label?: WindowLabel) {
+  if (label === WINDOW_LABEL.PREFERENCE) {
+    return invoke('show_preference_window').catch(catchWindowError('show-preferences'))
+  }
+
   if (label) {
     return emit(LISTEN_KEY.SHOW_WINDOW, label).catch(catchWindowError('emit-show'))
   } else {
@@ -59,6 +61,11 @@ export function showWindow(label?: WindowLabel) {
 }
 
 export function hideWindow(label?: WindowLabel) {
+  if ((label ?? getCurrentWebviewWindow().label) === WINDOW_LABEL.PREFERENCE) {
+    return emitTo(WINDOW_LABEL.PREFERENCE, 'close-preference-window')
+      .catch(catchWindowError('close-preferences'))
+  }
+
   if (label) {
     return emit(LISTEN_KEY.HIDE_WINDOW, label).catch(catchWindowError('emit-hide'))
   } else {
@@ -88,9 +95,11 @@ export async function setGameMode(options: GameModeOptions): Promise<boolean> {
 }
 
 export async function toggleWindowVisible(label?: WindowLabel) {
-  const appWindow = getCurrentWebviewWindow()
+  const appWindow = label
+    ? await WebviewWindow.getByLabel(label)
+    : getCurrentWebviewWindow()
 
-  if (appWindow.label !== label) return
+  if (!appWindow) return showWindow(label)
 
   const visible = await appWindow.isVisible()
 
@@ -99,6 +108,11 @@ export async function toggleWindowVisible(label?: WindowLabel) {
   }
 
   return showWindow(label)
+}
+
+export function requestPreferenceUpdate(visibleMessage = true) {
+  return invoke('request_preference_update', { visibleMessage })
+    .catch(catchWindowError('request-preference-update'))
 }
 
 export async function setTaskbarVisibility(visible: boolean) {

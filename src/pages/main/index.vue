@@ -10,8 +10,7 @@ import { emit, emitTo } from '@tauri-apps/api/event'
 import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
-import { useDebounceFn, useEventListener } from '@vueuse/core'
-import { message } from 'antdv-next'
+import { useDebounceFn, useDevicePixelRatio, useDocumentVisibility, useEventListener } from '@vueuse/core'
 import { round } from 'es-toolkit'
 import { computed, nextTick, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -53,6 +52,9 @@ import { TypingStatsOperationCoordinator } from '@/utils/typingStatsCoordinator'
 import { executeTypingStatsMutationTransaction, requestTypingStatsStoreSave } from '@/utils/typingStatsPersistence'
 
 const appWindow = getCurrentWebviewWindow()
+const { pixelRatio } = useDevicePixelRatio()
+const documentVisibility = useDocumentVisibility()
+const renderingRequested = ref(true)
 const route = useRoute()
 const subModelId = typeof route.query.instance === 'string' ? route.query.instance : undefined
 const isSubModel = Boolean(subModelId)
@@ -634,6 +636,7 @@ async function loadModel(model: Model, canvas: HTMLCanvasElement, loadTrigger: n
     }
 
     logError('[model-load] failed', { ...modelContext, error })
+    const { message } = await import('antdv-next')
     message.error(String(error))
     throw error
   } finally {
@@ -762,6 +765,14 @@ if (!isSubModel) {
 
 watch(() => catStore.model.motionSound, live2d.setMotionSoundEnabled, { immediate: true })
 
+watch([() => catStore.model.renderQuality, pixelRatio], ([quality, ratio]) => {
+  live2d.setRenderQuality(quality, ratio)
+}, { immediate: true })
+
+watch([documentVisibility, renderingRequested, () => isSubModel ? subModel.value?.visible !== false : catStore.window.visible], ([visibility, requested, visible]) => {
+  live2d.setRenderingEnabled(visibility === 'visible' && requested && visible)
+}, { immediate: true })
+
 watch([() => appearanceSettings.value.maxFPS, gameModeActive], ([fps, active]) => {
   const effectiveFPS = resolveEffectiveMaxFPS(fps, active)
   logInfo('[render] max FPS updated', {
@@ -802,7 +813,7 @@ useTauriListen<{
 useTauriListen<boolean>(LISTEN_KEY.SET_SUB_MODEL_RENDERING, ({ payload }) => {
   if (!isSubModel) return
 
-  live2d.setRenderingEnabled(payload)
+  renderingRequested.value = payload
 })
 
 const subModelConfigListener = useTauriListen<SubModelInstance>(LISTEN_KEY.UPDATE_SUB_MODEL, ({ payload }) => {

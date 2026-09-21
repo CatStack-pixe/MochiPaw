@@ -8,11 +8,10 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import { platform } from '@tauri-apps/plugin-os'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { check } from '@tauri-apps/plugin-updater'
-import { useIntervalFn } from '@vueuse/core'
 import { Flex, message, Modal } from 'antdv-next'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { computed, markRaw, onUnmounted, reactive, watch } from 'vue'
+import { computed, markRaw, onMounted, onUnmounted, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import VueMarkdown from 'vue-markdown-render'
 
@@ -21,9 +20,9 @@ import type { AvailableUpdate, UpdateCapability } from '@/utils/updateFlow'
 import { useTauriListen } from '@/composables/useTauriListen'
 import { GITHUB_LINK, INVOKE_KEY, LISTEN_KEY } from '@/constants'
 import { showWindow } from '@/plugins/window'
-import { useGeneralStore } from '@/stores/general'
 import { logError, logInfo, logStep, logWarn } from '@/utils/diagnostics'
 import { runAfterSavingPersistentStores } from '@/utils/persistence'
+import { setPreferenceCloseBlocked } from '@/utils/preferenceWindow'
 import {
   applyUpdate,
   disposeUpdate,
@@ -47,7 +46,6 @@ interface State {
   downloadProgress: number
 }
 
-const generalStore = useGeneralStore()
 const state = reactive<State>({
   open: false,
   updateBody: '',
@@ -63,19 +61,7 @@ const updateChecker = new UpdateCheckCoordinator({
 })
 const updateOperationGate = new UpdateOperationGate()
 
-const { pause, resume } = useIntervalFn(checkUpdate, 1000 * 60 * 60 * 24)
-
-watch(() => generalStore.update.autoCheck, (value) => {
-  pause()
-
-  if (!value) return
-
-  void checkUpdate()
-
-  resume()
-}, { immediate: true })
-
-useTauriListen<boolean>(LISTEN_KEY.UPDATE_APP, () => {
+function checkWithMessage() {
   if (state.downloading) return
 
   message.loading({
@@ -85,6 +71,24 @@ useTauriListen<boolean>(LISTEN_KEY.UPDATE_APP, () => {
   })
 
   void checkUpdate(true)
+}
+
+useTauriListen<boolean>(LISTEN_KEY.UPDATE_APP, checkWithMessage)
+
+async function consumePendingCheck() {
+  const visibleMessage = await invoke<boolean | null>('take_pending_preference_update')
+  if (visibleMessage === null) return
+  if (visibleMessage) checkWithMessage()
+  else await checkUpdate()
+}
+
+const pendingUpdateListener = useTauriListen('preference-update-requested', () => {
+  void consumePendingCheck()
+})
+
+onMounted(async () => {
+  await pendingUpdateListener.ready
+  await consumePendingCheck()
 })
 
 const downloadProgress = computed(() => {
@@ -202,6 +206,7 @@ async function handleOk() {
   try {
     updateOperationGate.invalidateChecks()
     state.downloading = true
+    setPreferenceCloseBlocked(true)
 
     const result = await applyUpdate(state.update, state.capability, GITHUB_LINK, {
       isWindows: platform() === 'windows',
@@ -231,6 +236,7 @@ async function handleOk() {
     logError('[update] apply failed', { version, ...capability, error })
     message.error(t('components.updateApp.hints.updateFailed', { error: String(error) }))
   } finally {
+    setPreferenceCloseBlocked(false)
     Object.assign(state, {
       downloading: false,
       totalProgress: undefined,

@@ -4,7 +4,6 @@
 
 <script setup lang="ts">
 import { listen } from '@tauri-apps/api/event'
-import { useDebounceFn } from '@vueuse/core'
 import { Button, Divider, InputNumber, message, Select, Slider, Switch } from 'antdv-next'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -19,6 +18,7 @@ import { LISTEN_KEY } from '@/constants'
 import { usePomodoroStore } from '@/stores/pomodoro'
 import { useShortcutStore } from '@/stores/shortcut'
 import { requestPomodoroCommand } from '@/utils/pomodoroRequest'
+import { acquirePreferenceCloseBlock } from '@/utils/preferenceWindow'
 
 const store = usePomodoroStore()
 const shortcutStore = useShortcutStore()
@@ -40,10 +40,20 @@ const draft = reactive({
 })
 let unlistenState: (() => void) | undefined
 let timelineTimer: number | undefined
+let settingsTimer: ReturnType<typeof setTimeout> | undefined
+let releaseSettingsBlock: (() => void) | undefined
+let syncingDraft = false
+let disposed = false
+
+function applyDraft(settings: typeof draft) {
+  syncingDraft = true
+  Object.assign(draft, settings)
+  syncingDraft = false
+}
 
 function syncDraft(payload: PomodoroStatePayload) {
   store.$patch(payload)
-  Object.assign(draft, payload.settings)
+  if (!releaseSettingsBlock) applyDraft(payload.settings)
 }
 
 function getDateKey(date = new Date()) {
@@ -167,24 +177,48 @@ async function persistSettings() {
   if (pending.value) return
 
   pending.value = true
+  const submitted = JSON.stringify(draft)
 
   try {
     const acknowledgement = await requestPomodoroCommand('update-settings', { ...draft })
 
     if (!acknowledgement.accepted) throw new Error(acknowledgement.reason ?? t('pages.pomodoro.hints.saveFailed'))
 
-    if (acknowledgement.state) syncDraft(acknowledgement.state)
+    if (acknowledgement.state) {
+      store.$patch(acknowledgement.state)
+      if (JSON.stringify(draft) === submitted) applyDraft(acknowledgement.state.settings)
+    }
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error))
+    // Rejected edits return to the authoritative values visibly; retain no
+    // unsaved draft that could disappear silently when the tab is destroyed.
+    applyDraft(store.settings)
   } finally {
     pending.value = false
     if (hasDraftChanges()) scheduleSettingsPersistence()
+    else {
+      releaseSettingsBlock?.()
+      releaseSettingsBlock = undefined
+    }
   }
 }
 
-const scheduleSettingsPersistence = useDebounceFn(() => {
-  if (hasDraftChanges()) void persistSettings()
-}, 300)
+function scheduleSettingsPersistence() {
+  if (syncingDraft || disposed) return
+  if (settingsTimer) clearTimeout(settingsTimer)
+  if (!hasDraftChanges()) {
+    if (!pending.value) {
+      releaseSettingsBlock?.()
+      releaseSettingsBlock = undefined
+    }
+    return
+  }
+  releaseSettingsBlock ??= acquirePreferenceCloseBlock()
+  settingsTimer = setTimeout(() => {
+    settingsTimer = undefined
+    void persistSettings()
+  }, 300)
+}
 
 type PomodoroControlCommand = 'start' | 'pause' | 'resume' | 'reset'
 
@@ -192,6 +226,7 @@ async function runCommand(command: PomodoroControlCommand) {
   if (pending.value) return
 
   pending.value = true
+  const releaseCommandBlock = acquirePreferenceCloseBlock()
 
   try {
     const acknowledgement = await requestPomodoroCommand(command)
@@ -203,6 +238,8 @@ async function runCommand(command: PomodoroControlCommand) {
     message.error(error instanceof Error ? error.message : String(error))
   } finally {
     pending.value = false
+    releaseCommandBlock()
+    if (hasDraftChanges()) scheduleSettingsPersistence()
   }
 }
 
@@ -210,17 +247,22 @@ onMounted(async () => {
   timelineTimer = window.setInterval(() => {
     timelineNow.value = Date.now()
   }, 1_000)
-  unlistenState = await listen<PomodoroStatePayload>(LISTEN_KEY.POMODORO_STATE_CHANGED, ({ payload }) => {
+  const unlisten = await listen<PomodoroStatePayload>(LISTEN_KEY.POMODORO_STATE_CHANGED, ({ payload }) => {
     syncDraft(payload)
   })
+  if (disposed) unlisten()
+  else unlistenState = unlisten
 })
 
 onUnmounted(() => {
+  disposed = true
   unlistenState?.()
   if (timelineTimer) window.clearInterval(timelineTimer)
+  if (settingsTimer) clearTimeout(settingsTimer)
+  releaseSettingsBlock?.()
 })
 
-watch(draft, scheduleSettingsPersistence, { deep: true })
+watch(draft, scheduleSettingsPersistence, { deep: true, flush: 'sync' })
 </script>
 
 <template>

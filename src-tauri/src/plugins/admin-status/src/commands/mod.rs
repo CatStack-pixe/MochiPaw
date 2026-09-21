@@ -3,15 +3,21 @@
 
 use tauri::{AppHandle, Runtime, command};
 
+#[cfg(any(target_os = "windows", test))]
+mod process_group;
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessMetrics {
     pid: u32,
     cpu_usage: Option<f64>,
-    memory_bytes: u64,
-    virtual_memory_bytes: u64,
-    thread_count: u32,
-    uptime_seconds: u64,
+    memory_bytes: Option<u64>,
+    virtual_memory_bytes: Option<u64>,
+    thread_count: Option<u32>,
+    uptime_seconds: Option<u64>,
+    group_working_set_bytes: Option<u64>,
+    group_private_bytes: Option<u64>,
+    group_process_count: Option<u32>,
 }
 
 #[command]
@@ -138,10 +144,12 @@ async fn run_elevation_worker(
 }
 
 #[command]
-pub fn get_process_metrics() -> Result<ProcessMetrics, String> {
+pub async fn get_process_metrics() -> Result<ProcessMetrics, String> {
     #[cfg(target_os = "windows")]
     {
-        windows_process_metrics()
+        tauri::async_runtime::spawn_blocking(windows_process_metrics)
+            .await
+            .map_err(|error| error.to_string())?
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -149,10 +157,13 @@ pub fn get_process_metrics() -> Result<ProcessMetrics, String> {
         Ok(ProcessMetrics {
             pid: std::process::id(),
             cpu_usage: None,
-            memory_bytes: 0,
-            virtual_memory_bytes: 0,
-            thread_count: 0,
-            uptime_seconds: 0,
+            memory_bytes: None,
+            virtual_memory_bytes: None,
+            thread_count: None,
+            uptime_seconds: None,
+            group_working_set_bytes: None,
+            group_private_bytes: None,
+            group_process_count: None,
         })
     }
 }
@@ -331,30 +342,16 @@ fn to_wide_os_str(value: &std::ffi::OsStr) -> Vec<u16> {
 
 #[cfg(target_os = "windows")]
 fn windows_process_metrics() -> Result<ProcessMetrics, String> {
-    use std::mem::size_of;
     use windows::Win32::{
         Foundation::{FILETIME, GetLastError},
         System::{
-            ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
             SystemInformation::GetSystemInfo,
             Threading::{GetCurrentProcess, GetCurrentProcessId, GetProcessTimes},
         },
     };
 
     let process = unsafe { GetCurrentProcess() };
-    let mut memory_counters = PROCESS_MEMORY_COUNTERS {
-        cb: size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
-        ..Default::default()
-    };
-
-    unsafe {
-        GetProcessMemoryInfo(
-            process,
-            &mut memory_counters,
-            size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
-        )
-        .map_err(|error| error.to_string())?;
-    }
+    let memory_counters = process_group::read_memory_counters(process)?;
 
     let mut creation_time = FILETIME::default();
     let mut exit_time = FILETIME::default();
@@ -378,22 +375,39 @@ fn windows_process_metrics() -> Result<ProcessMetrics, String> {
     }
 
     let uptime_seconds = process_uptime_seconds(filetime_to_u64(creation_time))?;
+    let pid = unsafe { GetCurrentProcessId() };
+    // A process can exit during sampling. Keep the main-process metrics useful,
+    // but never display a partial WebView group as a complete measurement.
+    let group = process_group::windows_webview_group(
+        pid,
+        process_group::ProcessSample {
+            creation_time: filetime_to_u64(creation_time),
+            working_set_bytes: memory_counters.WorkingSetSize as u64,
+            private_bytes: memory_counters.PrivateUsage as u64,
+        },
+    )
+    .ok();
 
     Ok(ProcessMetrics {
-        pid: unsafe { GetCurrentProcessId() },
+        pid,
         cpu_usage: process_cpu_usage(
             filetime_to_u64(kernel_time) + filetime_to_u64(user_time),
             system_info.dwNumberOfProcessors.max(1),
         ),
-        memory_bytes: memory_counters.WorkingSetSize as u64,
-        virtual_memory_bytes: memory_counters.PagefileUsage as u64,
-        thread_count: current_process_thread_count().map_err(|_| unsafe {
+        memory_bytes: Some(memory_counters.WorkingSetSize as u64),
+        // Preserve the IPC field name; this has always represented private
+        // commit, not the size of the process's virtual address space.
+        virtual_memory_bytes: Some(memory_counters.PrivateUsage as u64),
+        thread_count: Some(current_process_thread_count().map_err(|_| unsafe {
             format!(
                 "GetCurrentProcess thread snapshot failed: {:?}",
                 GetLastError()
             )
-        })?,
-        uptime_seconds,
+        })?),
+        uptime_seconds: Some(uptime_seconds),
+        group_working_set_bytes: group.as_ref().map(|value| value.working_set_bytes),
+        group_private_bytes: group.as_ref().map(|value| value.private_bytes),
+        group_process_count: group.as_ref().map(|value| value.process_count),
     })
 }
 

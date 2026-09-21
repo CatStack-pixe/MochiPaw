@@ -29,6 +29,16 @@ const EMPTY_REDIR: IRedirectPath = {
  * 用 async/await 替代原 22 步 LoadStep 状态机
  */
 export class ModelLoader {
+  private readonly controller = new AbortController()
+
+  cancel(): void {
+    this.controller.abort()
+  }
+
+  private checkActive(): void {
+    this.controller.signal.throwIfAborted()
+  }
+
   async load(
     modelAssets: ModelAssets,
     model: Live2DModel,
@@ -36,6 +46,7 @@ export class ModelLoader {
     gl: WebGLRenderingContext | WebGL2RenderingContext,
   ): Promise<void> {
     try {
+      this.checkActive()
       if (typeof WebGL2RenderingContext === 'undefined' || !(gl instanceof WebGL2RenderingContext)) {
         throw new Live2DLoadError(
           'webgl2-unavailable',
@@ -45,16 +56,23 @@ export class ModelLoader {
       }
 
       const ctx = await this.resolveSetting(modelAssets)
+      this.checkActive()
       model.setModelSetting(ctx.setting, ctx.homeDir, ctx.redir)
 
       await this.loadMoc(model, ctx)
+      this.checkActive()
       await this.loadExpressions(model, ctx)
+      this.checkActive()
       await this.loadPhysics(model, ctx)
+      this.checkActive()
       await this.loadPose(model, ctx)
+      this.checkActive()
       model.setupEffects(ctx.setting)
       await this.loadUserData(model, ctx)
+      this.checkActive()
       model.setupLayout(ctx.setting)
       await this.loadMotions(model, ctx)
+      this.checkActive()
 
       model.initializeRenderer(
         gl,
@@ -62,8 +80,14 @@ export class ModelLoader {
         Math.max(1, gl.drawingBufferHeight),
       )
       await this.loadTextures(model, ctx, textureLoader)
+      this.checkActive()
       model.setReady(true)
     } catch (error) {
+      // Stop sibling requests before the sprite releases its model and context.
+      const cancelled = this.controller.signal.aborted
+      this.cancel()
+      textureLoader.release()
+      if (cancelled) throw error
       if (error instanceof Live2DLoadError) throw error
 
       throw new Live2DLoadError(
@@ -82,7 +106,8 @@ export class ModelLoader {
     if (typeof assets === 'string') {
       const separator = Math.max(assets.lastIndexOf('/'), assets.lastIndexOf('\\'))
       const homeDir = separator >= 0 ? assets.slice(0, separator + 1) : ''
-      const buf = await FileLoader.loadArrayBuffer(assets)
+      const buf = await FileLoader.loadArrayBuffer(assets, this.controller.signal)
+      this.checkActive()
       return { setting: new CubismModelSettingJson(buf, buf.byteLength), homeDir, redir: EMPTY_REDIR }
     }
     const s = assets as CubismSetting
@@ -102,7 +127,8 @@ export class ModelLoader {
         getCubismRuntimeDiagnostics(),
       )
     }
-    const buf = await FileLoader.fetchSafe(this.resolveUrl(ctx.redir.Moc, ctx.homeDir, fileName))
+    const buf = await FileLoader.fetchSafe(this.resolveUrl(ctx.redir.Moc, ctx.homeDir, fileName), this.controller.signal)
+    this.checkActive()
 
     const mocVersion = getCubismMocVersion(buf)
     const diagnostics = {
@@ -134,7 +160,8 @@ export class ModelLoader {
     for (let i = 0; i < count; i++) {
       const name = ctx.setting.getExpressionName(i)
       const url = this.resolveUrl(ctx.redir.Expressions[i], ctx.homeDir, ctx.setting.getExpressionFileName(i))
-      const buf = await FileLoader.fetchSafe(url)
+      const buf = await FileLoader.fetchSafe(url, this.controller.signal)
+      this.checkActive()
       model.loadExpressionData(name, buf)
     }
   }
@@ -143,7 +170,8 @@ export class ModelLoader {
     const fileName = ctx.setting.getPhysicsFileName()
     if (!fileName)
       return
-    const buf = await FileLoader.fetchSafe(this.resolveUrl(ctx.redir.Physics, ctx.homeDir, fileName))
+    const buf = await FileLoader.fetchSafe(this.resolveUrl(ctx.redir.Physics, ctx.homeDir, fileName), this.controller.signal)
+    this.checkActive()
     model.loadPhysicsData(buf)
   }
 
@@ -151,7 +179,8 @@ export class ModelLoader {
     const fileName = ctx.setting.getPoseFileName()
     if (!fileName)
       return
-    const buf = await FileLoader.fetchSafe(this.resolveUrl(ctx.redir.Pose, ctx.homeDir, fileName))
+    const buf = await FileLoader.fetchSafe(this.resolveUrl(ctx.redir.Pose, ctx.homeDir, fileName), this.controller.signal)
+    this.checkActive()
     model.loadPoseData(buf)
   }
 
@@ -159,7 +188,8 @@ export class ModelLoader {
     const fileName = ctx.setting.getUserDataFile()
     if (!fileName)
       return
-    const buf = await FileLoader.fetchSafe(this.resolveUrl(ctx.redir.UserData, ctx.homeDir, fileName))
+    const buf = await FileLoader.fetchSafe(this.resolveUrl(ctx.redir.UserData, ctx.homeDir, fileName), this.controller.signal)
+    this.checkActive()
     model.loadUserDataData(buf)
   }
 
@@ -170,6 +200,7 @@ export class ModelLoader {
       groups.push(ctx.setting.getMotionGroupName(i))
     }
     await Promise.all(groups.map(g => this.loadMotionGroup(model, ctx, g)))
+    this.checkActive()
     model.finalizeMotionSetup()
   }
 
@@ -179,7 +210,8 @@ export class ModelLoader {
     for (let i = 0; i < count; i++) {
       const fileName = ctx.setting.getMotionFileName(group, i)
       const url = (hasRedir && ctx.redir.Motions[group]?.[i]) || `${ctx.homeDir}${fileName}`
-      const buf = await FileLoader.fetchSafe(url)
+      const buf = await FileLoader.fetchSafe(url, this.controller.signal)
+      this.checkActive()
       model.loadMotionData(group, i, buf, ctx.setting)
     }
   }

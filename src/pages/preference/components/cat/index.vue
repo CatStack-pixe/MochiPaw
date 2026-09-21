@@ -296,6 +296,21 @@ const typingBehaviorGroupOptions = computed(() => {
         :min="0"
       />
     </ProListItem>
+
+    <ProListItem
+      :description="$t('pages.preference.cat.hints.renderQuality')"
+      :title="$t('pages.preference.cat.labels.renderQuality')"
+    >
+      <Select
+        v-model:value="catStore.model.renderQuality"
+        class="w-44"
+        :options="[
+          { value: 'economy', label: $t('pages.preference.cat.labels.qualityEconomy') },
+          { value: 'balanced', label: $t('pages.preference.cat.labels.qualityBalanced') },
+          { value: 'native', label: $t('pages.preference.cat.labels.qualityNative') },
+        ]"
+      />
+    </ProListItem>
   </ProList>
 
   <ProList :title="$t('pages.preference.cat.labels.windowSettings')">

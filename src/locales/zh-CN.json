@@ -104,7 +104,11 @@
           "autoReleaseDelay": "按键自动释放延迟",
           "hideOnHover": "鼠标移入隐藏",
           "maxFPS": "最大帧率",
-          "typingBehaviorGroup": "随机组"
+          "typingBehaviorGroup": "随机组",
+          "renderQuality": "渲染画质",
+          "qualityEconomy": "节省资源",
+          "qualityBalanced": "均衡",
+          "qualityNative": "原生"
         },
         "hints": {
           "windowRelativeMouseLook": "开启后，鼠标视角将根据宠物窗口边界计算；关闭后恢复按显示器边界计算。",
@@ -125,7 +129,8 @@
           "windowSize": "使用滑动条快速调整窗口大小，也可以输入百分比精确设置。",
           "autoReleaseDelay": "由于 Windows 下部分系统级按键无法捕获释放事件，超时后将自动视为已释放。",
           "hideOnHover": "启用后，鼠标悬停窗口时自动隐藏。可设置延迟时间，0 表示立即隐藏。",
-          "maxFPS": "限制模型渲染的最大帧率，降低帧率可以减少 CPU/GPU 占用。"
+          "maxFPS": "限制模型渲染的最大帧率，降低帧率可以减少 CPU/GPU 占用。",
+          "renderQuality": "应用于所有桌宠。节省资源将像素密度限制为 1 倍，均衡为 2 倍，原生跟随显示器。较低密度可减少 GPU 缓冲区占用，画面可能变柔和；模型纹理保持原样。"
         }
       },
       "general": {
@@ -222,7 +227,9 @@
           "customName": "自定义名称",
           "selectedCount": "已选择 {count} 个模型",
           "cancelSelection": "取消选择",
-          "deleteSelected": "删除所选模型"
+          "deleteSelected": "删除所选模型",
+          "startPreview": "播放预览",
+          "stopPreview": "停止预览"
         },
         "hints": {
           "deleteSuccess": "删除成功",
@@ -385,9 +392,9 @@
           "contributorsUnavailable": "无法读取随应用打包的贡献者信息。请重新安装应用或重试。",
           "license": "继承自 BongoCat 的代码和资源适用 MIT 许可证；仅 CatStack 独立创作的文件适用 PolyForm Noncommercial 1.0.0。完整适用范围、署名和第三方条款请查看仓库中的 LICENSE 与 NOTICE。",
           "copySuccess": "复制成功",
-          "debugMonitor": "每秒自动刷新当前应用进程的 CPU、内存等占用。CPU 首次采样会显示 --。",
+          "debugMonitor": "Windows：显示主进程 CPU，以及主进程和 WebView2 进程组内存。工作集合计可能重复计算共享页。-- 表示暂不可用。GPU 显存请使用系统工具测量。",
           "resourceMetrics": "统计各模型资源的磁盘大小和估算解码内存。贴图按实际宽高以 RGBA 估算，其它资源按文件大小估算。",
-          "compactMemorySuccess": "已压缩当前进程内存"
+          "compactMemorySuccess": "已整理主进程工作集，仍在使用的内存分配保持不变"
         },
         "buttons": {
           "checkUpdate": "检查更新",
@@ -399,16 +406,19 @@
           "viewLog": "查看日志",
           "refresh": "刷新",
           "refreshResources": "刷新资源统计",
-          "compactMemory": "自身内存压缩"
+          "compactMemory": "整理主进程工作集"
         },
         "metrics": {
           "pid": "PID",
-          "cpuUsage": "CPU 占用",
-          "memory": "内存占用",
-          "virtualMemory": "虚拟内存",
-          "threads": "线程数",
+          "cpuUsage": "主进程 CPU 占用",
+          "memory": "主进程工作集",
+          "virtualMemory": "主进程私有提交",
+          "threads": "主进程线程数",
           "uptime": "运行时长",
-          "resourceUsageValue": "估算内存 {memory} / 文件 {fileSize} / {files} 个文件"
+          "resourceUsageValue": "估算内存 {memory} / 文件 {fileSize} / {files} 个文件",
+          "groupWorkingSet": "应用进程组工作集（合计）",
+          "groupPrivateMemory": "应用进程组私有提交",
+          "groupProcesses": "应用进程组进程数"
         },
         "resourceCategories": {
           "model": "模型本体",

@@ -104,7 +104,11 @@
           "autoReleaseDelay": "Độ trễ tự động nhả phím",
           "hideOnHover": "Ẩn khi di chuột",
           "maxFPS": "Tốc độ khung hình tối đa",
-          "typingBehaviorGroup": "Nh?m ng?u nhi?n"
+          "typingBehaviorGroup": "Nh?m ng?u nhi?n",
+          "renderQuality": "Chất lượng hiển thị",
+          "qualityEconomy": "Tiết kiệm",
+          "qualityBalanced": "Cân bằng",
+          "qualityNative": "Gốc"
         },
         "hints": {
           "windowRelativeMouseLook": "Khi bật, góc nhìn chuột được tính theo ranh giới cửa sổ mèo; khi tắt, góc nhìn được tính theo ranh giới màn hình.",
@@ -125,7 +129,8 @@
           "windowSize": "Dùng thanh trượt để chỉnh nhanh hoặc nhập phần trăm để đặt chính xác.",
           "autoReleaseDelay": "Do Windows không bắt được sự kiện nhả của một số phím hệ thống, các phím đó sẽ được tự động xem như đã nhả sau khi hết thời gian chờ.",
           "hideOnHover": "Khi bật, cửa sổ tự động ẩn khi chuột di vào. Có thể đặt thời gian trễ, 0 nghĩa là ẩn ngay.",
-          "maxFPS": "Giới hạn tốc độ khung hình tối đa cho việc render mô hình. Giảm tốc độ khung hình có thể giảm mức sử dụng CPU/GPU."
+          "maxFPS": "Giới hạn tốc độ khung hình tối đa cho việc render mô hình. Giảm tốc độ khung hình có thể giảm mức sử dụng CPU/GPU.",
+          "renderQuality": "Áp dụng cho mọi thú cưng. Tiết kiệm giới hạn mật độ điểm ảnh ở 1×, Cân bằng ở 2×, Gốc theo màn hình. Mật độ thấp giảm bộ đệm GPU và có thể làm hình ảnh mềm hơn; giữ nguyên texture mô hình."
         }
       },
       "general": {
@@ -208,7 +213,9 @@
           "customName": "Tên tùy chỉnh",
           "selectedCount": "Đã chọn {count} mô hình",
           "cancelSelection": "Bỏ chọn",
-          "deleteSelected": "Xóa các mô hình đã chọn"
+          "deleteSelected": "Xóa các mô hình đã chọn",
+          "startPreview": "Phát xem trước",
+          "stopPreview": "Dừng xem trước"
         },
         "hints": {
           "deleteSuccess": "Xóa thành công",
@@ -371,9 +378,9 @@
           "contributorsUnavailable": "Không thể đọc thông tin người đóng góp đi kèm ứng dụng. Hãy cài đặt lại ứng dụng hoặc thử lại.",
           "license": "Mã và tài nguyên kế thừa từ BongoCat được cấp phép theo MIT. Chỉ các tệp do CatStack sáng tạo độc lập mới dùng PolyForm Noncommercial 1.0.0. Xem LICENSE và NOTICE trong kho để biết phạm vi, ghi công và điều khoản bên thứ ba.",
           "copySuccess": "Đã sao chép",
-          "debugMonitor": "Tự động làm mới CPU, bộ nhớ và mức sử dụng liên quan của tiến trình ứng dụng mỗi giây. CPU hiển thị -- ở lần lấy mẫu đầu tiên.",
+          "debugMonitor": "Windows: CPU tiến trình chính và bộ nhớ nhóm tiến trình chính/WebView2. Tổng working set có thể đếm lặp trang dùng chung. -- nghĩa là chưa có dữ liệu. Đo bộ nhớ GPU bằng công cụ hệ thống.",
           "resourceMetrics": "Hiển thị kích thước tệp và bộ nhớ giải mã ước tính của từng mô hình. Texture ước tính theo RGBA từ kích thước thật; tài nguyên khác dùng kích thước tệp.",
-          "compactMemorySuccess": "Đã nén bộ nhớ tiến trình hiện tại"
+          "compactMemorySuccess": "Đã thu gọn working set chính; vùng nhớ đang dùng không thay đổi"
         },
         "buttons": {
           "checkUpdate": "Kiểm tra cập nhật",
@@ -385,16 +392,19 @@
           "viewLog": "Xem nhật ký",
           "refresh": "Làm mới",
           "refreshResources": "Làm mới tài nguyên",
-          "compactMemory": "Nén bộ nhớ"
+          "compactMemory": "Thu gọn working set chính"
         },
         "metrics": {
           "pid": "PID",
-          "cpuUsage": "CPU",
-          "memory": "Bộ nhớ",
-          "virtualMemory": "Bộ nhớ ảo",
-          "threads": "Luồng",
+          "cpuUsage": "CPU tiến trình chính",
+          "memory": "Working set tiến trình chính",
+          "virtualMemory": "Bộ nhớ riêng tiến trình chính",
+          "threads": "Luồng tiến trình chính",
           "uptime": "Thời gian chạy",
-          "resourceUsageValue": "Bộ nhớ ước tính {memory} / tệp {fileSize} / {files} tệp"
+          "resourceUsageValue": "Bộ nhớ ước tính {memory} / tệp {fileSize} / {files} tệp",
+          "groupWorkingSet": "Working set nhóm ứng dụng (tổng)",
+          "groupPrivateMemory": "Bộ nhớ riêng nhóm ứng dụng",
+          "groupProcesses": "Số tiến trình nhóm ứng dụng"
         },
         "resourceCategories": {
           "model": "Tệp mô hình",
