@@ -122,6 +122,12 @@ fn repair_model_store_state(
     Ok(())
 }
 
+// macOS embeds a global Info.plist symbol, so tests and startup must share one
+// generate_context! expansion within this crate.
+fn application_context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "windows")]
@@ -130,7 +136,7 @@ pub fn run() {
         return;
     }
 
-    let mut context = tauri::generate_context!();
+    let mut context = application_context();
     webview_storage::configure_context(&mut context);
 
     let pinia = tauri_plugin_pinia::Builder::default();

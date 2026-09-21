@@ -108,24 +108,26 @@ async function hasRuntimeCapacity() {
   return false
 }
 
-const createInstance = () => withPreferenceCloseBlock(async () => {
-  if (!selectedModelId.value) return
+function createInstance() {
+  return withPreferenceCloseBlock(async () => {
+    if (!selectedModelId.value) return
 
-  const instance = modelStore.createSubModel(selectedModelId.value)
+    const instance = modelStore.createSubModel(selectedModelId.value)
 
-  if (!await hasRuntimeCapacity()) {
-    modelStore.removeSubModel(instance.id)
-    return
-  }
+    if (!await hasRuntimeCapacity()) {
+      modelStore.removeSubModel(instance.id)
+      return
+    }
 
-  try {
-    await openSubModelWindow(instance)
-    expandedIds.add(instance.id)
-  } catch (error) {
-    modelStore.removeSubModel(instance.id)
-    message.error(String(error))
-  }
-})
+    try {
+      await openSubModelWindow(instance)
+      expandedIds.add(instance.id)
+    } catch (error) {
+      modelStore.removeSubModel(instance.id)
+      message.error(String(error))
+    }
+  })
+}
 
 function handleCreate() {
   if (modelStore.subModels.length < 2) {
@@ -139,33 +141,37 @@ function handleCreate() {
   })
 }
 
-const setVisible = (instance: SubModelInstance, visible: boolean) => withPreferenceCloseBlock(async () => {
-  instance.visible = visible
+function setVisible(instance: SubModelInstance, visible: boolean) {
+  return withPreferenceCloseBlock(async () => {
+    instance.visible = visible
 
-  if (visible && !await hasRuntimeCapacity()) {
-    instance.visible = false
-    return
-  }
-
-  try {
-    if (visible) {
-      await openSubModelWindow(instance)
-    } else {
-      await hideSubModelWindow(instance.id)
+    if (visible && !await hasRuntimeCapacity()) {
+      instance.visible = false
+      return
     }
 
-    await notifyInstance(instance)
-  } catch (error) {
-    instance.visible = !visible
-    message.error(String(error))
-  }
-})
+    try {
+      if (visible) {
+        await openSubModelWindow(instance)
+      } else {
+        await hideSubModelWindow(instance.id)
+      }
 
-const handleDelete = (instance: SubModelInstance) => withPreferenceCloseBlock(async () => {
-  await destroySubModelWindow(instance.id)
-  expandedIds.delete(instance.id)
-  modelStore.removeSubModel(instance.id)
-})
+      await notifyInstance(instance)
+    } catch (error) {
+      instance.visible = !visible
+      message.error(String(error))
+    }
+  })
+}
+
+function handleDelete(instance: SubModelInstance) {
+  return withPreferenceCloseBlock(async () => {
+    await destroySubModelWindow(instance.id)
+    expandedIds.delete(instance.id)
+    modelStore.removeSubModel(instance.id)
+  })
+}
 </script>
 
 <template>

@@ -9,7 +9,9 @@ import { PreviewSession } from './previewSession'
 
 test('leaving a preview during renderer initialization disposes the late renderer', async () => {
   const released: string[] = []
-  const session = new PreviewSession((error) => { throw error })
+  const session = new PreviewSession((error) => {
+    throw error
+  })
   const rendererReady = Promise.resolve('renderer')
   session.dispose()
   assert.equal(session.own(await rendererReady, value => released.push(value)), false)
@@ -34,8 +36,12 @@ test('model cleanup precedes GL context destruction even when cleanup throws', (
 
 test('an old preview completion cannot release the newly selected preview', () => {
   const released: string[] = []
-  const oldSession = new PreviewSession((error) => { throw error })
-  const newSession = new PreviewSession((error) => { throw error })
+  const oldSession = new PreviewSession((error) => {
+    throw error
+  })
+  const newSession = new PreviewSession((error) => {
+    throw error
+  })
   oldSession.dispose()
   newSession.own('new renderer', value => released.push(value))
   oldSession.own('old renderer', value => released.push(value))

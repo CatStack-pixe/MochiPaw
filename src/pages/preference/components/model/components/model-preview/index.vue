@@ -188,8 +188,8 @@ onBeforeUnmount(destroyPreview)
     >
     <div
       v-else-if="!ready"
-      class="absolute inset-0 flex items-center justify-center text-10 text-gray-400"
       aria-hidden="true"
+      class="absolute inset-0 flex items-center justify-center text-10 text-gray-400"
     >
       <i class="i-solar:cat-bold" />
     </div>
@@ -208,7 +208,7 @@ onBeforeUnmount(destroyPreview)
     />
     <button
       :aria-pressed="active"
-      class="absolute bottom-2 right-2 rounded bg-white/90 px-2 py-1 text-xs text-gray-700 shadow"
+      class="absolute bottom-2 right-2 bg-white/90 px-2 py-1 text-xs text-gray-700 rounded shadow"
       type="button"
       @click.stop="emit(active ? 'deactivate' : 'activate')"
     >

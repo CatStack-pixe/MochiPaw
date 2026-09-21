@@ -499,7 +499,7 @@ useEventListener('click', (event) => {
   >
     <pre class="max-w-full whitespace-pre-wrap break-words">{{ initializationError }}</pre>
     <button
-      class="cursor-pointer rounded-lg px-4 py-2 b-1 b-solid"
+      class="cursor-pointer b-1 b-solid px-4 py-2 rounded-lg"
       type="button"
       @click="retryInitialization"
     >

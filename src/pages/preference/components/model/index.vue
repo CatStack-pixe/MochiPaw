@@ -189,7 +189,9 @@ watch(pageCount, (count) => {
   currentPage.value = Math.min(currentPage.value, count)
 })
 
-watch(currentPage, () => { activePreviewId.value = undefined })
+watch(currentPage, () => {
+  activePreviewId.value = undefined
+})
 
 watch(() => modelStore.currentModel?.id, deselectModel)
 

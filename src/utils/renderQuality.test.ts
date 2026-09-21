@@ -7,7 +7,6 @@ import test from 'node:test'
 import { createPinia } from 'pinia'
 
 import { useCatStore } from '../stores/cat'
-
 import { normalizeRenderQuality, resolvePreviewResolution, resolveRenderResolution } from './renderQuality'
 
 test('legacy and malformed settings use the balanced render budget', () => {

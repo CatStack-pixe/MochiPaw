@@ -195,8 +195,9 @@ async function persistSettings() {
     applyDraft(store.settings)
   } finally {
     pending.value = false
-    if (hasDraftChanges()) scheduleSettingsPersistence()
-    else {
+    if (hasDraftChanges()) {
+      scheduleSettingsPersistence()
+    } else {
       releaseSettingsBlock?.()
       releaseSettingsBlock = undefined
     }
