@@ -24,7 +24,7 @@ test('unsupported platforms skip native memory-target IPC and logging', async ()
       assert.equal(await setWebviewMemoryTarget('low'), false)
       assert.equal(await setWebviewMemoryTarget('normal'), false)
     }
-    assert.deepEqual(commands, [])
+    assert.equal(commands.length, 0)
     os.platform = 'windows'
     assert.equal(await setWebviewMemoryTarget('normal'), true)
     assert.ok(commands.includes('plugin:custom-window|set_webview_memory_target'))
