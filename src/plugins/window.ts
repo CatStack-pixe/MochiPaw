@@ -6,6 +6,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { emit, emitTo } from '@tauri-apps/api/event'
 import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { error } from '@tauri-apps/plugin-log'
+import { platform } from '@tauri-apps/plugin-os'
 
 import { LISTEN_KEY, WINDOW_LABEL } from '../constants'
 import { logInfo } from '../utils/diagnostics'
@@ -120,6 +121,9 @@ export async function setTaskbarVisibility(visible: boolean) {
 }
 
 export async function setWebviewMemoryTarget(target: WebviewMemoryTarget): Promise<boolean> {
+  // This is a WebView2-only control. Other platforms deliberately return false
+  // in Rust; avoid their no-op IPC and per-input diagnostic log traffic.
+  if (platform() !== 'windows') return false
   const windowLabel = getCurrentWebviewWindow().label
 
   logInfo('[webview-memory] target requested', { windowLabel, target })

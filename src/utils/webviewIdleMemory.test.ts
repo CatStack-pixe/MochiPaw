@@ -7,7 +7,7 @@ import test from 'node:test'
 
 import type { WebviewMemoryTarget } from '@/plugins/window'
 
-import { WEBVIEW_IDLE_TIMEOUT, WebviewIdleMemoryController } from './webviewIdleMemory'
+import { WEBVIEW_IDLE_TIMEOUT, WEBVIEW_TARGET_RETRY_DELAY, WebviewIdleMemoryController } from './webviewIdleMemory'
 
 class FakeTimers {
   now = 0
@@ -180,7 +180,7 @@ function createDeferredController() {
     setTimeout: timers.setTimeout,
     clearTimeout: timers.clearTimeout,
   })
-  return { controller, requests }
+  return { controller, requests, timers }
 }
 
 test('waits for a slow low-memory request before restoring the visible target', async () => {
@@ -224,8 +224,8 @@ test('disposal drops a queued target after the native request completes', async 
   assert.deepEqual(requests.map(request => request.target), ['low'])
 })
 
-test('failed requests preserve the latest target and retry only after later activity', async () => {
-  const { controller, requests } = createDeferredController()
+test('failed requests preserve the latest target and retry after a cooldown', async () => {
+  const { controller, requests, timers } = createDeferredController()
   controller.start(true)
   controller.activate()
   requests[0]!.reject(new Error('native request failed'))
@@ -236,11 +236,44 @@ test('failed requests preserve the latest target and retry only after later acti
   await Promise.resolve()
   assert.equal(requests.length, 2)
   controller.activity()
+  assert.equal(requests.length, 2)
+  timers.advanceBy(WEBVIEW_TARGET_RETRY_DELAY)
+  controller.activity()
   assert.deepEqual(requests.map(request => request.target), ['low', 'normal', 'normal'])
   requests[2]!.resolve(true)
   await Promise.resolve()
   controller.activity()
   assert.equal(requests.length, 3)
+  controller.dispose()
+})
+
+test('unsupported targets do not retry on every input event', async () => {
+  const timers = new FakeTimers()
+  const targets: WebviewMemoryTarget[] = []
+  const controller = new WebviewIdleMemoryController({
+    setTarget: async (target) => {
+      targets.push(target)
+      return false
+    },
+    now: () => timers.now,
+    setTimeout: timers.setTimeout,
+    clearTimeout: timers.clearTimeout,
+  })
+  controller.start(true)
+  await Promise.resolve()
+  controller.activate()
+  await Promise.resolve()
+  for (let index = 0; index < 100; index += 1) {
+    controller.activity()
+    await Promise.resolve()
+  }
+  assert.deepEqual(targets, ['low', 'normal'])
+  timers.advanceBy(WEBVIEW_TARGET_RETRY_DELAY)
+  controller.activity()
+  await Promise.resolve()
+  assert.deepEqual(targets, ['low', 'normal', 'normal'])
+  controller.setHidden(true)
+  assert.deepEqual(targets, ['low', 'normal', 'normal', 'low'])
   controller.dispose()
 })
 
