@@ -70,8 +70,7 @@ function createInstance(
 async function runScheduled(scheduler: TestScheduler) {
   scheduler.runNext()
   // The coordinator deliberately does not block the scheduler callback on IPC.
-  await Promise.resolve()
-  await Promise.resolve()
+  await new Promise(resolve => setImmediate(resolve))
 }
 
 test('does not schedule input when no visible sub-model can receive it', () => {
@@ -187,6 +186,41 @@ test('timer fallback delivers input when animation frames are suspended', async 
     if (previousRaf) Object.defineProperty(globalThis, 'requestAnimationFrame', previousRaf)
     else Reflect.deleteProperty(globalThis, 'requestAnimationFrame')
   }
+})
+
+test('slow IPC keeps one frame in flight and resumes the bounded pending queue', async () => {
+  const scheduler = new TestScheduler()
+  const instance = createInstance('keyboard')
+  const sent: SubModelInputFrame[] = []
+  let finish!: () => void
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  const coordinator = new SubModelInputCoordinator(() => [instance], {
+    scheduler,
+    maxPendingEvents: 3,
+    send: (_instance, frame) => {
+      sent.push(frame)
+      return pending
+    },
+  })
+  coordinator.enqueueDevice({ kind: 'KeyboardPress', value: 'A' })
+  await runScheduled(scheduler)
+  for (let index = 0; index < 10; index += 1) {
+    coordinator.enqueueDevice({ kind: 'KeyboardRelease', value: `Key${index}` })
+  }
+  assert.equal(scheduler.requests, 1)
+  assert.equal(sent.length, 1)
+  assert.equal(coordinator.getPendingEventCount(), 3)
+
+  finish()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(scheduler.requests, 2)
+  await runScheduled(scheduler)
+  assert.equal(sent.length, 2)
+  assert.equal(sent[1].resetInputs, true)
+  assert.equal(coordinator.getPendingEventCount(), 0)
+  coordinator.dispose()
 })
 
 test('overflow resets previously delivered presses and axes before replaying the retained tail', async () => {

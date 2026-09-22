@@ -122,6 +122,7 @@ export class SubModelInputCoordinator {
   private frame: number | undefined
   private sequence = 0
   private disposed = false
+  private flushing = false
   private droppedEvents = 0
   private resetInputs = false
   private readonly scheduler: SubModelInputScheduler
@@ -226,7 +227,7 @@ export class SubModelInputCoordinator {
   }
 
   private scheduleFlush() {
-    if (this.disposed || this.frame !== undefined || !this.getActiveInstances().some(instance => instance.visible !== false)) return
+    if (this.disposed || this.flushing || this.frame !== undefined || !this.getActiveInstances().some(instance => instance.visible !== false)) return
 
     this.frame = this.scheduler.request(() => {
       this.frame = undefined
@@ -256,12 +257,22 @@ export class SubModelInputCoordinator {
     this.gamepadEvents = []
     this.resetInputs = false
 
-    await Promise.all(activeInstances.map((instance) => {
-      const filteredFrame = this.filterFrameForInstance(frame, instance)
-      if (!filteredFrame.resetInputs && !filteredFrame.deviceEvents.length && !filteredFrame.gamepadEvents.length) return undefined
+    this.flushing = true
+    try {
+      await Promise.all(activeInstances.map((instance) => {
+        const filteredFrame = this.filterFrameForInstance(frame, instance)
+        if (!filteredFrame.resetInputs && !filteredFrame.deviceEvents.length && !filteredFrame.gamepadEvents.length) return undefined
 
-      return Promise.resolve().then(() => this.send(instance, filteredFrame)).catch(() => undefined)
-    }))
+        return Promise.resolve().then(() => {
+          if (!this.disposed) return this.send(instance, filteredFrame)
+        }).catch(() => undefined)
+      }))
+    } finally {
+      this.flushing = false
+      // Backpressure keeps slow IPC from retaining an unbounded number of
+      // in-flight frames. Only the bounded/coalesced pending queue may grow.
+      if (this.resetInputs || this.deviceEvents.length || this.gamepadEvents.length) this.scheduleFlush()
+    }
   }
 
   private hasInterestedInstance(event: DeviceInputEvent | GamepadInputEvent) {
