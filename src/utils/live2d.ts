@@ -22,6 +22,7 @@ import { Config, CubismSetting, Live2DSprite, Priority } from '@/vendor/easy-liv
 import { readExpressionsFromModelJSON } from './modelExpressions'
 import { join } from './path'
 import { withTimeout } from './promise'
+import { normalizeRenderQuality, resolveRenderResolution } from './renderQuality'
 
 Config.MouseFollow = false
 
@@ -260,6 +261,7 @@ async function getParameterNames(path: string, modelJSON: CubismModelJson) {
 class Live2d {
   private app: Application | null = null
   private appInitPromise: Promise<void> | null = null
+  private appGeneration = 0
   private fallbackPhysicsAngles: FallbackPhysicsVector = { x: 0, y: 0, z: 0 }
   private fallbackPhysicsParameters: FallbackPhysicsParameters = {}
   private fallbackPhysicsSmoothedAngles: FallbackPhysicsVector = { x: 0, y: 0, z: 0 }
@@ -267,17 +269,32 @@ class Live2d {
   private fallbackPhysicsVelocity: FallbackPhysicsVector = { x: 0, y: 0, z: 0 }
   private loadVersion = 0
   private maxFPS = 30
+  private renderQuality = normalizeRenderQuality(undefined)
+  private pixelRatio = 1
   private renderingEnabled = true
   private renderDiagnostics: RenderDiagnostics | null = null
   public model: Live2DSprite | null = null
 
   constructor() { }
 
-  private async initApp(view: HTMLCanvasElement) {
+  private async initApp(view: HTMLCanvasElement): Promise<void> {
+    const generation = this.appGeneration
     if (this.app) {
       logStep('live2d', 'reuse Pixi application', { hasInitPromise: Boolean(this.appInitPromise) })
-      await this.appInitPromise
       return
+    }
+
+    if (this.appInitPromise) {
+      // A destroyed, still-initializing renderer must finish cleanup before a
+      // replacement initializes against the same canvas/WebGL context.
+      try {
+        await this.appInitPromise
+      } catch (error) {
+        if (generation !== this.appGeneration) throw new Live2dLoadCancelledError()
+        if (!isLive2dLoadCancelledError(error)) throw error
+      }
+      if (generation !== this.appGeneration) throw new Live2dLoadCancelledError()
+      return this.initApp(view)
     }
 
     logStep('live2d', 'create Pixi application', {
@@ -286,21 +303,22 @@ class Live2d {
       devicePixelRatio,
       maxFPS: this.maxFPS,
     })
-    this.app = new Application()
-
-    this.appInitPromise = this.app.init({
+    const app = new Application()
+    const initialization = app.init({
       view,
       resizeTo: view.parentElement ?? window,
       backgroundAlpha: 0,
       autoDensity: true,
-      resolution: devicePixelRatio,
+      resolution: resolveRenderResolution(this.pixelRatio, this.renderQuality),
       autoStart: false,
-    })
-
-    try {
-      await this.appInitPromise
-      this.app.ticker.maxFPS = this.maxFPS
-      this.app.stop()
+    }).then(() => {
+      if (generation !== this.appGeneration) throw new Live2dLoadCancelledError()
+      app.ticker.maxFPS = this.maxFPS
+      app.stop()
+      // Publish only a fully initialized application. Destroy/visibility/quality
+      // watchers may run while init is pending and must never touch its plugins.
+      this.app = app
+      this.setRenderQuality(this.renderQuality, this.pixelRatio)
       this.renderDiagnostics = new RenderDiagnostics({
         targetFPS: this.maxFPS,
         onReport: (snapshot) => {
@@ -315,11 +333,29 @@ class Live2d {
           })
         },
       })
-      this.app.ticker.add(this.recordRenderFrame)
+      app.ticker.add(this.recordRenderFrame)
       logStep('live2d', 'Pixi application initialized', { maxFPS: this.maxFPS })
-    } finally {
-      this.appInitPromise = null
-    }
+    }).catch((error: unknown) => {
+      if (this.app === app) {
+        this.app = null
+        this.renderDiagnostics?.stop()
+        this.renderDiagnostics = null
+      }
+      // Failed renderer creation leaves only the constructor-created stage;
+      // Application.destroy assumes that its renderer/plugins already exist.
+      try {
+        if (app.renderer) app.destroy(false)
+        else app.stage.destroy({ children: true })
+      } catch (cleanupError) {
+        logError('[live2d] failed application cleanup', { error: cleanupError })
+      }
+      if (generation !== this.appGeneration) throw new Live2dLoadCancelledError()
+      throw error
+    }).finally(() => {
+      if (this.appInitPromise === initialization) this.appInitPromise = null
+    })
+    this.appInitPromise = initialization
+    await initialization
   }
 
   public async load(path: string, view: HTMLCanvasElement) {
@@ -382,11 +418,11 @@ class Live2d {
 
     this.model = model
     app.stage.addChild(model)
+    // Initialization must begin even if the window is hidden before the next
+    // animation frame. Loading then completes independently of ticker activity.
+    app.render()
     logStep('live2d', 'model sprite created and attached', context)
-    // Live2DSprite resolves `ready` from its render callback. The app ticker is
-    // intentionally stopped while idle, so it must run before awaiting ready.
-    this.startTicker('model-load')
-    logStep('live2d', 'Pixi ticker started for model ready', context)
+    if (this.renderingEnabled) this.startTicker('model-load')
 
     try {
       logStep('live2d', 'wait for model ready', { ...context, timeoutMs: LIVE2D_READY_TIMEOUT_MS })
@@ -465,6 +501,10 @@ class Live2d {
         expressions,
       }
     } catch (error) {
+      if (version !== this.loadVersion || this.model !== model) {
+        throw new Live2dLoadCancelledError()
+      }
+
       if (this.model === model) {
         logStep('live2d', 'destroy failed or cancelled model', context)
         this.destroyCurrentModel()
@@ -482,13 +522,14 @@ class Live2d {
 
   public destroy() {
     this.loadVersion += 1
+    this.appGeneration += 1
     logStep('live2d', 'destroy renderer', { loadVersion: this.loadVersion })
     this.destroyCurrentModel()
     this.app?.destroy(false)
     this.renderDiagnostics?.stop()
     this.renderDiagnostics = null
     this.app = null
-    this.appInitPromise = null
+    // Pending initialization owns its renderer until it can safely release it.
   }
 
   private destroyCurrentModel() {
@@ -588,6 +629,18 @@ class Live2d {
     }
   }
 
+  public setRenderQuality(quality: unknown, pixelRatio: number) {
+    this.renderQuality = normalizeRenderQuality(quality)
+    this.pixelRatio = pixelRatio
+
+    const renderer = this.app?.renderer
+    const resolution = resolveRenderResolution(pixelRatio, this.renderQuality)
+
+    if (!renderer || renderer.resolution === resolution) return
+
+    renderer.resize(renderer.screen.width, renderer.screen.height, resolution)
+  }
+
   public setRenderingEnabled(enabled: boolean) {
     this.renderingEnabled = enabled
 
@@ -602,6 +655,7 @@ class Live2d {
   }
 
   private startTicker(reason: string) {
+    if (!this.app?.ticker.started) this.model?.resetFrameClock()
     this.app?.start()
     this.renderDiagnostics?.start()
     logTrace('[live2d] ticker started', {

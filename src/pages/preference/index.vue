@@ -4,35 +4,43 @@
  -->
 
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { Flex, Spin } from 'antdv-next'
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import PersistenceRecoveryAlert from '@/components/persistence-recovery-alert/index.vue'
 import UpdateApp from '@/components/update-app/index.vue'
-import { useTray } from '@/composables/useTray'
 import { useAppStore } from '@/stores/app'
 import { useGeneralStore } from '@/stores/general'
 import { useModelStore } from '@/stores/model'
 import { isMac } from '@/utils/platform'
+import { isPreferenceCloseBlocked } from '@/utils/preferenceWindow'
 
-import About from './components/about/index.vue'
-import Cat from './components/cat/index.vue'
-import General from './components/general/index.vue'
-import Model from './components/model/index.vue'
-import Pomodoro from './components/pomodoro/index.vue'
-import Shortcut from './components/shortcut/index.vue'
-import SubModel from './components/sub-model/index.vue'
-import TypingStats from './components/typing-stats/index.vue'
+const About = defineAsyncComponent(() => import('./components/about/index.vue'))
+const Cat = defineAsyncComponent(() => import('./components/cat/index.vue'))
+const General = defineAsyncComponent(() => import('./components/general/index.vue'))
+const Model = defineAsyncComponent(() => import('./components/model/index.vue'))
+const Pomodoro = defineAsyncComponent(() => import('./components/pomodoro/index.vue'))
+const Shortcut = defineAsyncComponent(() => import('./components/shortcut/index.vue'))
+const SubModel = defineAsyncComponent(() => import('./components/sub-model/index.vue'))
+const TypingStats = defineAsyncComponent(() => import('./components/typing-stats/index.vue'))
 
-useTray()
 const appStore = useAppStore()
 const current = ref(0)
 const { t } = useI18n()
 const generalStore = useGeneralStore()
 const modelStore = useModelStore()
 const appWindow = getCurrentWebviewWindow()
+
+// Both routing and the lazy theme provider have mounted before this signal.
+onMounted(() => invoke('preference_window_ready'))
+
+function selectTab(index: number) {
+  if (!modelStore.modelReady || isPreferenceCloseBlocked()) return
+  current.value = index
+}
 
 watch(() => generalStore.appearance.language, () => {
   appWindow.setTitle(t('pages.preference.title'))
@@ -123,7 +131,7 @@ const menus = computed(() => [
           :key="item.key"
           class="size-20 flex flex-col cursor-pointer items-center justify-center gap-2 transition color-text-tertiary rounded-lg hover:bg-[--ant-color-fill-tertiary] dark:color-text-secondary"
           :class="{ 'bg-container! color-blue-5! dark:color-blue-7! font-bold dark:bg-[--ant-color-fill-quaternary]!': current === index }"
-          @click="current = index"
+          @click="selectTab(index)"
         >
           <div
             class="size-8"
@@ -136,13 +144,10 @@ const menus = computed(() => [
     </div>
 
     <div
-      v-for="(item, index) in menus"
-      v-show="current === index"
-      :key="item.key"
       class="h-full min-h-0 flex-1 overflow-auto bg-[--ant-color-fill-quaternary] p-4 dark:bg-container"
       data-tauri-drag-region
     >
-      <component :is="item.component" />
+      <component :is="menus[current]?.component" />
     </div>
   </Flex>
 

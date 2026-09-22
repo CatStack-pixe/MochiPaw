@@ -33,8 +33,10 @@ const contributors = ref<GitHubContributor[]>([])
 const contributorsLoading = ref(false)
 const contributorsError = ref('')
 const { t } = useI18n()
-let metricsTimer: ReturnType<typeof window.setInterval> | undefined
+let metricsTimer: ReturnType<typeof window.setTimeout> | undefined
 let metricsRefreshing = false
+let disposed = false
+const isWindows = platform() === 'windows'
 const METRICS_REFRESH_INTERVAL = 2000
 const GITHUB_REPOSITORY_URL = 'https://github.com/CatStack-pixe/MochiPaw'
 const CONTRIBUTORS_MANIFEST_URL = '/contributors.json'
@@ -47,18 +49,22 @@ interface GitHubContributor {
 }
 
 onMounted(async () => {
+  document.addEventListener('visibilitychange', handleMetricsVisibility)
   try {
     logDir.value = await invoke<string>('get_diagnostics_directory')
   } catch (error) {
     logError('[diagnostics] failed to read local directory', { error })
   }
+  if (disposed) return
   void loadContributors()
   await refreshMetrics({ showLoading: true })
   scheduleMetricsRefresh()
 })
 
 onBeforeUnmount(() => {
-  if (metricsTimer) {
+  disposed = true
+  document.removeEventListener('visibilitychange', handleMetricsVisibility)
+  if (metricsTimer !== undefined) {
     window.clearTimeout(metricsTimer)
   }
 })
@@ -122,14 +128,27 @@ async function copyInfo() {
 }
 
 function scheduleMetricsRefresh() {
+  if (disposed || document.hidden) return
+
+  if (metricsTimer !== undefined) window.clearTimeout(metricsTimer)
   metricsTimer = window.setTimeout(async () => {
+    metricsTimer = undefined
     await refreshMetrics()
     scheduleMetricsRefresh()
   }, METRICS_REFRESH_INTERVAL)
 }
 
+function handleMetricsVisibility() {
+  if (document.hidden) {
+    if (metricsTimer !== undefined) window.clearTimeout(metricsTimer)
+    metricsTimer = undefined
+  } else {
+    void refreshMetrics().then(scheduleMetricsRefresh)
+  }
+}
+
 async function refreshMetrics(options: { showLoading?: boolean } = {}) {
-  if (metricsRefreshing) return
+  if (metricsRefreshing || disposed) return
 
   if (document.hidden) return
 
@@ -171,8 +190,8 @@ async function handleCompactMemory() {
   }
 }
 
-function formatBytes(bytes?: number) {
-  if (!bytes) return '--'
+function formatBytes(bytes?: number | null) {
+  if (bytes == null) return '--'
 
   const units = ['B', 'KB', 'MB', 'GB']
   let value = bytes
@@ -190,8 +209,8 @@ function formatCpuUsage(value?: number | null) {
   return typeof value === 'number' ? `${value.toFixed(1)}%` : '--'
 }
 
-function formatUptime(seconds?: number) {
-  if (seconds === undefined) return '--'
+function formatUptime(seconds?: number | null) {
+  if (seconds == null) return '--'
 
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
@@ -221,11 +240,23 @@ const metricsItems = computed(() => [
   },
   {
     label: t('pages.preference.about.metrics.threads'),
-    value: metrics.value?.threadCount || '--',
+    value: metrics.value?.threadCount ?? '--',
   },
   {
     label: t('pages.preference.about.metrics.uptime'),
     value: formatUptime(metrics.value?.uptimeSeconds),
+  },
+  {
+    label: t('pages.preference.about.metrics.groupWorkingSet'),
+    value: formatBytes(metrics.value?.groupWorkingSetBytes),
+  },
+  {
+    label: t('pages.preference.about.metrics.groupPrivateMemory'),
+    value: formatBytes(metrics.value?.groupPrivateBytes),
+  },
+  {
+    label: t('pages.preference.about.metrics.groupProcesses'),
+    value: metrics.value?.groupProcessCount ?? '--',
   },
 ])
 </script>
@@ -355,6 +386,7 @@ const metricsItems = computed(() => [
       </Button>
 
       <Button
+        v-if="isWindows"
         :loading="compactingMemory"
         type="primary"
         @click="handleCompactMemory"

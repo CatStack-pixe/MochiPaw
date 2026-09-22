@@ -4,26 +4,28 @@
  -->
 
 <script setup lang="ts">
-import { HappyProvider } from '@antdv-next/happy-work-theme'
+import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { error } from '@tauri-apps/plugin-log'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useEventListener } from '@vueuse/core'
-import { ConfigProvider, theme } from 'antdv-next'
 import isURL from 'is-url'
 import { storeToRefs } from 'pinia'
-import { nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterView } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
 
 import type { PomodoroPhase } from './utils/pomodoroClock'
 import type { DeviceInputEvent, SubModelInputFrame } from './utils/subModelRuntime'
 
+import { useBackgroundUpdate } from './composables/useBackgroundUpdate'
 import { useKeyPress } from './composables/useKeyPress'
+import { useSubModelSync } from './composables/useSubModelSync'
 import { useTauriListen } from './composables/useTauriListen'
+import { useTray } from './composables/useTray'
 import { useWindowState } from './composables/useWindowState'
+import { useWindowTheme } from './composables/useWindowTheme'
 import { LANGUAGE, LISTEN_KEY, WINDOW_LABEL } from './constants'
-import { getAntdLocale } from './locales/index.ts'
 import { hideWindow, setWebviewMemoryTarget, showWindow, toggleWindowVisible } from './plugins/window'
 import { useAppStore } from './stores/app'
 import { useCatStore } from './stores/cat'
@@ -42,6 +44,7 @@ import { requestModelStoreSave } from './utils/modelPersistence'
 import { setCoreStoresPersistenceWritable } from './utils/persistence'
 import { startPomodoroCoordinator } from './utils/pomodoroCoordinator'
 import { requestPomodoroCommand } from './utils/pomodoroRequest'
+import { flushPreferenceStores, isPreferenceCloseBlocked, PreferenceCloseCoordinator } from './utils/preferenceWindow'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
 import { openSubModelWindow } from './utils/subModelWindow'
 import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
@@ -67,6 +70,34 @@ const {
 } = storeToRefs(shortcutStore)
 const appWindow = getCurrentWebviewWindow()
 const isSubModelWindow = appWindow.label.startsWith('sub-model-')
+const initializationReady = ref(false)
+const initializationError = ref('')
+useWindowTheme(initializationReady)
+
+if (appWindow.label === WINDOW_LABEL.MAIN) {
+  useTray(initializationReady)
+  useBackgroundUpdate(initializationReady)
+  useSubModelSync(initializationReady)
+}
+
+const preferenceCloser = new PreferenceCloseCoordinator({
+  ready: () => initializationReady.value || Boolean(initializationError.value),
+  blocked: () => !initializationError.value && (isPreferenceCloseBlocked() || !modelStore.modelReady),
+  begin: () => invoke<number>('begin_preference_close'),
+  hide: () => appWindow.hide(),
+  flush: async () => {
+    if (!initializationReady.value) return
+    await nextTick()
+    await flushPreferenceStores()
+  },
+  complete: revision => invoke('complete_preference_close', { revision }),
+  restore: () => showWindow(),
+  onError: error => logError('[preference-window] close failed; retaining unsaved state', { error }),
+})
+
+useTauriListen('close-preference-window', () => {
+  if (appWindow.label === WINDOW_LABEL.PREFERENCE) void preferenceCloser.request()
+})
 setCoreStoresPersistenceWritable(!isSubModelWindow)
 setPomodoroPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
 const idleMemory = new WebviewIdleMemoryController({
@@ -90,8 +121,31 @@ const idleMemory = new WebviewIdleMemoryController({
   },
 })
 const { isRestored, restoreState } = useWindowState({ enabled: !isSubModelWindow })
-const { darkAlgorithm, defaultAlgorithm } = theme
+const PreferenceTheme = defineAsyncComponent({
+  loader: () => import('./components/preference-theme/index.vue'),
+  onError(reason, _retry, fail) {
+    void reportInitializationFailure(reason)
+    fail()
+  },
+})
 const { locale, t } = useI18n()
+const router = useRouter()
+const removeRouterErrorHandler = router.onError((reason) => {
+  void reportInitializationFailure(reason)
+})
+onUnmounted(removeRouterErrorHandler)
+
+async function reportInitializationFailure(reason: unknown) {
+  logError('[app-init] initialization failed', { windowLabel: appWindow.label, error: reason })
+  if (appWindow.label !== WINDOW_LABEL.PREFERENCE) return
+  initializationError.value = formatFrontendError(reason)
+  await nextTick()
+  await invoke('preference_window_ready')
+}
+
+function retryInitialization() {
+  window.location.reload()
+}
 
 function runPomodoroShortcut(command: 'start' | 'pause' | 'resume' | 'reset') {
   void requestPomodoroCommand(command).catch((error) => {
@@ -306,7 +360,7 @@ useTauriListen<SubModelInputFrame>(LISTEN_KEY.SUB_MODEL_INPUT_FRAME, ({ payload 
   handleInputFrame(payload)
 })
 
-onMounted(async () => {
+async function initializeApplication() {
   logInfo('[app-init] started', { windowLabel: appWindow.label, isSubModelWindow })
   if (isSubModelWindow) {
     await initializeModelStore()
@@ -318,6 +372,7 @@ onMounted(async () => {
     await generalStore.init()
     await restoreState()
     logInfo('[app-init] submodel initialization completed', { windowLabel: appWindow.label })
+    initializationReady.value = true
     return
   }
 
@@ -388,6 +443,17 @@ onMounted(async () => {
   }
 
   logInfo('[app-init] completed', { windowLabel: appWindow.label })
+  initializationReady.value = true
+  if (appWindow.label === WINDOW_LABEL.PREFERENCE) {
+    await nextTick()
+    if (preferenceCloser.pending) {
+      await preferenceCloser.request()
+    }
+  }
+}
+
+onMounted(() => {
+  void initializeApplication().catch(reportInitializationFailure)
 })
 
 watch(() => generalStore.appearance.language, (value) => {
@@ -426,18 +492,24 @@ useEventListener('click', (event) => {
 </script>
 
 <template>
-  <HappyProvider
-    v-slot="{ wave }"
-    enabled
+  <div
+    v-if="initializationError"
+    class="h-screen flex flex-col items-center justify-center gap-4 p-8"
+    role="alert"
   >
-    <ConfigProvider
-      :locale="getAntdLocale(generalStore.appearance.language)"
-      :theme="{
-        algorithm: generalStore.appearance.isDark ? darkAlgorithm : defaultAlgorithm,
-      }"
-      :wave="wave"
+    <pre class="max-w-full whitespace-pre-wrap break-words">{{ initializationError }}</pre>
+    <button
+      class="cursor-pointer b-1 b-solid px-4 py-2 rounded-lg"
+      type="button"
+      @click="retryInitialization"
     >
-      <RouterView v-if="isRestored" />
-    </ConfigProvider>
-  </HappyProvider>
+      {{ t('pages.preference.about.buttons.retry') }}
+    </button>
+  </div>
+  <template v-else-if="isRestored">
+    <PreferenceTheme v-if="appWindow.label === WINDOW_LABEL.PREFERENCE">
+      <RouterView />
+    </PreferenceTheme>
+    <RouterView v-else />
+  </template>
 </template>

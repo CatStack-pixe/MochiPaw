@@ -104,7 +104,11 @@
           "autoReleaseDelay": "Auto Release Delay",
           "hideOnHover": "Hide on Hover",
           "maxFPS": "Max Frame Rate",
-          "typingBehaviorGroup": "Random Group"
+          "typingBehaviorGroup": "Random Group",
+          "renderQuality": "Render quality",
+          "qualityEconomy": "Economy",
+          "qualityBalanced": "Balanced",
+          "qualityNative": "Native"
         },
         "hints": {
           "windowRelativeMouseLook": "When enabled, mouse look uses the pet window bounds; when disabled, it uses the monitor bounds.",
@@ -125,7 +129,8 @@
           "windowSize": "Use the slider for quick resizing, or enter a percentage for precise control.",
           "autoReleaseDelay": "On Windows, some system keys cannot capture release events and will auto-release after timeout.",
           "hideOnHover": "When enabled, the window hides automatically on mouse hover. You can set a delay; 0 means hide immediately.",
-          "maxFPS": "Limit the maximum frame rate for model rendering. Lowering the frame rate can reduce CPU/GPU usage."
+          "maxFPS": "Limit the maximum frame rate for model rendering. Lowering the frame rate can reduce CPU/GPU usage.",
+          "renderQuality": "Applies to all desktop pets. Economy caps pixel density at 1×, Balanced at 2×, and Native follows the monitor. Lower density reduces GPU buffers and may soften the image; model textures stay unchanged."
         }
       },
       "general": {
@@ -222,7 +227,9 @@
           "customName": "Custom name",
           "selectedCount": "{count} models selected",
           "cancelSelection": "Clear selection",
-          "deleteSelected": "Delete selected models"
+          "deleteSelected": "Delete selected models",
+          "startPreview": "Play preview",
+          "stopPreview": "Stop preview"
         },
         "hints": {
           "deleteSuccess": "Deleted Successfully",
@@ -385,9 +392,9 @@
           "contributorsUnavailable": "Bundled contributor information is unavailable. Please reinstall the app or try again.",
           "license": "BongoCat-derived code and assets are licensed under MIT. Only exclusively CatStack-authored files are licensed under PolyForm Noncommercial 1.0.0. See LICENSE and NOTICE in the repository for scope, attribution, and third-party terms.",
           "copySuccess": "Copied Successfully",
-          "debugMonitor": "Refreshes the current app process CPU, memory, and related usage every second. CPU shows -- on the first sample.",
+          "debugMonitor": "Windows: host CPU plus host and WebView2 process-group memory. Summed working sets may count shared pages more than once. -- means unavailable. GPU memory is measured with system tools.",
           "resourceMetrics": "Shows each model resource's file size and estimated decoded memory. Textures are estimated as RGBA by actual image size; other resources use file size.",
-          "compactMemorySuccess": "Current process memory has been compacted"
+          "compactMemorySuccess": "Host working set trimmed; live allocations are unchanged"
         },
         "buttons": {
           "checkUpdate": "Check for Updates",
@@ -399,16 +406,19 @@
           "viewLog": "View Logs",
           "refresh": "Refresh",
           "refreshResources": "Refresh Resources",
-          "compactMemory": "Compact Own Memory"
+          "compactMemory": "Trim host working set"
         },
         "metrics": {
           "pid": "PID",
-          "cpuUsage": "CPU Usage",
-          "memory": "Memory",
-          "virtualMemory": "Virtual Memory",
-          "threads": "Threads",
+          "cpuUsage": "Host CPU usage",
+          "memory": "Host working set",
+          "virtualMemory": "Host private bytes",
+          "threads": "Host threads",
           "uptime": "Uptime",
-          "resourceUsageValue": "Estimated memory {memory} / file size {fileSize} / {files} files"
+          "resourceUsageValue": "Estimated memory {memory} / file size {fileSize} / {files} files",
+          "groupWorkingSet": "App group working set (sum)",
+          "groupPrivateMemory": "App group private bytes",
+          "groupProcesses": "App group processes"
         },
         "resourceCategories": {
           "model": "Model Binary",

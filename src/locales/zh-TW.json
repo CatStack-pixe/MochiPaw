@@ -104,7 +104,11 @@
           "autoReleaseDelay": "按鍵自動釋放延遲",
           "hideOnHover": "滑鼠游標移入隱藏",
           "maxFPS": "最大幀率",
-          "typingBehaviorGroup": "隨機組"
+          "typingBehaviorGroup": "隨機組",
+          "renderQuality": "算繪畫質",
+          "qualityEconomy": "節省資源",
+          "qualityBalanced": "均衡",
+          "qualityNative": "原生"
         },
         "hints": {
           "windowRelativeMouseLook": "啟用後，滑鼠視角會根據貓咪視窗邊界計算；關閉後恢復依螢幕邊界計算。",
@@ -125,7 +129,8 @@
           "windowSize": "使用滑動條快速調整視窗大小，也可以輸入百分比精確設定。",
           "autoReleaseDelay": "由於 Windows 下部份系統級按鍵無法擷取釋放事件，超時後將自動視為已釋放。",
           "hideOnHover": "啟用後，滑鼠游標懸停視窗時自動隱藏。可設定延遲時間，0 表示立即隱藏。",
-          "maxFPS": "限制模型渲染的最大幀率，降低幀率可以減少 CPU/GPU 佔用。"
+          "maxFPS": "限制模型渲染的最大幀率，降低幀率可以減少 CPU/GPU 佔用。",
+          "renderQuality": "套用於所有桌寵。節省資源將像素密度限制為 1 倍，均衡為 2 倍，原生跟隨顯示器。較低密度可減少 GPU 緩衝區佔用，畫面可能變柔和；模型紋理維持原樣。"
         }
       },
       "general": {
@@ -208,7 +213,9 @@
           "customName": "自訂名稱",
           "selectedCount": "已選擇 {count} 個模型",
           "cancelSelection": "取消選擇",
-          "deleteSelected": "刪除所選模型"
+          "deleteSelected": "刪除所選模型",
+          "startPreview": "播放預覽",
+          "stopPreview": "停止預覽"
         },
         "hints": {
           "deleteSuccess": "刪除成功",
@@ -371,9 +378,9 @@
           "contributorsUnavailable": "無法讀取隨應用程式打包的貢獻者資訊。請重新安裝應用程式或重試。",
           "license": "衍生自 BongoCat 的程式碼和資源適用 MIT 授權；只有 CatStack 獨立創作的檔案適用 PolyForm Noncommercial 1.0.0。完整範圍、署名及第三方條款請參閱儲存庫中的 LICENSE 與 NOTICE。",
           "copySuccess": "複製成功",
-          "debugMonitor": "每秒自動重新整理目前應用程式行程的 CPU、記憶體等佔用。CPU 首次取樣會顯示 --。",
+          "debugMonitor": "Windows：顯示主處理程序 CPU，以及主處理程序與 WebView2 群組記憶體。工作集合計可能重複計算共用頁面。-- 表示暫不可用。GPU 記憶體請使用系統工具測量。",
           "resourceMetrics": "統計各模型資源的磁碟大小和估算解碼記憶體。貼圖依實際寬高以 RGBA 估算，其他資源依檔案大小估算。",
-          "compactMemorySuccess": "已壓縮目前行程記憶體"
+          "compactMemorySuccess": "已整理主處理程序工作集，仍在使用的記憶體配置維持不變"
         },
         "buttons": {
           "checkUpdate": "檢查更新",
@@ -385,16 +392,19 @@
           "viewLog": "查看日誌",
           "refresh": "重新整理",
           "refreshResources": "重新整理資源統計",
-          "compactMemory": "自身記憶體壓縮"
+          "compactMemory": "整理主處理程序工作集"
         },
         "metrics": {
           "pid": "PID",
-          "cpuUsage": "CPU 佔用",
-          "memory": "記憶體佔用",
-          "virtualMemory": "虛擬記憶體",
-          "threads": "執行緒數",
+          "cpuUsage": "主處理程序 CPU 使用量",
+          "memory": "主處理程序工作集",
+          "virtualMemory": "主處理程序私人提交",
+          "threads": "主處理程序執行緒數",
           "uptime": "執行時間",
-          "resourceUsageValue": "估算記憶體 {memory} / 檔案 {fileSize} / {files} 個檔案"
+          "resourceUsageValue": "估算記憶體 {memory} / 檔案 {fileSize} / {files} 個檔案",
+          "groupWorkingSet": "應用程式群組工作集（合計）",
+          "groupPrivateMemory": "應用程式群組私人提交",
+          "groupProcesses": "應用程式群組處理程序數"
         },
         "resourceCategories": {
           "model": "模型本體",

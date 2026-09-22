@@ -5,200 +5,168 @@
 <script setup lang="ts">
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { exists } from '@tauri-apps/plugin-fs'
-import { useElementSize } from '@vueuse/core'
+import { useDocumentVisibility, useElementSize, useIntersectionObserver } from '@vueuse/core'
 import { Application } from 'pixi.js'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 
 import type { Model } from '@/stores/model'
 
-import { detachLive2dSprite, readCubismModelJSON } from '@/utils/live2d'
+import { logWarn } from '@/utils/diagnostics'
+import { destroyLive2dSprite, readCubismModelJSON } from '@/utils/live2d'
 import { join } from '@/utils/path'
+import { PreviewSession } from '@/utils/previewSession'
+import { withTimeout } from '@/utils/promise'
+import { resolvePreviewResolution } from '@/utils/renderQuality'
 import { CubismSetting, Live2DSprite } from '@/vendor/easy-live2d'
 
 const props = defineProps<{
   model: Model
+  active: boolean
+}>()
+const emit = defineEmits<{
+  activate: []
+  deactivate: []
 }>()
 
 const previewRef = useTemplateRef<HTMLDivElement>('preview')
 const canvasRef = useTemplateRef<HTMLCanvasElement>('canvas')
 const { width, height } = useElementSize(previewRef)
+const visibility = useDocumentVisibility()
+const inViewport = ref(false)
 const hasBackground = ref(false)
-const loadFailed = ref(false)
+const coverFailed = ref(false)
+const ready = ref(false)
+const canvasGeneration = ref(0)
 const naturalSize = ref({ width: 612, height: 354 })
+const shouldRender = computed(() => props.active && inViewport.value && visibility.value === 'visible')
 
 let app: Application | undefined
 let sprite: Live2DSprite | undefined
-let loadId = 0
+let session: PreviewSession | undefined
+let loadTimer: ReturnType<typeof setTimeout> | undefined
 let resizeFrame: number | undefined
 
-const previewAspectRatio = computed(() => {
-  return `${naturalSize.value.width} / ${naturalSize.value.height}`
+useIntersectionObserver(previewRef, ([entry]) => {
+  inViewport.value = entry?.isIntersecting ?? false
 })
 
-const coverSrc = computed(() => {
-  return convertFileSrc(join(props.model.path, 'resources', 'cover.png'))
-})
-
-const backgroundSrc = computed(() => {
-  return convertFileSrc(join(props.model.path, 'resources', 'background.png'))
-})
+const previewAspectRatio = computed(() => `${naturalSize.value.width} / ${naturalSize.value.height}`)
+const coverSrc = computed(() => convertFileSrc(join(props.model.path, 'resources', 'cover.png')))
+const backgroundSrc = computed(() => convertFileSrc(join(props.model.path, 'resources', 'background.png')))
 
 function destroyPreview() {
+  canvasGeneration.value += 1
+  if (loadTimer !== undefined) clearTimeout(loadTimer)
+  if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame)
+  loadTimer = undefined
+  resizeFrame = undefined
   app?.stop()
-  detachLive2dSprite(sprite, app)
-  sprite = undefined
-
-  if (!app) return
-
-  app.destroy(false)
+  session?.dispose()
+  session = undefined
   app = undefined
+  sprite = undefined
+  ready.value = false
 }
 
 async function loadPreview() {
-  const currentLoadId = ++loadId
-
-  destroyPreview()
-
-  loadFailed.value = false
-  naturalSize.value = { width: 612, height: 354 }
-  hasBackground.value = await exists(join(props.model.path, 'resources', 'background.png'))
-
-  await nextTick()
-
-  const canvas = canvasRef.value
-  const preview = previewRef.value
-
-  if (!canvas || !preview) return
+  const current = new PreviewSession(error => logWarn('[preview] resource cleanup failed', { error }))
+  session = current
+  const path = props.model.path
 
   try {
-    const nextApp = new Application()
+    await nextTick()
+    const canvas = canvasRef.value
+    if (!canvas || current.disposed) return
 
-    await nextApp.init({
-      view: canvas,
-      backgroundAlpha: 0,
-      autoDensity: true,
-      resolution: devicePixelRatio,
-    })
+    const nextApp = new Application()
+    try {
+      await nextApp.init({
+        view: canvas,
+        backgroundAlpha: 0,
+        autoDensity: true,
+        autoStart: false,
+        resolution: resolvePreviewResolution(devicePixelRatio),
+      })
+    } catch (error) {
+      if (nextApp.renderer) nextApp.destroy(false)
+      else nextApp.stage.destroy({ children: true })
+      throw error
+    }
+    if (!current.own(nextApp, value => value.destroy(false))) return
+    app = nextApp
     nextApp.ticker.maxFPS = 24
 
-    if (currentLoadId !== loadId) {
-      nextApp.destroy(false)
-      return
-    }
-
-    app = nextApp
-
-    const modelJSON = await readCubismModelJSON(props.model.path)
-
-    if (currentLoadId !== loadId) {
-      if (app === nextApp) {
-        app = undefined
-      }
-
-      nextApp.destroy(false)
-      return
-    }
+    const backgroundExists = await exists(join(path, 'resources', 'background.png'))
+    if (current.disposed) return
+    hasBackground.value = backgroundExists
+    const modelJSON = await readCubismModelJSON(path)
+    if (current.disposed) return
 
     const modelSetting = new CubismSetting({ modelJSON })
-
-    modelSetting.redirectPath(({ file }) => {
-      return convertFileSrc(join(props.model.path, file))
-    })
-
-    const nextSprite = new Live2DSprite({
-      modelSetting,
-      ticker: nextApp.ticker,
-    })
-
+    modelSetting.redirectPath(({ file }) => convertFileSrc(join(path, file)))
+    const nextSprite = new Live2DSprite({ modelSetting, ticker: nextApp.ticker })
+    current.own(nextSprite, value => destroyLive2dSprite(value, nextApp))
     sprite = nextSprite
     nextApp.stage.addChild(nextSprite)
+    nextApp.start()
 
-    if (currentLoadId !== loadId) {
-      detachLive2dSprite(nextSprite, nextApp)
-
-      if (sprite === nextSprite) {
-        sprite = undefined
-      }
-
-      if (app === nextApp) {
-        app = undefined
-      }
-
-      nextApp.destroy(false)
-      return
-    }
-
-    await nextSprite.ready
-
-    if (currentLoadId !== loadId || sprite !== nextSprite) {
-      if (sprite === nextSprite) {
-        detachLive2dSprite(nextSprite, nextApp)
-        sprite = undefined
-      }
-
-      return
-    }
+    await withTimeout(nextSprite.ready, 30_000, 'Model preview initialization timed out.')
+    if (current.disposed) return
 
     const canvasSize = nextSprite.getModelCanvasSize()
     naturalSize.value = {
       width: Math.max(1, canvasSize?.width ?? nextSprite.width),
       height: Math.max(1, canvasSize?.height ?? nextSprite.height),
     }
-
+    ready.value = true
     await nextTick()
-    scheduleResize()
-  } catch {
-    loadFailed.value = true
+    if (!current.disposed) scheduleResize()
+  } catch (error) {
+    if (current.disposed) return
+    logWarn('[preview] load failed', { path, error })
     destroyPreview()
   }
 }
 
 function resizePreview() {
   if (!app || !sprite) return
-
   const previewWidth = Math.round(width.value)
   const previewHeight = Math.round(height.value)
-
-  // Masonry briefly mounts page items with no measured size. Scaling during
-  // that frame permanently leaves the preview zoomed after the layout settles.
   if (previewWidth < 1 || previewHeight < 1) return
 
   app.renderer.resize(previewWidth, previewHeight)
-
-  const scale = Math.min(
-    previewWidth / naturalSize.value.width,
-    previewHeight / naturalSize.value.height,
-  )
-
-  sprite.scale.set(scale)
+  sprite.scale.set(Math.min(previewWidth / naturalSize.value.width, previewHeight / naturalSize.value.height))
   sprite.x = previewWidth / 2
   sprite.y = previewHeight / 2
   sprite.anchor.set(0.5)
 }
 
 function scheduleResize() {
+  if (!app) return
   if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame)
-
   resizeFrame = requestAnimationFrame(() => {
-    resizeFrame = requestAnimationFrame(() => {
-      resizeFrame = undefined
-      resizePreview()
-    })
+    resizeFrame = undefined
+    resizePreview()
   })
 }
 
-onMounted(loadPreview)
-
-watch(() => props.model.path, loadPreview)
-watch([width, height], () => {
-  scheduleResize()
-})
-
-onBeforeUnmount(() => {
-  loadId += 1
-  if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame)
+watch([shouldRender, () => props.model.path], ([enabled]) => {
   destroyPreview()
+  hasBackground.value = false
+  if (!enabled) return
+  // Passing over a card should not start expensive model/texture decoding.
+  loadTimer = setTimeout(() => {
+    loadTimer = undefined
+    void loadPreview()
+  }, 180)
+}, { immediate: true })
+
+watch(() => props.model.path, () => {
+  coverFailed.value = false
+  naturalSize.value = { width: 612, height: 354 }
 })
+watch([width, height], scheduleResize)
+onBeforeUnmount(destroyPreview)
 </script>
 
 <template>
@@ -206,26 +174,45 @@ onBeforeUnmount(() => {
     ref="preview"
     class="relative overflow-hidden bg-[#f5f7fa]"
     :style="{ aspectRatio: previewAspectRatio }"
+    @pointerenter="emit('activate')"
+    @pointerleave="emit('deactivate')"
   >
-    <template v-if="!loadFailed">
-      <img
-        v-if="hasBackground"
-        alt=""
-        class="absolute inset-0 size-full object-cover"
-        :src="backgroundSrc"
-      >
-
-      <canvas
-        ref="canvas"
-        class="absolute inset-0 size-full"
-      />
-    </template>
-
     <img
-      v-else
-      alt="model preview"
+      v-if="!ready && !coverFailed"
+      alt=""
       class="absolute inset-0 m-auto size-full object-contain"
+      decoding="async"
+      loading="lazy"
       :src="coverSrc"
+      @error="coverFailed = true"
     >
+    <div
+      v-else-if="!ready"
+      aria-hidden="true"
+      class="absolute inset-0 flex items-center justify-center text-10 text-gray-400"
+    >
+      <i class="i-solar:cat-bold" />
+    </div>
+    <img
+      v-if="ready && hasBackground"
+      alt=""
+      class="absolute inset-0 size-full object-cover"
+      :src="backgroundSrc"
+    >
+    <canvas
+      v-if="shouldRender"
+      :key="canvasGeneration"
+      ref="canvas"
+      class="absolute inset-0 size-full"
+      :class="{ 'opacity-0': !ready }"
+    />
+    <button
+      :aria-pressed="active"
+      class="absolute bottom-2 right-2 bg-white/90 px-2 py-1 text-xs text-gray-700 rounded shadow"
+      type="button"
+      @click.stop="emit(active ? 'deactivate' : 'activate')"
+    >
+      {{ $t(active ? 'pages.preference.model.labels.stopPreview' : 'pages.preference.model.labels.startPreview') }}
+    </button>
   </div>
 </template>

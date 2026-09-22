@@ -23,6 +23,7 @@ import {
 import { InvalidMotionQueueEntryHandleValue } from '@Framework/motion/cubismmotionqueuemanager'
 import { Sprite } from 'pixi.js'
 import { Live2DContext } from './core/Live2DContext'
+import { loadCubismCore } from './core/loadCubismCore'
 import { PointerHandler } from './interaction/PointerHandler'
 import { ModelLoader } from './loader/ModelLoader'
 import { TextureLoader } from './loader/TextureLoader'
@@ -64,6 +65,7 @@ export class Live2DSprite extends Sprite {
   private _modelRenderer: ModelRenderer | null = null
   private _pointerHandler: PointerHandler | null = null
   private _textureLoader: TextureLoader | null = null
+  private _modelLoader: ModelLoader | null = null
   private _resizeObserver: ResizeObserver | null = null
   private _renderInitialized = false
   private _renderInitializing = false
@@ -141,6 +143,8 @@ export class Live2DSprite extends Sprite {
       this._readyResolve = resolve
       this._readyReject = reject
     })
+    // Destruction can precede the caller subscribing to ready (e.g. fast paging).
+    void this._readyPromise.catch(() => {})
 
     if (initConfig)
       this.init(initConfig)
@@ -300,6 +304,10 @@ export class Live2DSprite extends Sprite {
     }
   }
 
+  resetFrameClock(): void {
+    this._ctx.timeManager.reset()
+  }
+
   /**
    * 获取模型原始画布尺寸（像素）
    * 需要在模型加载完成后调用
@@ -347,25 +355,21 @@ export class Live2DSprite extends Sprite {
   }
 
   destroy(options?: DestroyOptions): void {
-    this._pointerHandler?.detach()
-    this._resizeObserver?.disconnect()
-    this._textureLoader?.release()
-    this._model?.release()
-    this._model = null
-    this._modelRenderer = null
-    this._ctx.dispose()
-    if (this._cubismRuntimeAcquired) {
-      releaseCubismRuntime()
-      this._cubismRuntimeAcquired = false
-    }
+    if (this.destroyed) return
+    this.onRender = null
+    this._readyReject?.(new DOMException('Live2D sprite destroyed', 'AbortError'))
+    this._readyResolve = null
+    this._readyReject = null
+    this._preQueue.clear()
+    this.releaseRuntimeResources()
     super.destroy(options)
   }
 
   // --- 内部方法 ---
 
   private async renderFrame(renderer: Renderer): Promise<void> {
+    if (this.destroyed || this._loadError) return
     this.renderer = renderer
-    if (this._loadError) return
 
     if (!this._renderInitialized) {
       if (this._renderInitializing)
@@ -373,8 +377,10 @@ export class Live2DSprite extends Sprite {
       this._renderInitializing = true
 
       try {
-        this.initCubism()
+        await this.initCubism()
+        if (this.destroyed) return
         await this.initModel()
+        if (this.destroyed) return
         this.initInteraction()
         this.flushPreQueue()
         this._ctx.eventBus.emit('ready')
@@ -385,21 +391,28 @@ export class Live2DSprite extends Sprite {
         this._readyReject = null
         this._renderInitialized = true
       } catch (error) {
+        if (this.destroyed) return
         this._loadError = error
         this._readyReject?.(error)
         this._readyReject = null
+        this._readyResolve = null
+        this._preQueue.clear()
         this.renderable = false
         this.releaseRuntimeResources()
+        return
       } finally {
         this._renderInitializing = false
       }
     }
 
+    if (this.destroyed) return
     const viewport = this.syncViewport()
     this.update(viewport)
   }
 
-  private initCubism(): void {
+  private async initCubism(): Promise<void> {
+    await loadCubismCore()
+    if (this.destroyed) return
     acquireCubismRuntime()
     this._cubismRuntimeAcquired = true
   }
@@ -421,11 +434,14 @@ export class Live2DSprite extends Sprite {
     this._modelRenderer.setGl(this._ctx.webgl.getGl())
 
     const loader = new ModelLoader()
+    this._modelLoader = loader
     const assets = this.modelPath ?? this.modelSetting
     if (!assets) {
       throw new Error('modelPath or modelSetting is required before rendering')
     }
     await loader.load(assets, this._model, this._textureLoader, this._ctx.webgl.getGl())
+    if (this.destroyed) return
+    this._modelLoader = null
     this.applyRequestedSize()
     this.onViewUpdate()
 
@@ -433,6 +449,8 @@ export class Live2DSprite extends Sprite {
   }
 
   private releaseRuntimeResources(): void {
+    this._modelLoader?.cancel()
+    this._modelLoader = null
     this._pointerHandler?.detach()
     this._pointerHandler = null
     this._resizeObserver?.disconnect()

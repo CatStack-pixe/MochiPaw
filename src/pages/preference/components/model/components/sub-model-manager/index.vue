@@ -3,16 +3,14 @@
  -->
 
 <script setup lang="ts">
-import { useDebounceFn } from '@vueuse/core'
 import { Button, Input, InputNumber, message, Modal, Popconfirm, Select, Switch } from 'antdv-next'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { SubModelInstance } from '@/stores/model'
 
-import { useTauriListen } from '@/composables/useTauriListen'
-import { LISTEN_KEY } from '@/constants'
 import { getModelDisplayName, getSubModelDisplayName, useModelStore } from '@/stores/model'
+import { withPreferenceCloseBlock } from '@/utils/preferenceWindow'
 import { getSubModelRuntimeCapacity } from '@/utils/subModelRuntime'
 import {
   destroySubModelWindow,
@@ -39,47 +37,6 @@ watch(models, (items) => {
 
   selectedModelId.value = items[0]?.id
 }, { immediate: true })
-
-useTauriListen<SubModelInstance>(LISTEN_KEY.SUB_MODEL_WINDOW_CHANGED, ({ payload }) => {
-  const instance = modelStore.getSubModel(payload.id)
-
-  if (!instance) return
-
-  Object.assign(instance.window, payload.window)
-})
-
-useTauriListen<{ id: string, visible: boolean }>(LISTEN_KEY.SUB_MODEL_VISIBILITY_CHANGED, ({ payload }) => {
-  const instance = modelStore.getSubModel(payload.id)
-
-  if (instance) {
-    instance.visible = payload.visible
-  }
-})
-
-const syncVisibleSubModels = useDebounceFn(() => {
-  modelStore.subModels
-    .filter(instance => instance.visible)
-    .forEach((instance) => {
-      void syncSubModelWindow(instance)
-    })
-}, 16)
-
-watch(() => modelStore.subModels.map(instance => ({
-  id: instance.id,
-  modelId: instance.modelId,
-  visible: instance.visible,
-  listeners: { ...instance.listeners },
-  window: {
-    scale: instance.window.scale,
-    opacity: instance.window.opacity,
-    radius: instance.window.radius,
-    passThrough: instance.window.passThrough,
-    alwaysOnTop: instance.window.alwaysOnTop,
-  },
-  appearance: { ...instance.appearance },
-})), () => {
-  syncVisibleSubModels()
-}, { deep: true })
 
 function getInstanceModel(instance: SubModelInstance) {
   return models.value.find(item => item.id === instance.modelId)
@@ -151,23 +108,25 @@ async function hasRuntimeCapacity() {
   return false
 }
 
-async function createInstance() {
-  if (!selectedModelId.value) return
+function createInstance() {
+  return withPreferenceCloseBlock(async () => {
+    if (!selectedModelId.value) return
 
-  const instance = modelStore.createSubModel(selectedModelId.value)
+    const instance = modelStore.createSubModel(selectedModelId.value)
 
-  if (!await hasRuntimeCapacity()) {
-    modelStore.removeSubModel(instance.id)
-    return
-  }
+    if (!await hasRuntimeCapacity()) {
+      modelStore.removeSubModel(instance.id)
+      return
+    }
 
-  try {
-    await openSubModelWindow(instance)
-    expandedIds.add(instance.id)
-  } catch (error) {
-    modelStore.removeSubModel(instance.id)
-    message.error(String(error))
-  }
+    try {
+      await openSubModelWindow(instance)
+      expandedIds.add(instance.id)
+    } catch (error) {
+      modelStore.removeSubModel(instance.id)
+      message.error(String(error))
+    }
+  })
 }
 
 function handleCreate() {
@@ -182,32 +141,36 @@ function handleCreate() {
   })
 }
 
-async function setVisible(instance: SubModelInstance, visible: boolean) {
-  instance.visible = visible
+function setVisible(instance: SubModelInstance, visible: boolean) {
+  return withPreferenceCloseBlock(async () => {
+    instance.visible = visible
 
-  if (visible && !await hasRuntimeCapacity()) {
-    instance.visible = false
-    return
-  }
-
-  try {
-    if (visible) {
-      await openSubModelWindow(instance)
-    } else {
-      await hideSubModelWindow(instance.id)
+    if (visible && !await hasRuntimeCapacity()) {
+      instance.visible = false
+      return
     }
 
-    await notifyInstance(instance)
-  } catch (error) {
-    instance.visible = !visible
-    message.error(String(error))
-  }
+    try {
+      if (visible) {
+        await openSubModelWindow(instance)
+      } else {
+        await hideSubModelWindow(instance.id)
+      }
+
+      await notifyInstance(instance)
+    } catch (error) {
+      instance.visible = !visible
+      message.error(String(error))
+    }
+  })
 }
 
-async function handleDelete(instance: SubModelInstance) {
-  await destroySubModelWindow(instance.id)
-  expandedIds.delete(instance.id)
-  modelStore.removeSubModel(instance.id)
+function handleDelete(instance: SubModelInstance) {
+  return withPreferenceCloseBlock(async () => {
+    await destroySubModelWindow(instance.id)
+    expandedIds.delete(instance.id)
+    modelStore.removeSubModel(instance.id)
+  })
 }
 </script>
 

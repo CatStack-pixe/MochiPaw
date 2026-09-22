@@ -14,10 +14,17 @@ const COMMAND = {
 export interface ProcessMetrics {
   pid: number
   cpuUsage: number | null
-  memoryBytes: number
-  virtualMemoryBytes: number
-  threadCount: number
-  uptimeSeconds: number
+  /** Main-process working set; null when unsupported. */
+  memoryBytes: number | null
+  /** Main-process private commit, retained under the original IPC field name. */
+  virtualMemoryBytes: number | null
+  threadCount: number | null
+  uptimeSeconds: number | null
+  /** Main process plus verified WebView2 descendants; shared pages may repeat. */
+  groupWorkingSetBytes: number | null
+  groupPrivateBytes: number | null
+  /** All group fields are null if a complete sample could not be collected. */
+  groupProcessCount: number | null
 }
 
 export function isRunningAsAdministrator() {
