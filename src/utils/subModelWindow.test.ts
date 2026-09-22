@@ -141,7 +141,9 @@ it('destroys native windows that finish creation after initialization timed out'
 
 function deferred() {
   let resolve!: () => void
-  const promise = new Promise<void>((complete) => { resolve = complete })
+  const promise = new Promise<void>((complete) => {
+    resolve = complete
+  })
   return { promise, resolve }
 }
 
@@ -195,7 +197,9 @@ it('hide and destroy wait for an in-flight open operation', async (context) => {
       showing.resolve()
       await allowShow.promise
     },
-    destroy: async () => { events.push('destroy') },
+    destroy: async () => {
+      events.push('destroy')
+    },
   })
   context.mock.method(WebviewWindow, 'getByLabel', async () => window)
   try {
@@ -219,7 +223,9 @@ it('a new open waits for an in-flight destroy operation', async (context) => {
   const allowDestroy = deferred()
   const events: string[] = []
   const window = fakeWindow({
-    show: async () => { events.push('show') },
+    show: async () => {
+      events.push('show')
+    },
     destroy: async () => {
       events.push('destroy')
       destroying.resolve()
@@ -245,8 +251,12 @@ it('a failed destroy does not poison subsequent window operations', async (conte
   const restore = installMockIPC()
   let shown = false
   const window = fakeWindow({
-    destroy: async () => { throw new Error('destroy failed') },
-    show: async () => { shown = true },
+    destroy: async () => {
+      throw new Error('destroy failed')
+    },
+    show: async () => {
+      shown = true
+    },
   })
   context.mock.method(WebviewWindow, 'getByLabel', async () => window)
   try {

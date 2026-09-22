@@ -87,8 +87,12 @@ async function createFixture() {
     installed,
     cat: useCatStore(pinia),
     trayCreations: () => trayCreations,
-    failReplacement: (fail: boolean) => { failReplacement = fail },
-    holdReplacement: (pending: Promise<void>) => { holdReplacement = pending },
+    failReplacement: (fail: boolean) => {
+      failReplacement = fail
+    },
+    holdReplacement: (pending: Promise<void>) => {
+      holdReplacement = pending
+    },
     unmount,
     async cleanup() {
       unmount()
@@ -140,7 +144,9 @@ test('failed replacement keeps the installed menu and releases its candidate', a
 test('unmount waits for in-flight replacement before closing the tray and menu', async () => {
   const fixture = await createFixture()
   let finish!: () => void
-  fixture.holdReplacement(new Promise<void>((resolve) => { finish = resolve }))
+  fixture.holdReplacement(new Promise<void>((resolve) => {
+    finish = resolve
+  }))
   try {
     fixture.cat.window.passThrough = !fixture.cat.window.passThrough
     await settle()

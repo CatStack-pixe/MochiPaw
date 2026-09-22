@@ -75,7 +75,8 @@ export function useTray(ready: Readonly<Ref<boolean>>) {
   }
 
   const syncTray = async () => {
-    while (requested && ready.value && !disposed) {
+    while (requested && ready.value) {
+      if (disposed) break
       requested = false
       const replaceMenu = menuDirty || !tray
       menuDirty = false
