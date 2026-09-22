@@ -51,6 +51,7 @@ export function useGamepad(options: UseGamepadOptions = {}) {
     return options.nativeDemand?.value || (enabled.value && currentModel.value?.mode === 'gamepad')
   })
   const { handlePress, handleRelease, handleAxisChange } = useModel(options)
+  const pressedButtons = new Set<string>()
   const sticks = reactive<Sticks>({
     left: { ...INITIAL_STICK_STATE },
     right: { ...INITIAL_STICK_STATE },
@@ -80,9 +81,9 @@ export function useGamepad(options: UseGamepadOptions = {}) {
     void syncGamepadListener(isEnabled).catch(() => undefined)
   }, { immediate: true })
 
-  watch(enabled, (isEnabled) => {
-    if (isEnabled) return
-
+  const resetInputState = () => {
+    for (const name of pressedButtons) handleRelease(name)
+    pressedButtons.clear()
     Object.assign(sticks.left, INITIAL_STICK_STATE)
     Object.assign(sticks.right, INITIAL_STICK_STATE)
 
@@ -98,6 +99,10 @@ export function useGamepad(options: UseGamepadOptions = {}) {
     ]) {
       live2d.setParameterValue(id, false)
     }
+  }
+
+  watch(enabled, (isEnabled) => {
+    if (!isEnabled) resetInputState()
   }, { immediate: true })
 
   onUnmounted(() => {
@@ -147,6 +152,8 @@ export function useGamepad(options: UseGamepadOptions = {}) {
 
         return live2d.setParameterValue('CatParamStickRightDown', value !== 0)
       default:
+        if (value > 0) pressedButtons.add(name)
+        else pressedButtons.delete(name)
         return value > 0 ? handlePress(name) : handleRelease(name)
     }
   }
@@ -160,6 +167,7 @@ export function useGamepad(options: UseGamepadOptions = {}) {
 
   return {
     handleInputEvent,
+    resetInputState,
     stickActive,
   }
 }

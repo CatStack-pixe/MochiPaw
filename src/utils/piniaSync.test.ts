@@ -3,8 +3,9 @@ import assert from 'node:assert/strict'
 // eslint-disable-next-line test/no-import-node-test -- Vitest is not installed; this test runs through tsx's Node test runner.
 import test from 'node:test'
 import { createPinia, defineStore } from 'pinia'
-import { createApp, nextTick } from 'vue'
+import { createApp, nextTick, ref, watch } from 'vue'
 
+import { createModelInputState } from './modelInputState'
 import { createPersistentStorePlugin, flushPreferenceSync, PendingStoreSync } from './piniaSync'
 
 test('closing waits for existing IPC without writing a replacement snapshot', async () => {
@@ -23,6 +24,75 @@ test('closing waits for existing IPC without writing a replacement snapshot', as
   await flush
   assert.equal(finished, true)
 })
+
+for (const trackPreferences of [false, true]) {
+  test(`input stays reactive without persistence work (preference=${trackPreferences})`, async () => {
+    const requests: unknown[] = []
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { crypto: globalThis.crypto },
+    })
+    mockWindows(trackPreferences ? 'preference' : 'main')
+    mockIPC((command, payload) => {
+      if (command === 'plugin:pinia|load') return {}
+      if (command === 'plugin:pinia|patch') requests.push(payload)
+      return null
+    }, { shouldMockEvents: true })
+    let stopWatching: (() => void) | undefined
+    let stopStore: (() => Promise<void>) | undefined
+    try {
+      const pinia = createPinia()
+      pinia.use(createPersistentStorePlugin(trackPreferences))
+      createApp({}).use(pinia)
+      let projections = 0
+      const useModel = defineStore('model', () => ({
+        selected: ref('initial'),
+        ...createModelInputState(),
+      }), {
+        tauri: {
+          hooks: {
+            beforeBackendSync: (state) => {
+              projections += 1
+              return { selected: state.selected }
+            },
+          },
+        },
+      })
+      const store = useModel(pinia)
+      await store.$tauri.start()
+      stopStore = () => store.$tauri.stop()
+      let reactiveUpdates = 0
+      stopWatching = watch([store.activeKeys, store.pressedKeys], () => {
+        reactiveUpdates += 1
+      }, { deep: true })
+      store.activeKeys.A = true
+      store.pressedKeys.A = [{ path: 'left.png', type: 'left' }]
+      await nextTick()
+      delete store.activeKeys.A
+      delete store.pressedKeys.A
+      await nextTick()
+      await flushPreferenceSync()
+      assert.equal(reactiveUpdates, 2)
+      assert.equal(projections, 0)
+      assert.equal(requests.length, 0)
+      assert.equal('activeKeys' in store.$state, false)
+      assert.equal('pressedKeys' in store.$state, false)
+
+      store.selected = 'changed'
+      await nextTick()
+      await flushPreferenceSync()
+      assert.equal(projections, 1)
+      assert.equal(requests.length, 1)
+    } finally {
+      stopWatching?.()
+      await stopStore?.()
+      clearMocks()
+      if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow)
+      else Reflect.deleteProperty(globalThis, 'window')
+    }
+  })
+}
 
 test('a patch scheduled by the watcher flush is included before closing', async () => {
   const queue = new PendingStoreSync()

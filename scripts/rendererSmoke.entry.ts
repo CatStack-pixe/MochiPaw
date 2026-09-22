@@ -6,6 +6,7 @@ import { Application } from 'pixi.js'
 import { CubismSetting, Live2DSprite } from '../src/vendor/easy-live2d'
 import { CubismFramework } from '../src/vendor/easy-live2d/Framework/live2dcubismframework'
 import { CubismShaderManager_WebGL } from '../src/vendor/easy-live2d/Framework/rendering/cubismshader_webgl'
+import { Config } from '../src/vendor/easy-live2d/utils/config'
 
 function ensure(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message)
@@ -26,6 +27,7 @@ async function waitReady(sprite: Live2DSprite) {
 }
 
 async function smoke() {
+  Config.WebGLDiagnosticsEnable = true
   ensure(typeof globalThis.Live2DCubismCore === 'undefined', 'Core was eagerly loaded')
   const canvas = document.createElement('canvas')
   document.body.append(canvas)
@@ -67,6 +69,7 @@ async function smoke() {
       if (visiblePixels <= 100) await new Promise(resolve => setTimeout(resolve, 25))
     }
     ensure(visiblePixels > 100, `Blank rendered model at cycle ${cycle}`)
+    ensure(sprite.getRuntimeDiagnostics().webglErrorCount === 0, `WebGL error at cycle ${cycle}`)
     if (cycle === 9) renderedFrame = canvas.toDataURL('image/png')
 
     // Verify actual uploaded GL textures, not only JavaScript references.

@@ -78,6 +78,9 @@ frame rate over a 60-second settled interval rather than a single reading.
 | Reopen Settings while its previous close is saving | The new open request keeps or recreates a usable window. |
 | Close or navigate during import/delete/model switch/submodel creation/update download | The active transaction is preserved. |
 | Simulate a Settings persistence failure | Settings remains available and the unsaved state is retained. |
+| Keep a sub-pet visible while the main pet is hidden; type and use a gamepad | Input continues through the timer fallback; press/release edges remain ordered, and the pending queue stays bounded. |
+| Repeatedly change scale, opacity, language, and tray visibility | Tray actions keep working and replaced native menu resources are released. |
+| Rapidly open, hide, and reopen the same sub-pet | Lifecycle operations do not overlap; a failed operation does not block later requests. |
 
 Warm-up allocations and browser/driver caches can stabilize above the first
 sample. Confirm a suspected leak by repeating the same settled state over several
@@ -115,3 +118,13 @@ change and remains a separate compatibility check.
   persistence continue in the main window.
 - Core loads on first model use in each WebView. It stays resident after loading;
   destroying that WebView releases its environment.
+- Pressed/active keys remain reactive getters outside persistent Pinia state,
+  avoiding model-catalog traversal and IPC patches on each key event.
+- Sub-pet input is filtered by each instance's enabled listeners. Continuous
+  movement is coalesced; pending events are capped at 256, with a timer fallback
+  when the main window's animation frames are suspended. Overflow frames reset
+  receiver input state before replay, so a discarded release cannot leave a key,
+  mouse button, or gamepad axis stuck.
+- Synchronous WebGL error sampling is opt-in and enabled by the browser smoke
+  test. Production rendering reuses its projection matrix and restores GL state
+  even if drawing throws.

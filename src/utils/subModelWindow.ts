@@ -15,24 +15,31 @@ import { LISTEN_KEY } from '@/constants'
 const SUB_MODEL_WINDOW_PREFIX = 'sub-model-'
 const DEFAULT_SIZE = 300
 const WINDOW_READY_TIMEOUT = 10_000
-let windowOpenQueue = Promise.resolve()
+let windowOperationQueue = Promise.resolve()
+const pendingCreations = new Set<string>()
 
 export function getSubModelWindowLabel(instanceId: string) {
   return `${SUB_MODEL_WINDOW_PREFIX}${instanceId}`
 }
 
-export async function openSubModelWindow(instance: SubModelInstance) {
-  const task = windowOpenQueue.then(() => openSubModelWindowNow(instance))
-
-  windowOpenQueue = task.then(() => undefined, () => undefined)
-
+function enqueueWindowOperation<T>(operation: () => Promise<T>) {
+  const task = windowOperationQueue.then(operation)
+  // A failed operation must not prevent a later show/hide request from running.
+  windowOperationQueue = task.then(() => undefined, () => undefined)
   return task
+}
+
+export function openSubModelWindow(instance: SubModelInstance) {
+  return enqueueWindowOperation(() => openSubModelWindowNow(instance))
 }
 
 async function openSubModelWindowNow(instance: SubModelInstance) {
   if (!instance.visible) return
 
   const label = getSubModelWindowLabel(instance.id)
+  if (pendingCreations.has(label)) {
+    throw new Error(`Sub-model window ${label} is still finishing an earlier creation. Please retry.`)
+  }
   const existingWindow = await WebviewWindow.getByLabel(label)
 
   if (existingWindow) {
@@ -82,8 +89,14 @@ async function openSubModelWindowNow(instance: SubModelInstance) {
     if (creationCancelled) await window.destroy().catch(() => undefined)
   }
 
+  let creationSettled = false
+  pendingCreations.add(label)
+  const creation = createWindow().finally(() => {
+    creationSettled = true
+    pendingCreations.delete(label)
+  })
   try {
-    await Promise.all([createWindow(), runtimeReady.ready])
+    await Promise.all([creation, runtimeReady.ready])
     if (!window) throw new Error(`Sub-model window ${label} was not created.`)
 
     if (!instance.visible) {
@@ -97,25 +110,35 @@ async function openSubModelWindowNow(instance: SubModelInstance) {
     return window
   } catch (error) {
     creationCancelled = true
-    await window?.destroy().catch(() => undefined)
+    // Return the initialization timeout promptly. A still-running creation owns
+    // this label until it finishes and destroys its late result; other labels
+    // can continue through the queue. Do not also destroy that result here.
+    if (creationSettled) await window?.destroy().catch(() => undefined)
     throw error
   } finally {
     runtimeReady.dispose()
   }
 }
 
-export async function hideSubModelWindow(instanceId: string) {
-  const label = getSubModelWindowLabel(instanceId)
-  const window = await WebviewWindow.getByLabel(label)
+export function hideSubModelWindow(instanceId: string) {
+  return enqueueWindowOperation(async () => {
+    const label = getSubModelWindowLabel(instanceId)
+    if (pendingCreations.has(label)) return
+    const window = await WebviewWindow.getByLabel(label)
 
-  await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, false).catch(() => undefined)
-  await window?.destroy()
+    await emitTo(label, LISTEN_KEY.SET_SUB_MODEL_RENDERING, false).catch(() => undefined)
+    await window?.destroy()
+  })
 }
 
-export async function destroySubModelWindow(instanceId: string) {
-  const window = await WebviewWindow.getByLabel(getSubModelWindowLabel(instanceId))
+export function destroySubModelWindow(instanceId: string) {
+  return enqueueWindowOperation(async () => {
+    const label = getSubModelWindowLabel(instanceId)
+    if (pendingCreations.has(label)) return
+    const window = await WebviewWindow.getByLabel(label)
 
-  await window?.destroy()
+    await window?.destroy()
+  })
 }
 
 export async function applySubModelWindowPosition(instance: SubModelInstance, existingWindow?: WebviewWindow | null) {
@@ -151,8 +174,27 @@ export async function syncSubModelWindow(instance: SubModelInstance, existingWin
 
 async function waitForWindowCreation(window: WebviewWindow) {
   return new Promise<void>((resolve, reject) => {
-    void window.once('tauri://created', () => resolve())
-    void window.once<string>('tauri://error', ({ payload }) => reject(new Error(payload)))
+    let settled = false
+    const listeners: Array<() => void> = []
+    function finish(error?: unknown) {
+      if (settled) return
+
+      settled = true
+      for (const unlisten of listeners) unlisten()
+      listeners.length = 0
+      if (error) reject(error)
+      else resolve()
+    }
+
+    function track(registration: Promise<() => void>) {
+      void registration.then((unlisten) => {
+        if (settled) unlisten()
+        else listeners.push(unlisten)
+      }).catch(finish)
+    }
+
+    track(window.once('tauri://created', () => finish()))
+    track(window.once<string>('tauri://error', ({ payload }) => finish(new Error(payload))))
   })
 }
 

@@ -7,7 +7,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { PhysicalSize } from '@tauri-apps/api/dpi'
 import { emit, emitTo } from '@tauri-apps/api/event'
-import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
+import { Menu } from '@tauri-apps/api/menu'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useDevicePixelRatio, useDocumentVisibility, useEventListener } from '@vueuse/core'
@@ -47,11 +47,33 @@ import { calculatePomodoroWindowLayout, formatPomodoroRemaining } from '@/utils/
 import { resolveEffectiveMaxFPS } from '@/utils/renderFPS'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { clearObject } from '@/utils/shared'
-import { SubModelInputCoordinator } from '@/utils/subModelRuntime'
+import { applySubModelInputFrame, SubModelInputCoordinator } from '@/utils/subModelRuntime'
 import { TypingStatsOperationCoordinator } from '@/utils/typingStatsCoordinator'
 import { executeTypingStatsMutationTransaction, requestTypingStatsStoreSave } from '@/utils/typingStatsPersistence'
 
 const appWindow = getCurrentWebviewWindow()
+let windowDisposed = false
+let contextMenu: Menu | undefined
+let contextMenuBusy = false
+const nativeWindowListeners: Array<() => void> = []
+
+async function stopNativeWindowListener(unlisten: () => void) {
+  try {
+    await unlisten()
+  } catch (error) {
+    logError('[window] listener cleanup failed', { windowLabel: appWindow.label, error })
+  }
+}
+
+function trackNativeWindowListener(registration: Promise<() => void>) {
+  void registration.then((unlisten) => {
+    if (windowDisposed) void stopNativeWindowListener(unlisten)
+    else nativeWindowListeners.push(unlisten)
+  }).catch((error) => {
+    logError('[window] listener registration failed', { windowLabel: appWindow.label, error })
+  })
+}
+
 const { pixelRatio } = useDevicePixelRatio()
 const documentVisibility = useDocumentVisibility()
 const renderingRequested = ref(true)
@@ -99,6 +121,7 @@ const gamepadNativeDemand = computed(() => {
   })
 })
 const reportSubModelWindowChange = useDebounceFn((instance: SubModelInstance) => {
+  if (windowDisposed) return
   void emit(LISTEN_KEY.SUB_MODEL_WINDOW_CHANGED, structuredClone(toRaw(instance)))
 }, 150)
 const {
@@ -116,7 +139,7 @@ const {
   syncWindowScale: !isSubModel,
   resizeWindow: isSubModel,
 })
-const { startListening, handleInputEvent: handleDeviceInputEvent } = useDevice({
+const { startListening, handleInputEvent: handleDeviceInputEvent, resetInputState: resetDeviceInputState } = useDevice({
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
   mouseMirrorY: computed(() => appearanceSettings.value.mouseMirrorY ?? false),
@@ -129,6 +152,7 @@ const { startListening, handleInputEvent: handleDeviceInputEvent } = useDevice({
   },
 })
 const { getBaseMenu, getExitMenu } = useAppMenu({
+  idPrefix: `${appWindow.label}-context`,
   windowSettings,
   visible: computed(() => subModel.value?.visible ?? catStore.window.visible),
   onWindowSettingsChange: reportCurrentSubModelWindowChange,
@@ -137,7 +161,7 @@ const { getBaseMenu, getExitMenu } = useAppMenu({
 const backgroundImagePath = ref<string>()
 const live2dCanvas = ref<HTMLCanvasElement | null>(null)
 const gameModeActive = ref(false)
-const { stickActive, handleInputEvent: handleGamepadInputEvent } = useGamepad({
+const { stickActive, handleInputEvent: handleGamepadInputEvent, resetInputState: resetGamepadInputState } = useGamepad({
   currentModel: activeModel,
   mouseMirror: computed(() => appearanceSettings.value.mouseMirror),
   mouseMirrorY: computed(() => appearanceSettings.value.mouseMirrorY ?? false),
@@ -467,32 +491,38 @@ onMounted(async () => {
       pomodoroNow.value = Date.now()
     }, 250)
     await waitForTypingStatsPersistenceHydration()
+    if (windowDisposed) return
     void startListening().catch(() => undefined)
     return
   }
 
-  appWindow.onMoved(({ payload }) => {
+  trackNativeWindowListener(appWindow.onMoved(({ payload }) => {
     const instance = subModel.value
 
-    if (!instance) return
+    if (windowDisposed || !instance) return
 
     instance.window.x = payload.x
     instance.window.y = payload.y
     reportSubModelWindowChange(instance)
-  })
+  }))
 
-  appWindow.onCloseRequested(() => {
+  trackNativeWindowListener(appWindow.onCloseRequested(() => {
     const instance = subModel.value
 
-    if (!instance) return
+    if (windowDisposed || !instance) return
 
     instance.visible = false
     live2d.setRenderingEnabled(false)
     void emit(LISTEN_KEY.SUB_MODEL_VISIBILITY_CHANGED, { id: instance.id, visible: false })
-  })
+  }))
 })
 
 onUnmounted(() => {
+  windowDisposed = true
+  void contextMenu?.close().catch(error => logError('[menu] cleanup failed', { error }))
+  contextMenu = undefined
+  for (const unlisten of nativeWindowListeners) void stopNativeWindowListener(unlisten)
+  nativeWindowListeners.length = 0
   logStep('model-load', 'window unmounted', { windowLabel: appWindow.label })
   inputCoordinator?.dispose()
   currentModelLoadVersion += 1
@@ -825,19 +855,21 @@ const subModelConfigListener = useTauriListen<SubModelInstance>(LISTEN_KEY.UPDAT
 const subModelInputListener = useTauriListen<SubModelInputFrame>(LISTEN_KEY.SUB_MODEL_INPUT_FRAME, ({ payload }) => {
   if (!isSubModel) return
 
-  for (const event of payload.deviceEvents) {
-    handleDeviceInputEvent(event)
-  }
-
-  for (const event of payload.gamepadEvents) {
-    handleGamepadInputEvent(event)
-  }
+  applySubModelInputFrame(payload, {
+    resetInputs: () => {
+      resetDeviceInputState()
+      resetGamepadInputState()
+    },
+    handleDevice: handleDeviceInputEvent,
+    handleGamepad: handleGamepadInputEvent,
+  })
 })
 
 onMounted(async () => {
   if (!isSubModel || !subModelId) return
 
   await Promise.all([subModelConfigListener.ready, subModelInputListener.ready])
+  if (windowDisposed) return
   await emit(LISTEN_KEY.SUB_MODEL_RUNTIME_READY, { id: subModelId })
 })
 
@@ -850,27 +882,35 @@ function handleMouseDown(event: MouseEvent) {
 async function handleContextmenu(event: MouseEvent) {
   event.preventDefault()
 
-  if (event.ctrlKey) return
+  if (event.ctrlKey || windowDisposed || contextMenuBusy) return
 
-  const menu = await Menu.new({
-    items: [
-      ...await getBaseMenu(),
-      await PredefinedMenuItem.new({ item: 'Separator' }),
-      ...await getExitMenu(),
-    ],
-  })
+  contextMenuBusy = true
+  let restoreAlwaysOnTop = false
+  try {
+    const menu = await Menu.new({
+      id: `${appWindow.label}-context-menu`,
+      items: [...getBaseMenu(), { item: 'Separator' }, ...getExitMenu()],
+    })
+    if (windowDisposed) {
+      await menu.close()
+      return
+    }
+    const previous = contextMenu
+    contextMenu = menu
+    await previous?.close().catch(error => logError('[menu] cleanup failed', { error }))
+    if (windowDisposed) return
 
-  // Temporarily disable always-on-top on Windows so the context menu is not covered
-  if (isWindows && windowSettings.value.alwaysOnTop) {
-    setAlwaysOnTop(false)
+    // Keep the current root alive until replacement/unmount: on Linux popup()
+    // can return while the native menu is still visible.
+    restoreAlwaysOnTop = isWindows && windowSettings.value.alwaysOnTop
+    if (restoreAlwaysOnTop) setAlwaysOnTop(false)
+    await menu.popup()
+  } catch (error) {
+    logError('[menu] popup failed', { error })
+  } finally {
+    contextMenuBusy = false
+    if (restoreAlwaysOnTop && !windowDisposed) setAlwaysOnTop(windowSettings.value.alwaysOnTop)
   }
-
-  await menu.popup()
-
-  // Restore always-on-top after the menu is closed
-  if (!isWindows || !windowSettings.value.alwaysOnTop) return
-
-  setAlwaysOnTop(true)
 }
 
 function handleMouseMove(event: MouseEvent) {

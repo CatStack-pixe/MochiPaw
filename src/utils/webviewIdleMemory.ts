@@ -34,6 +34,8 @@ export class WebviewIdleMemoryController {
   private readonly scheduleTimeout: NonNullable<WebviewIdleMemoryOptions['setTimeout']>
   private readonly cancelTimeout: NonNullable<WebviewIdleMemoryOptions['clearTimeout']>
   private target: WebviewMemoryTarget = 'normal'
+  private appliedTarget: WebviewMemoryTarget | undefined = 'normal'
+  private applyingTarget = false
   private idleTimer?: ReturnType<typeof setTimeout>
   private lastMouseMoveAt?: number
   private hidden = false
@@ -132,16 +134,39 @@ export class WebviewIdleMemoryController {
   }
 
   private changeTarget(target: WebviewMemoryTarget, reason: string) {
-    if (this.target === target) return
+    if (this.target !== target) {
+      const previousTarget = this.target
+      this.target = target
+      this.onTargetChange?.({
+        from: previousTarget,
+        to: target,
+        reason,
+        hidden: this.hidden,
+      })
+    }
+    void this.applyTarget()
+  }
 
-    const previousTarget = this.target
-    this.target = target
-    this.onTargetChange?.({
-      from: previousTarget,
-      to: target,
-      reason,
-      hidden: this.hidden,
-    })
-    void this.setTarget(target).catch(() => false)
+  private async applyTarget() {
+    if (this.applyingTarget || this.disposed) return
+
+    this.applyingTarget = true
+    try {
+      // Keep one native call in flight and coalesce changes into the latest
+      // target. A slow low-memory request must finish before restoring normal.
+      while (!this.disposed && this.appliedTarget !== this.target) {
+        const target = this.target
+        try {
+          this.appliedTarget = await this.setTarget(target) ? target : undefined
+        } catch {
+          this.appliedTarget = undefined
+        }
+        // A failed/unsupported request retries on later activity, never in a
+        // busy loop. A changed target still needs its own native request.
+        if (target === this.target) break
+      }
+    } finally {
+      this.applyingTarget = false
+    }
   }
 }
