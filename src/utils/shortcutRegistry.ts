@@ -10,6 +10,10 @@ export interface ShortcutAdapter {
   unregister: (shortcut: string) => Promise<void>
 }
 
+export interface ShortcutUpdateOptions {
+  isCurrent?: () => boolean
+}
+
 interface ShortcutBinding {
   shortcut: string
   handler: ShortcutHandler
@@ -32,8 +36,10 @@ export class ShortcutRegistry {
 
   constructor(private readonly adapter: ShortcutAdapter) {}
 
-  update(owner: symbol, shortcut: string | undefined, handler: ShortcutHandler) {
+  update(owner: symbol, shortcut: string | undefined, handler: ShortcutHandler, options: ShortcutUpdateOptions = {}) {
     return this.enqueue(async () => {
+      if (options.isCurrent && !options.isCurrent()) return
+
       const nextShortcut = shortcut || undefined
       const current = this.bindings.get(owner)
 
@@ -50,6 +56,11 @@ export class ShortcutRegistry {
         }
 
         await this.adapter.register(nextShortcut, handler)
+
+        if (options.isCurrent && !options.isCurrent()) {
+          await this.adapter.unregister(nextShortcut).catch(() => undefined)
+          return
+        }
       }
 
       if (current) {

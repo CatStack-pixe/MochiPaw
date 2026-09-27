@@ -26,9 +26,9 @@ function parseModelValue() {
     return pressedKeys.value = []
   }
 
-  pressedKeys.value = split(modelValue.value, '+').map((tauriKey) => {
-    return find(keys, { tauriKey })!
-  })
+  pressedKeys.value = split(modelValue.value, '+')
+    .map(tauriKey => find(keys, { tauriKey }))
+    .filter((key): key is Key => Boolean(key))
 }
 
 function getEventKey(event: KeyboardEvent) {
@@ -84,7 +84,9 @@ function handleKeyDown(event: KeyboardEvent) {
   pressedKeys.value.push(matched)
 
   if (isValidShortcut()) {
-    shortcutInputRef.value?.blur()
+    window.setTimeout(() => {
+      shortcutInputRef.value?.blur()
+    }, 0)
   }
 }
 

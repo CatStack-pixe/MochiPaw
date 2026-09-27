@@ -45,6 +45,7 @@ import { setCoreStoresPersistenceWritable } from './utils/persistence'
 import { startPomodoroCoordinator } from './utils/pomodoroCoordinator'
 import { requestPomodoroCommand } from './utils/pomodoroRequest'
 import { flushPreferenceStores, isPreferenceCloseBlocked, PreferenceCloseCoordinator } from './utils/preferenceWindow'
+import { createSingleFlightRunner } from './utils/singleFlight'
 import { getSubModelRuntimeCapacity } from './utils/subModelRuntime'
 import { openSubModelWindow } from './utils/subModelWindow'
 import { WebviewIdleMemoryController } from './utils/webviewIdleMemory'
@@ -155,9 +156,14 @@ async function reportInitializationFailure(reason: unknown) {
 function retryInitialization() {
   window.location.reload()
 }
+const shortcutPersistenceReady = ref(false)
+const pomodoroShortcutRunner = createSingleFlightRunner<'start' | 'pause' | 'resume' | 'reset'>()
 
 function runPomodoroShortcut(command: 'start' | 'pause' | 'resume' | 'reset') {
-  void requestPomodoroCommand(command).catch((error) => {
+  const request = pomodoroShortcutRunner.run(command, () => requestPomodoroCommand(command))
+  if (!request) return
+
+  void request.catch((error) => {
     logError('[shortcut] Pomodoro command failed', { command, error })
   })
 }
@@ -165,35 +171,35 @@ function runPomodoroShortcut(command: 'start' | 'pause' | 'resume' | 'reset') {
 if (appWindow.label === WINDOW_LABEL.MAIN) {
   useKeyPress(visibleCat, () => {
     catStore.window.visible = !catStore.window.visible
-  })
+  }, { enabled: shortcutPersistenceReady })
 
   useKeyPress(visiblePreference, () => {
     toggleWindowVisible(WINDOW_LABEL.PREFERENCE)
-  })
+  }, { enabled: shortcutPersistenceReady })
 
   useKeyPress(mirrorMode, () => {
     catStore.model.mirror = !catStore.model.mirror
-  })
+  }, { enabled: shortcutPersistenceReady })
 
   useKeyPress(penetrable, () => {
     catStore.window.passThrough = !catStore.window.passThrough
-  })
+  }, { enabled: shortcutPersistenceReady })
 
   useKeyPress(alwaysOnTop, () => {
     catStore.window.alwaysOnTop = !catStore.window.alwaysOnTop
-  })
+  }, { enabled: shortcutPersistenceReady })
 
   useKeyPress(gameMode, () => {
     catStore.window.gameMode.enabled = !catStore.window.gameMode.enabled
-  })
+  }, { enabled: shortcutPersistenceReady })
 
-  useKeyPress(pomodoroStart, () => runPomodoroShortcut('start'))
-  useKeyPress(pomodoroPause, () => runPomodoroShortcut('pause'))
-  useKeyPress(pomodoroResume, () => runPomodoroShortcut('resume'))
+  useKeyPress(pomodoroStart, () => runPomodoroShortcut('start'), { enabled: shortcutPersistenceReady })
+  useKeyPress(pomodoroPause, () => runPomodoroShortcut('pause'), { enabled: shortcutPersistenceReady })
+  useKeyPress(pomodoroResume, () => runPomodoroShortcut('resume'), { enabled: shortcutPersistenceReady })
 
   useKeyPress(pomodoroReset, () => {
     runPomodoroShortcut('reset')
-  })
+  }, { enabled: shortcutPersistenceReady })
 }
 
 async function persistInitializedModelState(result: Awaited<ReturnType<typeof modelStore.init>>) {
@@ -414,6 +420,7 @@ async function initializeApplication() {
   await generalStore.init()
   logStep('app-init', 'start shortcut persistence', { windowLabel: appWindow.label })
   await shortcutStore.$tauri.start()
+  shortcutPersistenceReady.value = true
   logStep('app-init', 'start typing stats persistence', { windowLabel: appWindow.label })
   setTypingStatsPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
   await typingStatsStore.$tauri.start()
