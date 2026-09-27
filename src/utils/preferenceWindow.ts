@@ -6,18 +6,30 @@ import { saveAllNow } from '@tauri-store/pinia'
 import { flushPreferenceSync } from './piniaSync'
 
 const closeBlocks = new Set<symbol>()
+const closeUnblockedListeners = new Set<() => void>()
 const updateBlock = Symbol('update')
+
+function notifyCloseUnblocked() {
+  if (closeBlocks.size) return
+
+  for (const listener of closeUnblockedListeners) listener()
+}
+
+export function onPreferenceCloseUnblocked(listener: () => void) {
+  closeUnblockedListeners.add(listener)
+  return () => closeUnblockedListeners.delete(listener)
+}
 
 export function setPreferenceCloseBlocked(blocked: boolean) {
   if (blocked) closeBlocks.add(updateBlock)
-  else closeBlocks.delete(updateBlock)
+  else if (closeBlocks.delete(updateBlock)) notifyCloseUnblocked()
 }
 
 export function acquirePreferenceCloseBlock() {
   const token = Symbol('preference-operation')
   closeBlocks.add(token)
   return () => {
-    closeBlocks.delete(token)
+    if (closeBlocks.delete(token)) notifyCloseUnblocked()
   }
 }
 
@@ -48,6 +60,7 @@ export interface PreferenceCloseAdapter {
 export class PreferenceCloseCoordinator {
   pending = false
   private closing?: Promise<void>
+  private stopUnblockedListener?: () => void
 
   constructor(private readonly adapter: PreferenceCloseAdapter) {}
 
@@ -57,9 +70,19 @@ export class PreferenceCloseCoordinator {
       this.pending = true
       return Promise.resolve()
     }
-    if (this.adapter.blocked()) return Promise.resolve()
+    if (this.adapter.blocked()) {
+      this.pending = true
+      this.stopUnblockedListener ??= onPreferenceCloseUnblocked(() => {
+        this.stopUnblockedListener?.()
+        this.stopUnblockedListener = undefined
+        if (this.pending) void this.request()
+      })
+      return Promise.resolve()
+    }
 
     this.pending = false
+    this.stopUnblockedListener?.()
+    this.stopUnblockedListener = undefined
     const closing = this.close().finally(() => {
       if (this.closing === closing) this.closing = undefined
     })

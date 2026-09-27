@@ -8,7 +8,9 @@ import {
   acquirePreferenceCloseBlock,
   flushPreferenceStores,
   isPreferenceCloseBlocked,
+  onPreferenceCloseUnblocked,
   PreferenceCloseCoordinator,
+  setPreferenceCloseBlocked,
   withPreferenceCloseBlock,
 } from './preferenceWindow'
 
@@ -16,7 +18,7 @@ function closeAdapter(overrides: Partial<PreferenceCloseAdapter> = {}) {
   const calls: string[] = []
   const coordinator = new PreferenceCloseCoordinator({
     ready: () => true,
-    blocked: () => false,
+    blocked: () => isPreferenceCloseBlocked(),
     begin: async () => {
       calls.push('begin')
       return 7
@@ -79,9 +81,42 @@ test('coalesces concurrent closes and preserves the captured open revision', asy
 })
 
 test('keeps the window active while a protected operation is running', async () => {
-  const { coordinator, calls } = closeAdapter({ blocked: () => true })
+  const release = acquirePreferenceCloseBlock()
+  const { coordinator, calls } = closeAdapter()
   await coordinator.request()
   assert.deepEqual(calls, [])
+  assert.equal(coordinator.pending, true)
+  release()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(calls, ['begin', 'hide', 'flush', 'complete:7'])
+})
+
+test('retries a close after an update block is released', async () => {
+  setPreferenceCloseBlocked(true)
+  const { coordinator, calls } = closeAdapter()
+
+  try {
+    await coordinator.request()
+    assert.deepEqual(calls, [])
+    assert.equal(coordinator.pending, true)
+  } finally {
+    setPreferenceCloseBlocked(false)
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(calls, ['begin', 'hide', 'flush', 'complete:7'])
+})
+
+test('removes an unblocked listener when it is disposed', () => {
+  let calls = 0
+  const stop = onPreferenceCloseUnblocked(() => {
+    calls += 1
+  })
+
+  const release = acquirePreferenceCloseBlock()
+  stop()
+  release()
+  assert.equal(calls, 0)
 })
 
 test('waits for pending frontend synchronization before saving the backend', async () => {
