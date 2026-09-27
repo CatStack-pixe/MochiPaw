@@ -26,9 +26,9 @@ function parseModelValue() {
     return pressedKeys.value = []
   }
 
-  pressedKeys.value = split(modelValue.value, '+').map((tauriKey) => {
-    return find(keys, { tauriKey })!
-  })
+  pressedKeys.value = split(modelValue.value, '+')
+    .map(tauriKey => find(keys, { tauriKey }))
+    .filter((key): key is Key => Boolean(key))
 }
 
 function getEventKey(event: KeyboardEvent) {
@@ -84,7 +84,9 @@ function handleKeyDown(event: KeyboardEvent) {
   pressedKeys.value.push(matched)
 
   if (isValidShortcut()) {
-    shortcutInputRef.value?.blur()
+    window.setTimeout(() => {
+      shortcutInputRef.value?.blur()
+    }, 0)
   }
 }
 
@@ -96,7 +98,7 @@ function handleKeyUp(event: KeyboardEvent) {
 <template>
   <div
     ref="shortcutInput"
-    class="relative h-8 min-w-32 flex cursor-text items-center justify-center b-1 b-solid px-2.5 outline-none transition color-text-tertiary b-border rounded-md hover:b-color-blue-5 focus:(shadow-[0_0_0_2px_rgba(5,145,255,0.1)] b-primary)"
+    class="relative h-8 min-w-32 flex cursor-text items-center justify-center b-1 rounded-md b-solid px-2.5 outline-none transition color-text-tertiary b-border hover:b-color-blue-5 focus:(shadow-[0_0_0_2px_rgba(5,145,255,0.1)] b-primary)"
     :tabindex="0"
     @blur="handleBlur"
     @focus="handleFocus"
