@@ -119,3 +119,23 @@ test('serializes concurrent binding updates', async () => {
   assert.equal(mock.maxActiveOperations, 1)
   assert.deepEqual([...mock.registered].sort(), ['F4', 'F5'])
 })
+
+test('cleans up a registration that becomes stale while awaiting the adapter', async () => {
+  const registered = new Set<string>()
+  let current = true
+  const registry = new ShortcutRegistry({
+    async register(shortcut) {
+      registered.add(shortcut)
+      current = false
+    },
+    async unregister(shortcut) {
+      registered.delete(shortcut)
+    },
+  })
+
+  await registry.update(Symbol('owner'), 'F6', handler, {
+    isCurrent: () => current,
+  })
+
+  assert.deepEqual([...registered], [])
+})
