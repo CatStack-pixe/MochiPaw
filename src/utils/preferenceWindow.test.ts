@@ -107,6 +107,36 @@ test('retries a close after an update block is released', async () => {
   assert.deepEqual(calls, ['begin', 'hide', 'flush', 'complete:7'])
 })
 
+test('retries a close when readiness changes after the close request', async () => {
+  let ready = false
+  const { coordinator, calls } = closeAdapter({ ready: () => ready })
+
+  await coordinator.request()
+  assert.deepEqual(calls, [])
+
+  ready = true
+  coordinator.retry()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(calls, ['begin', 'hide', 'flush', 'complete:7'])
+})
+
+test('does not reject when restoring after a close failure also fails', async () => {
+  const errors: unknown[] = []
+  const { coordinator, calls } = closeAdapter({
+    flush: async () => {
+      throw new Error('flush failed')
+    },
+    restore: async () => {
+      throw new Error('restore failed')
+    },
+    onError: error => errors.push(error),
+  })
+
+  await coordinator.request()
+  assert.deepEqual(calls, ['begin', 'hide'])
+  assert.equal(errors.length, 2)
+})
+
 test('removes an unblocked listener when it is disposed', () => {
   let calls = 0
   const stop = onPreferenceCloseUnblocked(() => {
@@ -117,6 +147,17 @@ test('removes an unblocked listener when it is disposed', () => {
   stop()
   release()
   assert.equal(calls, 0)
+})
+
+test('disposes a coordinator waiting for a protected operation', async () => {
+  const release = acquirePreferenceCloseBlock()
+  const { coordinator, calls } = closeAdapter()
+
+  await coordinator.request()
+  coordinator.dispose()
+  release()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(calls, [])
 })
 
 test('waits for pending frontend synchronization before saving the backend', async () => {

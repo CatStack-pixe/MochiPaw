@@ -12,7 +12,7 @@ const updateBlock = Symbol('update')
 function notifyCloseUnblocked() {
   if (closeBlocks.size) return
 
-  for (const listener of closeUnblockedListeners) listener()
+  for (const listener of [...closeUnblockedListeners]) listener()
 }
 
 export function onPreferenceCloseUnblocked(listener: () => void) {
@@ -64,6 +64,18 @@ export class PreferenceCloseCoordinator {
 
   constructor(private readonly adapter: PreferenceCloseAdapter) {}
 
+  retry() {
+    if (!this.pending || this.closing) return
+
+    void this.request()
+  }
+
+  dispose() {
+    this.stopUnblockedListener?.()
+    this.stopUnblockedListener = undefined
+    this.pending = false
+  }
+
   request(): Promise<void> {
     if (this.closing) return this.closing
     if (!this.adapter.ready()) {
@@ -98,7 +110,11 @@ export class PreferenceCloseCoordinator {
       await this.adapter.complete(revision)
     } catch (error) {
       this.adapter.onError(error)
-      await this.adapter.restore()
+      try {
+        await this.adapter.restore()
+      } catch (restoreError) {
+        this.adapter.onError(restoreError)
+      }
     }
   }
 }

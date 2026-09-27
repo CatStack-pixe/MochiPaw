@@ -98,6 +98,15 @@ const preferenceCloser = new PreferenceCloseCoordinator({
 useTauriListen('close-preference-window', () => {
   if (appWindow.label === WINDOW_LABEL.PREFERENCE) void preferenceCloser.request()
 })
+if (appWindow.label === WINDOW_LABEL.PREFERENCE) {
+  watch(
+    [() => initializationReady.value, () => initializationError.value, () => modelStore.modelReady],
+    ([ready, initializationFailure, modelReady]) => {
+      if (ready || initializationFailure || modelReady) preferenceCloser.retry()
+    },
+  )
+}
+onUnmounted(() => preferenceCloser.dispose())
 setCoreStoresPersistenceWritable(!isSubModelWindow)
 setPomodoroPersistenceWritable(appWindow.label === WINDOW_LABEL.MAIN)
 const idleMemory = new WebviewIdleMemoryController({
