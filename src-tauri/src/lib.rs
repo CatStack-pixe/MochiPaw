@@ -12,6 +12,7 @@ pub mod installer_data;
 pub mod linux_input;
 #[cfg(target_os = "linux")]
 pub mod linux_session;
+mod preference_window;
 mod utils;
 mod webview_storage;
 
@@ -28,11 +29,10 @@ use core::{
     setup,
     update::get_update_capability,
 };
-use tauri::{Manager, WindowEvent, generate_handler};
+use tauri::{Emitter, Manager, WindowEvent, generate_handler};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_custom_window::{
     MAIN_WINDOW_LABEL, PREFERENCE_WINDOW_LABEL, WebviewMemoryTarget, request_webview_memory_target,
-    show_preference_window,
 };
 use utils::fs_extra::{copy_dir, extract_zip};
 use utils::persistence_recovery::{
@@ -122,6 +122,12 @@ fn repair_model_store_state(
     Ok(())
 }
 
+// macOS embeds a global Info.plist symbol, so tests and startup must share one
+// generate_context! expansion within this crate.
+fn application_context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "windows")]
@@ -130,7 +136,7 @@ pub fn run() {
         return;
     }
 
-    let mut context = tauri::generate_context!();
+    let mut context = application_context();
     webview_storage::configure_context(&mut context);
 
     let pinia = tauri_plugin_pinia::Builder::default();
@@ -149,7 +155,7 @@ pub fn run() {
         // especially important when a second instance has a different integrity level.
         .plugin(tauri_plugin_single_instance::init(
             |app_handle, _argv, _cwd| {
-                show_preference_window(app_handle);
+                preference_window::request_preference_window(app_handle);
             },
         ))
         .setup(|app| {
@@ -196,14 +202,10 @@ pub fn run() {
 
             let main_window = app.get_webview_window(MAIN_WINDOW_LABEL).unwrap();
 
-            let preference_window = app.get_webview_window(PREFERENCE_WINDOW_LABEL).unwrap();
-
-            request_webview_memory_target(&preference_window, WebviewMemoryTarget::Low);
-
-            setup::default(&app_handle, main_window.clone(), preference_window.clone());
+            setup::default(&app_handle, main_window.clone());
 
             if app.state::<PersistenceRecoveryState>().requires_attention() {
-                show_preference_window(app_handle);
+                preference_window::request_preference_window(app_handle);
             }
 
             Ok(())
@@ -226,7 +228,13 @@ pub fn run() {
             mark_startup_stage,
             get_diagnostics_directory,
             get_app_data_directory,
-            create_sub_model_window
+            create_sub_model_window,
+            preference_window::show_preference_window,
+            preference_window::preference_window_ready,
+            preference_window::request_preference_update,
+            preference_window::take_pending_preference_update,
+            preference_window::begin_preference_close,
+            preference_window::complete_preference_close
         ])
         .plugin(tauri_plugin_admin_status::init())
         .plugin(tauri_plugin_custom_window::init())
@@ -276,6 +284,12 @@ pub fn run() {
         .plugin(tauri_plugin_self_protect::init())
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => {
+                if window.label() == PREFERENCE_WINDOW_LABEL {
+                    api.prevent_close();
+                    let _ = window.emit(preference_window::CLOSE_PREFERENCE_EVENT, ());
+                    return;
+                }
+
                 if let Some(webview_window) = window.app_handle().get_webview_window(window.label())
                 {
                     request_webview_memory_target(&webview_window, WebviewMemoryTarget::Low);
@@ -304,7 +318,7 @@ pub fn run() {
     app.run(|app_handle, event| match event {
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
-            show_preference_window(app_handle);
+            preference_window::request_preference_window(app_handle);
         }
         _ => {
             let _ = app_handle;

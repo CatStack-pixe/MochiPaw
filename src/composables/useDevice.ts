@@ -64,6 +64,13 @@ export function useDevice(options: UseDeviceOptions = {}) {
   let windowBounds: CursorBounds | undefined
   let windowBoundsRefresh: Promise<void> | undefined
   let stopWindowBoundsListeners: (() => void)[] = []
+  let disposed = false
+
+  const stopWindowListener = (unlisten: () => void) => {
+    void Promise.resolve().then(unlisten).catch((error) => {
+      logError('[device] failed to unregister window bounds listener', { windowLabel: appWindow.label, error })
+    })
+  }
   const listeners = options.listeners ?? computed<DeviceListenerOptions>(() => ({
     keyboard: true,
     mouse: true,
@@ -76,13 +83,14 @@ export function useDevice(options: UseDeviceOptions = {}) {
   let relativeMouseFrame = 0
 
   const refreshWindowBounds = () => {
+    if (disposed) return Promise.resolve()
     if (windowBoundsRefresh) return windowBoundsRefresh
 
     windowBoundsRefresh = Promise.all([
       appWindow.outerPosition(),
       appWindow.outerSize(),
     ]).then(([position, size]) => {
-      if (size.width <= 0 || size.height <= 0) return
+      if (disposed || size.width <= 0 || size.height <= 0) return
 
       windowBounds = {
         x: position.x,
@@ -177,51 +185,63 @@ export function useDevice(options: UseDeviceOptions = {}) {
 
   onMounted(async () => {
     try {
-      scaleFactor.value = isMac ? await appWindow.scaleFactor() : 1
+      const initialScaleFactor = isMac ? await appWindow.scaleFactor() : 1
+      if (disposed) return
+      scaleFactor.value = initialScaleFactor
       await refreshWindowBounds()
+      if (disposed) return
 
-      const [stopMoved, stopResized, stopScaleChanged] = await Promise.all([
-        appWindow.onMoved(({ payload }) => {
-          if (!windowBounds) {
-            void refreshWindowBounds()
-            return
-          }
+      const trackWindowListener = (registration: Promise<() => void>) => {
+        void registration.then((unlisten) => {
+          if (disposed) stopWindowListener(unlisten)
+          else stopWindowBoundsListeners.push(unlisten)
+        }).catch((error) => {
+          logError('[device] failed to register window bounds listener', { windowLabel: appWindow.label, error })
+        })
+      }
 
-          windowBounds = { ...windowBounds, x: payload.x, y: payload.y }
-        }),
-        appWindow.onResized(({ payload }) => {
-          if (!windowBounds) {
-            void refreshWindowBounds()
-            return
-          }
+      trackWindowListener(appWindow.onMoved(({ payload }) => {
+        if (disposed) return
+        if (!windowBounds) {
+          void refreshWindowBounds()
+          return
+        }
 
-          windowBounds = { ...windowBounds, width: payload.width, height: payload.height }
-        }),
-        appWindow.onScaleChanged(({ payload }) => {
-          if (isMac) scaleFactor.value = payload.scaleFactor
+        windowBounds = { ...windowBounds, x: payload.x, y: payload.y }
+      }))
+      trackWindowListener(appWindow.onResized(({ payload }) => {
+        if (disposed) return
+        if (!windowBounds) {
+          void refreshWindowBounds()
+          return
+        }
 
-          if (!windowBounds) {
-            void refreshWindowBounds()
-            return
-          }
+        windowBounds = { ...windowBounds, width: payload.width, height: payload.height }
+      }))
+      trackWindowListener(appWindow.onScaleChanged(({ payload }) => {
+        if (disposed) return
+        if (isMac) scaleFactor.value = payload.scaleFactor
 
-          windowBounds = {
-            ...windowBounds,
-            width: payload.size.width,
-            height: payload.size.height,
-          }
-        }),
-      ])
+        if (!windowBounds) {
+          void refreshWindowBounds()
+          return
+        }
 
-      stopWindowBoundsListeners = [stopMoved, stopResized, stopScaleChanged]
+        windowBounds = {
+          ...windowBounds,
+          width: payload.size.width,
+          height: payload.size.height,
+        }
+      }))
     } catch (error) {
       logError('[device] failed to initialize window scale listener', { windowLabel: appWindow.label, error })
     }
   })
 
   onUnmounted(() => {
+    disposed = true
     for (const stopListening of stopWindowBoundsListeners) {
-      stopListening()
+      stopWindowListener(stopListening)
     }
 
     stopWindowBoundsListeners = []
@@ -400,6 +420,15 @@ export function useDevice(options: UseDeviceOptions = {}) {
     handleRelease(key)
   }
 
+  const resetInputState = () => {
+    stopCursorSmoothing()
+    for (const timer of releaseTimers.values()) clearTimeout(timer)
+    releaseTimers.clear()
+    for (const key of Object.keys(modelStore.activeKeys)) handleRelease(key)
+    handleMouseChange('Left', false)
+    handleMouseChange('Right', false)
+  }
+
   const handleInputEvent = (event: DeviceInputEvent) => {
     const { kind, value } = event
 
@@ -474,6 +503,7 @@ export function useDevice(options: UseDeviceOptions = {}) {
 
   return {
     handleInputEvent,
+    resetInputState,
     startListening,
   }
 }

@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn only_defers_automatic_webviews_on_windows() {
-        let mut context = tauri::generate_context!();
+        let mut context = crate::application_context();
         let original = context.config().app.windows.clone();
         configure_context(&mut context);
 

@@ -5,6 +5,8 @@
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
 
+import type { RenderQuality } from '@/utils/renderQuality'
+
 import {
   MOUSE_LOOK_SMOOTHING_DEFAULT,
   MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT,
@@ -14,6 +16,7 @@ import { normalizeMouseMirrorY } from '@/utils/mouseMirrorSettings'
 import { MOUSE_SENSITIVITY_DEFAULT, normalizeMouseSensitivity } from '@/utils/mouseSensitivity'
 import { persistStateWhenWritable } from '@/utils/persistence'
 import { normalizeRelativeMouseSensitivity, RELATIVE_MOUSE_SENSITIVITY_DEFAULT } from '@/utils/relativeMouse'
+import { normalizeRenderQuality } from '@/utils/renderQuality'
 
 export interface CatStore {
   model: {
@@ -28,6 +31,7 @@ export interface CatStore {
     typingBehaviorGroup: string
     autoReleaseDelay: number
     maxFPS: number
+    renderQuality: RenderQuality
     ignoreMouse: boolean
     windowRelativeMouseLook: boolean
     mouseLookSmoothing: number
@@ -87,6 +91,7 @@ export const useCatStore = defineStore('cat', () => {
     typingBehaviorGroup: 'default',
     autoReleaseDelay: 3,
     maxFPS: 60,
+    renderQuality: 'balanced',
     ignoreMouse: false,
     windowRelativeMouseLook: MOUSE_LOOK_WINDOW_RELATIVE_DEFAULT,
     mouseLookSmoothing: MOUSE_LOOK_SMOOTHING_DEFAULT,
@@ -111,6 +116,7 @@ export const useCatStore = defineStore('cat', () => {
   })
 
   const init = () => {
+    model.renderQuality = normalizeRenderQuality(model.renderQuality)
     model.mouseMirrorY = normalizeMouseMirrorY(model.mouseMirrorY)
 
     if (typeof model.windowRelativeMouseLook !== 'boolean') {

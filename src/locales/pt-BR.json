@@ -104,7 +104,11 @@
           "autoReleaseDelay": "Atraso de Liberação Automática",
           "hideOnHover": "Ocultar ao Passar o Mouse",
           "maxFPS": "Taxa Máxima de Quadros",
-          "typingBehaviorGroup": "Grupo aleat?rio"
+          "typingBehaviorGroup": "Grupo aleat?rio",
+          "renderQuality": "Qualidade de renderização",
+          "qualityEconomy": "Econômica",
+          "qualityBalanced": "Equilibrada",
+          "qualityNative": "Nativa"
         },
         "hints": {
           "windowRelativeMouseLook": "Quando ativado, a visão do mouse usa os limites da janela do pet; quando desativado, usa os limites do monitor.",
@@ -125,7 +129,8 @@
           "windowSize": "Use o controle deslizante para ajustar rapidamente ou digite uma porcentagem para controle preciso.",
           "autoReleaseDelay": "Devido ao Windows não capturar eventos de liberação de certas teclas de nível do sistema, elas serão automaticamente tratadas como liberadas após um tempo limite.",
           "hideOnHover": "Quando ativado, a janela se oculta automaticamente ao passar o mouse. Você pode definir um atraso; 0 significa ocultar imediatamente.",
-          "maxFPS": "Limitar a taxa máxima de quadros para renderização do modelo. Reduzir a taxa de quadros pode diminuir o uso de CPU/GPU."
+          "maxFPS": "Limitar a taxa máxima de quadros para renderização do modelo. Reduzir a taxa de quadros pode diminuir o uso de CPU/GPU.",
+          "renderQuality": "Aplica-se a todos os mascotes. Econômica limita a densidade a 1×, Equilibrada a 2× e Nativa segue o monitor. Uma densidade menor reduz buffers da GPU e pode suavizar a imagem; as texturas são preservadas."
         }
       },
       "general": {
@@ -208,7 +213,9 @@
           "customName": "Nome personalizado",
           "selectedCount": "{count} modelos selecionados",
           "cancelSelection": "Limpar seleção",
-          "deleteSelected": "Excluir modelos selecionados"
+          "deleteSelected": "Excluir modelos selecionados",
+          "startPreview": "Reproduzir prévia",
+          "stopPreview": "Parar prévia"
         },
         "hints": {
           "deleteSuccess": "Excluído com sucesso",
@@ -371,9 +378,9 @@
           "contributorsUnavailable": "As informações de colaboradores incluídas no aplicativo não estão disponíveis. Reinstale o aplicativo ou tente novamente.",
           "license": "O código e os recursos derivados do BongoCat são licenciados sob MIT. Apenas arquivos criados exclusivamente pela CatStack usam PolyForm Noncommercial 1.0.0. Consulte LICENSE e NOTICE no repositório para escopo, atribuição e termos de terceiros.",
           "copySuccess": "Copiado com sucesso",
-          "debugMonitor": "Atualiza CPU, memória e uso relacionado do processo do aplicativo a cada segundo. A CPU mostra -- na primeira amostra.",
+          "debugMonitor": "Windows: CPU do processo principal e memória do grupo com WebView2. A soma dos working sets pode contar páginas compartilhadas mais de uma vez. -- indica indisponibilidade. Meça a memória da GPU com ferramentas do sistema.",
           "resourceMetrics": "Mostra o tamanho dos arquivos e a memória decodificada estimada de cada modelo. Texturas usam RGBA pelo tamanho real; outros recursos usam o tamanho do arquivo.",
-          "compactMemorySuccess": "A memória do processo atual foi compactada"
+          "compactMemorySuccess": "Working set principal reduzido; as alocações em uso permanecem"
         },
         "buttons": {
           "checkUpdate": "Verificar atualizações",
@@ -385,16 +392,19 @@
           "viewLog": "Ver Logs",
           "refresh": "Atualizar",
           "refreshResources": "Atualizar Recursos",
-          "compactMemory": "Compactar Memória"
+          "compactMemory": "Reduzir working set principal"
         },
         "metrics": {
           "pid": "PID",
-          "cpuUsage": "Uso de CPU",
-          "memory": "Memória",
-          "virtualMemory": "Memória Virtual",
-          "threads": "Threads",
+          "cpuUsage": "CPU do processo principal",
+          "memory": "Working set do processo principal",
+          "virtualMemory": "Bytes privados do processo principal",
+          "threads": "Threads do processo principal",
           "uptime": "Tempo em execução",
-          "resourceUsageValue": "Memória estimada {memory} / arquivo {fileSize} / {files} arquivos"
+          "resourceUsageValue": "Memória estimada {memory} / arquivo {fileSize} / {files} arquivos",
+          "groupWorkingSet": "Working set do grupo (soma)",
+          "groupPrivateMemory": "Bytes privados do grupo",
+          "groupProcesses": "Processos do grupo"
         },
         "resourceCategories": {
           "model": "Binário do Modelo",

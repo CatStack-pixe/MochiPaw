@@ -19,6 +19,7 @@ import { LISTEN_KEY, WINDOW_LABEL } from '@/constants'
 import { useCatStore } from '@/stores/cat'
 import { getModelDisplayName, useModelStore } from '@/stores/model'
 import { logError, logInfo, logStep, logTrace } from '@/utils/diagnostics'
+import { acquirePreferenceCloseBlock } from '@/utils/preferenceWindow'
 import { withTimeout } from '@/utils/promise'
 import { destroySubModelWindow } from '@/utils/subModelWindow'
 
@@ -33,6 +34,7 @@ const { height } = useElementSize(firstCardRef)
 const { t } = useI18n()
 const openBehaviorModal = ref(false)
 const currentPage = ref(1)
+const activePreviewId = ref<string>()
 const renameModelOpen = ref(false)
 const renameModelTarget = ref<Model>()
 const renameModelDraft = ref('')
@@ -187,6 +189,10 @@ watch(pageCount, (count) => {
   currentPage.value = Math.min(currentPage.value, count)
 })
 
+watch(currentPage, () => {
+  activePreviewId.value = undefined
+})
+
 watch(() => modelStore.currentModel?.id, deselectModel)
 
 function clearSelection() {
@@ -279,6 +285,7 @@ async function handleToggle(nextModel: Model) {
 
   switchingModelId.value = nextModel.id
   modelStore.modelReady = false
+  const releaseCloseBlock = acquirePreferenceCloseBlock()
   let acknowledgement: Promise<ModelSwitchAcknowledgement> | undefined
 
   try {
@@ -306,6 +313,7 @@ async function handleToggle(nextModel: Model) {
   } finally {
     switchingModelId.value = undefined
     modelStore.modelReady = previousModelReady
+    releaseCloseBlock()
   }
 
   logInfo('[model-switch] requested model is now current', { modelId: nextModel.id, modelPath: nextModel.path })
@@ -367,6 +375,7 @@ async function removeModel(item: Model) {
 
 async function handleDelete(item: Model) {
   if (batchDeleting.value || switchingModelId.value) return
+  const releaseCloseBlock = acquirePreferenceCloseBlock()
 
   try {
     await removeModel(item)
@@ -375,10 +384,12 @@ async function handleDelete(item: Model) {
     message.error(String(error))
   } finally {
     clearSelection()
+    releaseCloseBlock()
   }
 }
 
 async function executeBatchDelete(items: Model[]) {
+  const releaseCloseBlock = acquirePreferenceCloseBlock()
   batchDeleting.value = true
   let successCount = 0
   const failedModels: string[] = []
@@ -406,6 +417,7 @@ async function executeBatchDelete(items: Model[]) {
   } finally {
     batchDeleting.value = false
     clearSelection()
+    releaseCloseBlock()
   }
 }
 
@@ -484,7 +496,12 @@ function confirmBatchDelete() {
             @click="handleToggle(data)"
           >
             <template #cover>
-              <ModelPreview :model="data" />
+              <ModelPreview
+                :active="activePreviewId === data.id"
+                :model="data"
+                @activate="activePreviewId = data.id"
+                @deactivate="activePreviewId === data.id && (activePreviewId = undefined)"
+              />
             </template>
 
             <template #title>

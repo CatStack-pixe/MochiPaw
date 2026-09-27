@@ -218,6 +218,8 @@ export class CubismShader_WebGL {
    * デストラクタ相当の処理
    */
   public release(): void {
+    if (this._released) return;
+    this._released = true;
     this.releaseShaderProgram();
   }
 
@@ -1078,7 +1080,7 @@ export class CubismShader_WebGL {
    * @param fragShaderSrc フラグメントシェーダのソース
    */
   public generateShaders(): void {
-    if (this._isShaderLoading) {
+    if (this._released || this._isShaderLoading) {
       return;
     }
     this._isShaderLoading = true;
@@ -1091,6 +1093,7 @@ export class CubismShader_WebGL {
     // シェーダーのソースの読み込み
     this.loadShaders()
       .then(() => {
+        if (this._released) return;
         // NOTE: ファイルの読み込みを待つ必要があるためこのようにする
         this.registerShader(); // 通常シェーダーの登録
         this.registerBlendShader(); // ブレンドモードシェーダーの登録
@@ -1098,6 +1101,7 @@ export class CubismShader_WebGL {
         this._isShaderLoaded = true;
       })
       .catch(error => {
+        if (this._released) return;
         this._isShaderLoading = false;
         console.error('Failed to load shaders:', error);
       });
@@ -1889,6 +1893,7 @@ export class CubismShader_WebGL {
   _shaderSets: Array<CubismShaderSet>; // ロードしたシェーダープログラムを保持する変数
   gl: WebGLRenderingContext | WebGL2RenderingContext; // webglコンテキスト
 
+  private _released = false;
   _colorBlendMap: Map<CubismColorBlend, string>; // カラーブレンドの値と名称を紐づけする変数
   _alphaBlendMap: Map<CubismAlphaBlend, string>; // アルファブレンドの値と名称を紐づけする変数
 

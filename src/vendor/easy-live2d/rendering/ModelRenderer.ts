@@ -6,6 +6,8 @@ import type { CubismRuntimeDiagnostics } from '../core/runtimeDiagnostics'
 import { CubismMatrix44 } from '@Framework/math/cubismmatrix44'
 import { Config } from '../utils/config'
 
+const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+
 /**
  * 模型渲染编排
  * 负责投影矩阵计算和模型渲染调度
@@ -19,6 +21,8 @@ export class ModelRenderer {
   private _totalFrameMs = 0
   private _maxFrameMs = 0
   private _webglErrorCount = 0
+  /** Reused to avoid allocating a matrix on every ticker callback. */
+  private readonly _projection = new CubismMatrix44()
 
   constructor(viewTransform: ViewTransform) {
     this._viewTransform = viewTransform
@@ -37,7 +41,7 @@ export class ModelRenderer {
       frameCount: this._frameCount,
       averageFrameMs: this._frameCount ? this._totalFrameMs / this._frameCount : 0,
       maxFrameMs: this._maxFrameMs,
-      webglErrorCount: this._webglErrorCount,
+      webglErrorCount: Config.WebGLDiagnosticsEnable ? this._webglErrorCount : undefined,
     }
   }
 
@@ -52,7 +56,10 @@ export class ModelRenderer {
     timeManager.update()
     model.update(timeManager.deltaTime)
 
-    const projection = new CubismMatrix44()
+    // CubismMatrix44 is mutable. Reset it before composing the viewport
+    // transform so reuse cannot accumulate scale between frames.
+    const projection = this._projection
+    projection.setMatrix(IDENTITY_MATRIX)
     const cubismModel = model.getModel()
 
     if (cubismModel) {
@@ -77,9 +84,14 @@ export class ModelRenderer {
         return
       }
 
-      this._prepareFrame(gl, glViewport, scissorViewport)
-      model.draw(projection, this._frameBuffer!, glViewport)
-      this._restoreGlState(gl)
+      try {
+        this._prepareFrame(gl, glViewport, scissorViewport)
+        model.draw(projection, this._frameBuffer!, glViewport)
+      } finally {
+        // A shader/driver exception must not leak Cubism's GL state into
+        // Pixi's renderer. This is also required when model.draw throws.
+        this._restoreGlState(gl)
+      }
       this.recordFrame(frameStartedAt, gl)
     } else {
       model.draw(projection, this._frameBuffer!, viewport)
@@ -93,7 +105,9 @@ export class ModelRenderer {
     this._totalFrameMs += elapsed
     this._maxFrameMs = Math.max(this._maxFrameMs, elapsed)
 
-    if (gl && gl.getError() !== gl.NO_ERROR) {
+    // gl.getError() can force a synchronous GPU round-trip. Keep it behind
+    // an explicit diagnostics switch; production frames only update counters.
+    if (gl && Config.WebGLDiagnosticsEnable && gl.getError() !== gl.NO_ERROR) {
       this._webglErrorCount += 1
     }
   }
@@ -110,6 +124,7 @@ export class ModelRenderer {
     cullFace: boolean
     frontFace: number
     depthFunc: number
+    stencilTest: boolean
     activeTexture: number
     currentProgram: WebGLProgram | null
     framebuffer: WebGLFramebuffer | null
@@ -134,6 +149,7 @@ export class ModelRenderer {
       cullFace: gl.isEnabled(gl.CULL_FACE),
       frontFace: gl.getParameter(gl.FRONT_FACE),
       depthFunc: gl.getParameter(gl.DEPTH_FUNC),
+      stencilTest: gl.isEnabled(gl.STENCIL_TEST),
       activeTexture: gl.getParameter(gl.ACTIVE_TEXTURE),
       currentProgram: gl.getParameter(gl.CURRENT_PROGRAM),
       framebuffer: gl.getParameter(gl.FRAMEBUFFER_BINDING),
@@ -163,6 +179,7 @@ export class ModelRenderer {
     s.scissorTest ? gl.enable(gl.SCISSOR_TEST) : gl.disable(gl.SCISSOR_TEST)
     s.depthTest ? gl.enable(gl.DEPTH_TEST) : gl.disable(gl.DEPTH_TEST)
     s.cullFace ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE)
+    s.stencilTest ? gl.enable(gl.STENCIL_TEST) : gl.disable(gl.STENCIL_TEST)
 
     gl.blendFuncSeparate(s.blendSrcRGB, s.blendDstRGB, s.blendSrcAlpha, s.blendDstAlpha)
     gl.colorMask(s.colorMask[0], s.colorMask[1], s.colorMask[2], s.colorMask[3])

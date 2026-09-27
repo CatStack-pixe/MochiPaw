@@ -26,6 +26,7 @@
       },
       {
         "label": "preference",
+        "create": false,
         "url": "index.html/#/preference",
         "visible": false,
         "titleBarStyle": "Overlay",

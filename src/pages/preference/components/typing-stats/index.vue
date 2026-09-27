@@ -12,6 +12,7 @@ import ProList from '@/components/pro-list/index.vue'
 import { useGeneralStore } from '@/stores/general'
 import { useTypingStatsStore } from '@/stores/typingStats'
 import { logError } from '@/utils/diagnostics'
+import { acquirePreferenceCloseBlock } from '@/utils/preferenceWindow'
 import { requestTypingStatsOperation } from '@/utils/typingStatsRequest'
 
 const typingStatsStore = useTypingStatsStore()
@@ -77,6 +78,7 @@ function requestEnabledChange(enabled: boolean) {
 
   pendingEnabled.value = enabled
   mutationPending.value = true
+  const releaseCloseBlock = acquirePreferenceCloseBlock()
 
   void requestTypingStatsOperation({ kind: 'set-enabled', enabled })
     .then((acknowledgement) => {
@@ -95,6 +97,7 @@ function requestEnabledChange(enabled: boolean) {
     .finally(() => {
       pendingEnabled.value = undefined
       mutationPending.value = false
+      releaseCloseBlock()
     })
 }
 
@@ -102,6 +105,7 @@ async function requestClearHistory() {
   if (mutationPending.value) return
 
   mutationPending.value = true
+  const releaseCloseBlock = acquirePreferenceCloseBlock()
 
   try {
     const acknowledgement = await requestTypingStatsOperation({ kind: 'clear-history' })
@@ -119,6 +123,7 @@ async function requestClearHistory() {
     throw error
   } finally {
     mutationPending.value = false
+    releaseCloseBlock()
   }
 }
 

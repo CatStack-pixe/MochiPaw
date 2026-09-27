@@ -10,7 +10,7 @@ import { copyFile, exists, mkdir, readDir, readFile, readTextFile, remove, stat 
 import { message } from 'antdv-next'
 import JSON5 from 'json5'
 import { nanoid } from 'nanoid'
-import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type {
@@ -33,6 +33,7 @@ import { extractTemporaryImportSource, useImportSource } from '@/utils/modelImpo
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import { requestModelStoreSave } from '@/utils/modelPersistence'
 import { join } from '@/utils/path'
+import { withPreferenceCloseBlock } from '@/utils/preferenceWindow'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 
 interface LegacyPetConfig {
@@ -208,10 +209,13 @@ type ImportFromPathResult
   = | { status: 'imported', models: Array<ReturnType<typeof createImportedModel>> }
     | { status: 'duplicate' }
 
-onMounted(() => {
+let unlistenDragDrop: (() => void) | undefined
+let disposed = false
+
+onMounted(async () => {
   const appWindow = getCurrentWebviewWindow()
 
-  appWindow.onDragDropEvent(({ payload }) => {
+  const unlisten = await appWindow.onDragDropEvent(({ payload }) => {
     if (importing.value) return
 
     const { type } = payload
@@ -235,6 +239,13 @@ onMounted(() => {
       dragenter.value = false
     }
   })
+  if (disposed) unlisten()
+  else unlistenDragDrop = unlisten
+})
+
+onUnmounted(() => {
+  disposed = true
+  unlistenDragDrop?.()
 })
 
 const importHint = computed(() => {
@@ -255,7 +266,7 @@ async function handleUpload() {
   }
 
   logStep('model-import', 'open model file picker')
-  const selected = await open({
+  const selected = await withPreferenceCloseBlock(() => open({
     multiple: true,
     filters: [
       {
@@ -263,7 +274,7 @@ async function handleUpload() {
         extensions: ['zip', 'model3.json'],
       },
     ],
-  })
+  }))
 
   if (!selected) {
     logStep('model-import', 'file picker cancelled')
@@ -275,7 +286,7 @@ async function handleUpload() {
   selectPaths.value = paths
 }
 
-watch(selectPaths, async (paths) => {
+watch(selectPaths, paths => withPreferenceCloseBlock(async () => {
   if (!paths.length || importing.value) {
     if (paths.length && importing.value) {
       logTrace('[model-import] ignored selection while another import is active', { count: paths.length })
@@ -366,7 +377,7 @@ watch(selectPaths, async (paths) => {
   }
 
   logInfo('[model-import] batch completed', { count: paths.length, importedModelCount })
-})
+}))
 
 async function importFromPath(fromPath: string) {
   logStep('model-import', 'prepare import source', { fromPath })

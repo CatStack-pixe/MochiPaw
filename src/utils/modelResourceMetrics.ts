@@ -3,10 +3,11 @@
 
 import type { DirEntry } from '@tauri-apps/plugin-fs'
 
-import { readDir, readFile, stat } from '@tauri-apps/plugin-fs'
+import { open, readDir, stat } from '@tauri-apps/plugin-fs'
 
 import type { Model } from '@/stores/model'
 
+import { readImageDimensions } from './imageHeader'
 import { join } from './path'
 
 export type ResourceMetricCategory
@@ -52,6 +53,8 @@ interface ResourceFile {
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp'])
 const AUDIO_EXTENSIONS = new Set(['.flac', '.mp3', '.wav', '.ogg'])
 const resourceMetricCache = new Map<string, ModelResourceMetric>()
+const resourceMetricPending = new Map<string, Promise<ModelResourceMetric>>()
+const MAX_CACHED_MODELS = 64
 
 function getExtension(name: string) {
   const index = name.lastIndexOf('.')
@@ -107,111 +110,18 @@ async function collectFiles(path: string): Promise<ResourceFile[]> {
   return files
 }
 
-function readUint24LE(bytes: Uint8Array, offset: number) {
-  return bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16)
-}
-
-function getPngSize(bytes: Uint8Array) {
-  if (
-    bytes.length < 24
-    || bytes[0] !== 0x89
-    || bytes[1] !== 0x50
-    || bytes[2] !== 0x4E
-    || bytes[3] !== 0x47
-  ) {
-    return null
-  }
-
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-
-  return {
-    width: view.getUint32(16),
-    height: view.getUint32(20),
-  }
-}
-
-function getJpegSize(bytes: Uint8Array) {
-  if (bytes.length < 4 || bytes[0] !== 0xFF || bytes[1] !== 0xD8) return null
-
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  let offset = 2
-
-  while (offset + 9 < bytes.length) {
-    if (bytes[offset] !== 0xFF) {
-      offset += 1
-      continue
-    }
-
-    const marker = bytes[offset + 1]
-    const length = view.getUint16(offset + 2)
-
-    if (length < 2) return null
-
-    if (marker >= 0xC0 && marker <= 0xC3) {
-      return {
-        height: view.getUint16(offset + 5),
-        width: view.getUint16(offset + 7),
-      }
-    }
-
-    offset += 2 + length
-  }
-
-  return null
-}
-
-function getWebpSize(bytes: Uint8Array) {
-  if (
-    bytes.length < 30
-    || String.fromCharCode(...bytes.slice(0, 4)) !== 'RIFF'
-    || String.fromCharCode(...bytes.slice(8, 12)) !== 'WEBP'
-  ) {
-    return null
-  }
-
-  const type = String.fromCharCode(...bytes.slice(12, 16))
-
-  if (type === 'VP8X') {
-    return {
-      width: readUint24LE(bytes, 24) + 1,
-      height: readUint24LE(bytes, 27) + 1,
-    }
-  }
-
-  if (type === 'VP8 ' && bytes.length >= 30) {
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-
-    return {
-      width: view.getUint16(26, true) & 0x3FFF,
-      height: view.getUint16(28, true) & 0x3FFF,
-    }
-  }
-
-  if (type === 'VP8L' && bytes.length >= 25) {
-    const b0 = bytes[21]
-    const b1 = bytes[22]
-    const b2 = bytes[23]
-    const b3 = bytes[24]
-
-    return {
-      width: 1 + (((b1 & 0x3F) << 8) | b0),
-      height: 1 + ((b3 << 6) | (b2 >> 2) | ((b1 & 0xC0) << 6)),
-    }
-  }
-
-  return null
-}
-
 async function getImageMemoryBytes(path: string) {
-  const bytes = await readFile(path).catch(() => null)
-
-  if (!bytes) return 0
-
-  const size = getPngSize(bytes) ?? getJpegSize(bytes) ?? getWebpSize(bytes)
-
-  if (!size) return 0
-
-  return size.width * size.height * 4
+  try {
+    const file = await open(path, { read: true })
+    try {
+      const size = await readImageDimensions(file)
+      return size ? size.width * size.height * 4 : 0
+    } finally {
+      await file.close()
+    }
+  } catch {
+    return 0
+  }
 }
 
 async function estimateMemoryBytes(file: ResourceFile, category: ResourceMetricCategory) {
@@ -228,10 +138,32 @@ function getCacheKey(model: Model) {
 
 export async function getModelResourceMetric(model: Model, options: ModelResourceMetricsOptions = {}) {
   const cacheKey = getCacheKey(model)
+  const pending = resourceMetricPending.get(cacheKey)
+  if (pending) return pending
   const cached = resourceMetricCache.get(cacheKey)
 
-  if (cached && !options.force) return cached
+  if (cached && !options.force) {
+    // Refresh insertion order so repeated active models survive cache eviction.
+    resourceMetricCache.delete(cacheKey)
+    resourceMetricCache.set(cacheKey, cached)
+    return cached
+  }
 
+  const request = scanModelResourceMetric(model).then((metric) => {
+    resourceMetricCache.delete(cacheKey)
+    resourceMetricCache.set(cacheKey, metric)
+    while (resourceMetricCache.size > MAX_CACHED_MODELS) {
+      resourceMetricCache.delete(resourceMetricCache.keys().next().value!)
+    }
+    return metric
+  }).finally(() => {
+    resourceMetricPending.delete(cacheKey)
+  })
+  resourceMetricPending.set(cacheKey, request)
+  return request
+}
+
+async function scanModelResourceMetric(model: Model): Promise<ModelResourceMetric> {
   const files = await collectFiles(model.path)
   const categories = new Map<ResourceMetricCategory, ResourceCategoryMetric>()
 
@@ -262,8 +194,6 @@ export async function getModelResourceMetric(model: Model, options: ModelResourc
     estimatedMemoryBytes: categoryMetrics.reduce((total, item) => total + item.estimatedMemoryBytes, 0),
     categories: categoryMetrics,
   }
-
-  resourceMetricCache.set(cacheKey, metric)
 
   return metric
 }

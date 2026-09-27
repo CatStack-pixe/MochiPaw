@@ -44,6 +44,9 @@ export interface ConfigType {
   // Cubism 5.3 shader resources
   ShaderPath: string
 
+  /** Enable synchronous WebGL diagnostics in the renderer hot path. */
+  WebGLDiagnosticsEnable: boolean
+
   /**
    * 纹理图片跨域设置（crossOrigin）
    * 用于防止 WebGL 纹理上传时因跨域限制触发 SecurityError。
@@ -101,6 +104,9 @@ const DefaultConfig: Omit<ConfigType, 'resetConfig'> = {
 
   // The official Cubism 5.3 Framework loads shaders asynchronously.
   ShaderPath: '/js/cubism5/shaders/',
+
+  // gl.getError() may synchronise the driver; keep this opt-in.
+  WebGLDiagnosticsEnable: false,
 
   // 纹理图片跨域设置，默认 "anonymous" 以兼容常见 CDN 跨域场景
   crossOrigin: 'anonymous' as string | undefined,

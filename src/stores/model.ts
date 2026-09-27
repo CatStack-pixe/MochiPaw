@@ -15,6 +15,7 @@ import type { ExpressionInfo, MotionInfo } from '@/vendor/easy-live2d'
 import { getAppDataDirectory } from '@/utils/appData'
 import { logInfo, logStep, logTrace } from '@/utils/diagnostics'
 import { collectCubismResourceReferences, createCubismFingerprint } from '@/utils/modelFingerprint'
+import { createModelInputState } from '@/utils/modelInputState'
 import { readNearestControlledRelease, readNearestProofManifest } from '@/utils/modelMetadata'
 import {
   MODEL_STORE_SCHEMA_VERSION,
@@ -213,8 +214,7 @@ export const useModelStore = defineStore('model', () => {
   const selectionMigrationPending = ref(false)
   const customModelScanSucceeded = ref(true)
   const supportKeys = reactive<Record<string, ModelSupportKeyLayer[]>>({})
-  const pressedKeys = reactive<Record<string, ModelSupportKeyLayer[]>>({})
-  const activeKeys = reactive<Record<string, boolean>>({})
+  const { pressedKeys, activeKeys } = createModelInputState()
   const currentMotions = ref<Array<[string, ModelMotionInfo[]]>>([])
   const currentExpressions = ref<ModelExpressionInfo[]>([])
   const shortcuts = reactive<Record<string, string>>({})

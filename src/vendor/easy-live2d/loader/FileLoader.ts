@@ -3,14 +3,17 @@
  * 替代 ToolManager.loadFileAsBytes 的静态方法
  */
 export class FileLoader {
-  static async loadArrayBuffer(filePath: string): Promise<ArrayBuffer> {
-    const response = await fetch(filePath)
+  static async loadArrayBuffer(filePath: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+    signal?.throwIfAborted()
+    const response = await fetch(filePath, { signal })
 
     if (!response.ok) {
       throw new Error(`Failed to load ${filePath}: HTTP ${response.status}`)
     }
 
-    return response.arrayBuffer()
+    const buffer = await response.arrayBuffer()
+    signal?.throwIfAborted()
+    return buffer
   }
 
   static async loadJson(filePath: string): Promise<any> {
@@ -28,15 +31,9 @@ export class FileLoader {
   }
 
   /**
-   * 安全加载，失败时返回空 ArrayBuffer
+   * Load a checked response and propagate failures to the resource owner.
    */
-  static async fetchSafe(url: string): Promise<ArrayBuffer> {
-    const response = await fetch(url)
-
-    if (!response.ok) {
-      throw new Error(`Failed to load ${url}: HTTP ${response.status}`)
-    }
-
-    return response.arrayBuffer()
+  static async fetchSafe(url: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+    return this.loadArrayBuffer(url, signal)
   }
 }

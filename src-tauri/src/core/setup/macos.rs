@@ -29,11 +29,7 @@ tauri_panel! {
     })
 }
 
-pub fn platform(
-    app_handle: &AppHandle,
-    main_window: WebviewWindow,
-    _preference_window: WebviewWindow,
-) {
+pub fn platform(app_handle: &AppHandle, main_window: WebviewWindow) {
     let _ = app_handle.plugin(tauri_nspanel::init());
 
     let _ = app_handle.set_dock_visibility(false);

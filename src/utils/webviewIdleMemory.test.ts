@@ -7,7 +7,7 @@ import test from 'node:test'
 
 import type { WebviewMemoryTarget } from '@/plugins/window'
 
-import { WEBVIEW_IDLE_TIMEOUT, WebviewIdleMemoryController } from './webviewIdleMemory'
+import { WEBVIEW_IDLE_TIMEOUT, WEBVIEW_TARGET_RETRY_DELAY, WebviewIdleMemoryController } from './webviewIdleMemory'
 
 class FakeTimers {
   now = 0
@@ -88,12 +88,14 @@ test('switches to low after 60 seconds of inactivity', () => {
   assert.deepEqual(targets, ['low'])
 })
 
-test('input restores normal and resets the idle timeout', () => {
+test('input restores normal and resets the idle timeout', async () => {
   const { controller, targets, timers } = createController()
   controller.start()
   timers.advanceBy(WEBVIEW_IDLE_TIMEOUT)
+  await Promise.resolve()
 
   controller.activity()
+  await Promise.resolve()
   timers.advanceBy(WEBVIEW_IDLE_TIMEOUT - 1)
   assert.deepEqual(targets, ['low', 'normal'])
 
@@ -112,17 +114,18 @@ test('visible animation windows stay normal during idle time', () => {
   assert.deepEqual(targets, ['low'])
 })
 
-test('hidden windows switch to low immediately and restore when shown', () => {
+test('hidden windows switch to low immediately and restore when shown', async () => {
   const { controller, targets } = createController()
   controller.start()
 
   controller.setHidden(true)
   controller.setHidden(false)
+  await Promise.resolve()
 
   assert.deepEqual(targets, ['low', 'normal'])
 })
 
-test('deduplicates repeated target changes', () => {
+test('deduplicates repeated target changes', async () => {
   const { controller, targets, timers } = createController()
   controller.start()
 
@@ -132,9 +135,11 @@ test('deduplicates repeated target changes', () => {
   controller.setHidden(true)
   controller.activity()
   assert.deepEqual(targets, ['low'])
+  await Promise.resolve()
 
   controller.activate()
   controller.activity()
+  await Promise.resolve()
   timers.advanceBy(WEBVIEW_IDLE_TIMEOUT)
   assert.deepEqual(targets, ['low', 'normal', 'low'])
 })
@@ -158,6 +163,118 @@ test('dispose clears the pending idle timer', () => {
 
   timers.advanceBy(WEBVIEW_IDLE_TIMEOUT)
   assert.deepEqual(targets, [])
+})
+
+function createDeferredController() {
+  const timers = new FakeTimers()
+  const requests: Array<{
+    target: WebviewMemoryTarget
+    resolve: (applied: boolean) => void
+    reject: (error: Error) => void
+  }> = []
+  const controller = new WebviewIdleMemoryController({
+    setTarget: target => new Promise<boolean>((resolve, reject) => {
+      requests.push({ target, resolve, reject })
+    }),
+    now: () => timers.now,
+    setTimeout: timers.setTimeout,
+    clearTimeout: timers.clearTimeout,
+  })
+  return { controller, requests, timers }
+}
+
+test('waits for a slow low-memory request before restoring the visible target', async () => {
+  const { controller, requests } = createDeferredController()
+  controller.start(true)
+  controller.activate()
+  assert.deepEqual(requests.map(request => request.target), ['low'])
+
+  requests[0]!.resolve(true)
+  await Promise.resolve()
+  assert.deepEqual(requests.map(request => request.target), ['low', 'normal'])
+  requests[1]!.resolve(true)
+  await Promise.resolve()
+  controller.activity()
+  assert.equal(requests.length, 2)
+  controller.dispose()
+})
+
+test('coalesces rapid visibility changes without retaining intermediate requests', async () => {
+  const { controller, requests } = createDeferredController()
+  controller.start(true)
+  for (let index = 0; index < 100; index += 1) {
+    controller.activate()
+    controller.setHidden(true)
+  }
+  assert.equal(requests.length, 1)
+  requests[0]!.resolve(true)
+  await Promise.resolve()
+  assert.equal(requests.length, 1)
+  controller.dispose()
+})
+
+test('disposal drops a queued target after the native request completes', async () => {
+  const { controller, requests } = createDeferredController()
+  controller.start(true)
+  controller.activate()
+  controller.dispose()
+  requests[0]!.resolve(true)
+  await Promise.resolve()
+  controller.activate()
+  assert.deepEqual(requests.map(request => request.target), ['low'])
+})
+
+test('failed requests preserve the latest target and retry after a cooldown', async () => {
+  const { controller, requests, timers } = createDeferredController()
+  controller.start(true)
+  controller.activate()
+  requests[0]!.reject(new Error('native request failed'))
+  await Promise.resolve()
+  assert.deepEqual(requests.map(request => request.target), ['low', 'normal'])
+
+  requests[1]!.resolve(false)
+  await Promise.resolve()
+  assert.equal(requests.length, 2)
+  controller.activity()
+  assert.equal(requests.length, 2)
+  timers.advanceBy(WEBVIEW_TARGET_RETRY_DELAY)
+  controller.activity()
+  assert.deepEqual(requests.map(request => request.target), ['low', 'normal', 'normal'])
+  requests[2]!.resolve(true)
+  await Promise.resolve()
+  controller.activity()
+  assert.equal(requests.length, 3)
+  controller.dispose()
+})
+
+test('unsupported targets do not retry on every input event', async () => {
+  const timers = new FakeTimers()
+  const targets: WebviewMemoryTarget[] = []
+  const controller = new WebviewIdleMemoryController({
+    setTarget: async (target) => {
+      targets.push(target)
+      return false
+    },
+    now: () => timers.now,
+    setTimeout: timers.setTimeout,
+    clearTimeout: timers.clearTimeout,
+  })
+  controller.start(true)
+  await Promise.resolve()
+  controller.activate()
+  await Promise.resolve()
+  for (let index = 0; index < 100; index += 1) {
+    controller.activity()
+    await Promise.resolve()
+  }
+  assert.deepEqual(targets, ['low', 'normal'])
+  timers.advanceBy(WEBVIEW_TARGET_RETRY_DELAY)
+  controller.activity()
+  await Promise.resolve()
+  assert.deepEqual(targets, ['low', 'normal', 'normal'])
+  controller.setHidden(true)
+  assert.deepEqual(targets, ['low', 'normal', 'normal', 'low'])
+  controller.dispose()
 })
 
 test('uses browser timers with the global receiver', () => {

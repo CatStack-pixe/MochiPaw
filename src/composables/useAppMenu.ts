@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2026 InfinityXCat
 // SPDX-License-Identifier: MIT AND PolyForm-Noncommercial-1.0.0
 
+import type { CheckMenuItemOptions, MenuOptions } from '@tauri-apps/api/menu'
 import type { Ref } from 'vue'
 
-import { CheckMenuItem, MenuItem, PredefinedMenuItem, Submenu } from '@tauri-apps/api/menu'
 import { exit, relaunch } from '@tauri-apps/plugin-process'
 import { range } from 'es-toolkit'
 import { computed } from 'vue'
@@ -22,6 +22,8 @@ import { requestPomodoroCommand } from '@/utils/pomodoroRequest'
 type AppMenuWindowSettings = Pick<CatStore['window'], 'passThrough' | 'scale' | 'opacity'>
 
 export interface AppMenuOptions {
+  /** Stable IDs keep Tauri's menu callback registry bounded across rebuilds. */
+  idPrefix?: string
   windowSettings?: Readonly<Ref<AppMenuWindowSettings>>
   visible?: Readonly<Ref<boolean>>
   onWindowSettingsChange?: () => void
@@ -33,6 +35,7 @@ export function useAppMenu(options: AppMenuOptions = {}) {
   const { t } = useI18n()
   const windowSettings = options.windowSettings ?? computed(() => catStore.window)
   const visible = options.visible ?? computed(() => catStore.window.visible)
+  const itemId = (name: string) => options.idPrefix ? `${options.idPrefix}-${name}` : undefined
 
   const notifyWindowSettingsChange = () => {
     options.onWindowSettingsChange?.()
@@ -47,105 +50,120 @@ export function useAppMenu(options: AppMenuOptions = {}) {
     catStore.window.visible = !catStore.window.visible
   }
 
-  const getScaleMenuItems = async () => {
+  const getScaleMenuItems = () => {
     const scaleOptions = range(50, 151, 25)
 
-    const items = scaleOptions.map((item) => {
-      return CheckMenuItem.new({
+    const items: CheckMenuItemOptions[] = scaleOptions.map((item) => {
+      return {
+        id: itemId(`scale-${item}`),
         text: `${item}%`,
         checked: windowSettings.value.scale === item,
         action: () => {
           windowSettings.value.scale = item
           notifyWindowSettingsChange()
         },
-      })
+      }
     })
 
     if (!scaleOptions.includes(windowSettings.value.scale)) {
-      items.unshift(CheckMenuItem.new({
+      items.unshift({
+        id: itemId('scale-current'),
         text: `${windowSettings.value.scale}%`,
         checked: true,
         enabled: false,
-      }))
+      })
     }
 
-    return Promise.all(items)
+    return items
   }
 
-  const getOpacityMenuItems = async () => {
+  const getOpacityMenuItems = () => {
     const opacityOptions = range(25, 101, 25)
 
-    const items = opacityOptions.map((item) => {
-      return CheckMenuItem.new({
+    const items: CheckMenuItemOptions[] = opacityOptions.map((item) => {
+      return {
+        id: itemId(`opacity-${item}`),
         text: `${item}%`,
         checked: windowSettings.value.opacity === item,
         action: () => {
           windowSettings.value.opacity = item
           notifyWindowSettingsChange()
         },
-      })
+      }
     })
 
     if (!opacityOptions.includes(windowSettings.value.opacity)) {
-      items.unshift(CheckMenuItem.new({
+      items.unshift({
+        id: itemId('opacity-current'),
         text: `${windowSettings.value.opacity}%`,
         checked: true,
         enabled: false,
-      }))
+      })
     }
 
-    return Promise.all(items)
+    return items
   }
 
-  const getBaseMenu = async () => {
-    return await Promise.all([
-      MenuItem.new({
+  // Pass nested options to Menu.new so only the root gets a resource ID.
+  // Explicitly creating each child would require closing every child handle.
+  const getBaseMenu = (): NonNullable<MenuOptions['items']> => {
+    return [
+      {
+        id: itemId('preference'),
         text: t('composables.useAppMenu.labels.preference'),
         accelerator: isMac ? 'Cmd+,' : '',
         action: () => showWindow(WINDOW_LABEL.PREFERENCE),
-      }),
-      MenuItem.new({
+      },
+      {
+        id: itemId('visibility'),
         text: visible.value ? t('composables.useAppMenu.labels.hideCat') : t('composables.useAppMenu.labels.showCat'),
         action: toggleVisibility,
-      }),
-      Submenu.new({
+      },
+      {
+        id: itemId('pomodoro'),
         text: t('pages.pomodoro.title'),
-        items: await Promise.all([
-          MenuItem.new({
+        items: [
+          {
+            id: itemId('pomodoro-start'),
             text: t('pages.pomodoro.buttons.start'),
             action: () => requestPomodoroCommand('start'),
-          }),
-          MenuItem.new({
+          },
+          {
+            id: itemId('pomodoro-pause'),
             text: t('pages.pomodoro.buttons.pause'),
             action: () => requestPomodoroCommand('pause'),
-          }),
-          MenuItem.new({
+          },
+          {
+            id: itemId('pomodoro-reset'),
             text: t('pages.pomodoro.buttons.reset'),
             action: () => requestPomodoroCommand('reset'),
-          }),
-        ]),
-      }),
-      PredefinedMenuItem.new({ item: 'Separator' }),
-      CheckMenuItem.new({
+          },
+        ],
+      },
+      { item: 'Separator' },
+      {
+        id: itemId('pass-through'),
         text: t('composables.useAppMenu.labels.passThrough'),
         checked: windowSettings.value.passThrough,
         action: () => {
           windowSettings.value.passThrough = !windowSettings.value.passThrough
           notifyWindowSettingsChange()
         },
-      }),
-      Submenu.new({
+      },
+      {
+        id: itemId('scale'),
         text: t('composables.useAppMenu.labels.windowSize'),
-        items: await getScaleMenuItems(),
-      }),
-      Submenu.new({
+        items: getScaleMenuItems(),
+      },
+      {
+        id: itemId('opacity'),
         text: t('composables.useAppMenu.labels.opacity'),
-        items: await getOpacityMenuItems(),
-      }),
-    ])
+        items: getOpacityMenuItems(),
+      },
+    ]
   }
 
-  const getExitMenu = async () => {
+  const getExitMenu = (): NonNullable<MenuOptions['items']> => {
     const restartApp = async () => {
       await runAfterSavingPersistentStores(relaunch)
     }
@@ -153,17 +171,19 @@ export function useAppMenu(options: AppMenuOptions = {}) {
       await runAfterSavingPersistentStores(() => exit(0))
     }
 
-    return await Promise.all([
-      MenuItem.new({
+    return [
+      {
+        id: itemId('restart'),
         text: t('composables.useAppMenu.labels.restartApp'),
         action: restartApp,
-      }),
-      MenuItem.new({
+      },
+      {
+        id: itemId('quit'),
         text: t('composables.useAppMenu.labels.quitApp'),
         accelerator: isMac ? 'Cmd+Q' : '',
         action: quitApp,
-      }),
-    ])
+      },
+    ]
   }
 
   return {

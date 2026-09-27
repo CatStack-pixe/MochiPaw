@@ -8,7 +8,7 @@ import { PhysicalPosition, PhysicalSize } from '@tauri-apps/api/dpi'
 import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { availableMonitors } from '@tauri-apps/api/window'
 import { isNumber } from 'es-toolkit/compat'
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 import { WINDOW_LABEL } from '@/constants'
 import { useAppStore } from '@/stores/app'
@@ -69,19 +69,44 @@ export function useWindowState(options: { enabled?: boolean } = {}) {
   const appStore = useAppStore()
   const isRestored = ref(false)
   const enabled = options.enabled ?? true
+  let disposed = false
+  const windowListeners: Array<() => void> = []
+
+  const stopWindowListener = async (unlisten: () => void) => {
+    try {
+      await unlisten()
+    } catch (error) {
+      logError('[window-state] listener cleanup failed', { windowLabel: label, error })
+    }
+  }
+
+  const trackWindowListener = (registration: Promise<() => void>) => {
+    void registration.then((unlisten) => {
+      if (disposed) void stopWindowListener(unlisten)
+      else windowListeners.push(unlisten)
+    }).catch((error) => {
+      logError('[window-state] listener registration failed', { windowLabel: label, error })
+    })
+  }
 
   onMounted(() => {
     if (!enabled) return
 
-    appWindow.onMoved(onChange)
+    trackWindowListener(appWindow.onMoved(onChange))
+    trackWindowListener(appWindow.onResized(onChange))
+  })
 
-    appWindow.onResized(onChange)
+  onUnmounted(() => {
+    disposed = true
+    for (const unlisten of windowListeners) void stopWindowListener(unlisten)
+    windowListeners.length = 0
   })
 
   const onChange = async (event: Event<PhysicalPosition | PhysicalSize>) => {
+    if (disposed) return
     const minimized = await appWindow.isMinimized()
 
-    if (minimized) return
+    if (disposed || minimized) return
 
     appStore.windowState[label] ??= {}
 

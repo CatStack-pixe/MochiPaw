@@ -5,6 +5,7 @@ import type { WebviewMemoryTarget } from '@/plugins/window'
 
 export const WEBVIEW_IDLE_TIMEOUT = 60_000
 export const WEBVIEW_MOUSE_MOVE_THROTTLE = 1_000
+export const WEBVIEW_TARGET_RETRY_DELAY = 30_000
 
 export interface WebviewIdleMemoryOptions {
   setTarget: (target: WebviewMemoryTarget) => Promise<boolean>
@@ -34,6 +35,10 @@ export class WebviewIdleMemoryController {
   private readonly scheduleTimeout: NonNullable<WebviewIdleMemoryOptions['setTimeout']>
   private readonly cancelTimeout: NonNullable<WebviewIdleMemoryOptions['clearTimeout']>
   private target: WebviewMemoryTarget = 'normal'
+  private appliedTarget: WebviewMemoryTarget | undefined = 'normal'
+  private applyingTarget = false
+  private failedTarget?: WebviewMemoryTarget
+  private retryTargetAt = 0
   private idleTimer?: ReturnType<typeof setTimeout>
   private lastMouseMoveAt?: number
   private hidden = false
@@ -132,16 +137,43 @@ export class WebviewIdleMemoryController {
   }
 
   private changeTarget(target: WebviewMemoryTarget, reason: string) {
-    if (this.target === target) return
+    if (this.target !== target) {
+      const previousTarget = this.target
+      this.target = target
+      this.onTargetChange?.({
+        from: previousTarget,
+        to: target,
+        reason,
+        hidden: this.hidden,
+      })
+    }
+    void this.applyTarget()
+  }
 
-    const previousTarget = this.target
-    this.target = target
-    this.onTargetChange?.({
-      from: previousTarget,
-      to: target,
-      reason,
-      hidden: this.hidden,
-    })
-    void this.setTarget(target).catch(() => false)
+  private async applyTarget() {
+    if (this.applyingTarget || this.disposed) return
+
+    this.applyingTarget = true
+    try {
+      // Keep one native call in flight and coalesce changes into the latest
+      // target. A slow low-memory request must finish before restoring normal.
+      while (!this.disposed && this.appliedTarget !== this.target) {
+        const target = this.target
+        if (target === this.failedTarget && this.now() < this.retryTargetAt) break
+        try {
+          this.appliedTarget = await this.setTarget(target) ? target : undefined
+        } catch {
+          this.appliedTarget = undefined
+        }
+        this.failedTarget = this.appliedTarget === target ? undefined : target
+        this.retryTargetAt = this.failedTarget ? this.now() + WEBVIEW_TARGET_RETRY_DELAY : 0
+        // A failed/unsupported request retries on later activity, never in a
+        // busy loop or once per key event. A changed target still needs its
+        // own native request immediately, even during the retry cooldown.
+        if (target === this.target) break
+      }
+    } finally {
+      this.applyingTarget = false
+    }
   }
 }
