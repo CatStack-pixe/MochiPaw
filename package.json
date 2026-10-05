@@ -75,7 +75,7 @@
     "@commitlint/config-conventional": "^19.8.1",
     "@iconify-json/lucide": "^1.2.114",
     "@iconify-json/solar": "^1.2.5",
-    "@tauri-apps/cli": "^2.11.3",
+    "@tauri-apps/cli": "2.11.4",
     "@types/is-url": "^1.2.32",
     "@types/node": "^22.20.0",
     "@unocss/eslint-plugin": "^66.7.3",
