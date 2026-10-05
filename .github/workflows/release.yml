@@ -64,7 +64,7 @@ jobs:
         if: startsWith(matrix.platform, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev patchelf xdg-utils
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev patchelf xdg-utils file
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -140,6 +140,76 @@ jobs:
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.tauriArgs }}
+
+      - name: Verify AppImage root icons
+        if: startsWith(matrix.platform, 'ubuntu')
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          bundle_dir="target/${{ matrix.target }}/release/bundle/appimage"
+          mapfile -t appimages < <(find "$bundle_dir" -maxdepth 1 -type f \
+            -name "*_${version}_*.AppImage" -print)
+          if [ "${#appimages[@]}" -ne 1 ]; then
+            echo "Expected one AppImage for ${version}; found ${#appimages[@]}" >&2
+            printf '%s\n' "${appimages[@]}" >&2
+            exit 1
+          fi
+          appimage="${appimages[0]}"
+
+          extraction_dir="$RUNNER_TEMP/appimage-check-${{ matrix.target }}"
+          mkdir -p "$extraction_dir"
+          (
+            cd "$extraction_dir"
+            "$GITHUB_WORKSPACE/$appimage" --appimage-extract
+          )
+          appdir="$extraction_dir/squashfs-root"
+          test -d "$appdir"
+
+          verify_appdir_entry() {
+            local entry="$1"
+            test -e "$entry" || {
+              echo "Missing or broken AppDir entry: $entry" >&2
+              return 1
+            }
+            if [ -L "$entry" ]; then
+              local target
+              target="$(readlink "$entry")"
+              case "$target" in
+                /*)
+                  echo "AppDir symlink must be relative: $entry -> $target" >&2
+                  return 1
+                  ;;
+              esac
+            fi
+            local resolved
+            resolved="$(realpath -e "$entry")"
+            test -f "$resolved"
+            case "$resolved" in
+              "$appdir"/*) ;;
+              *)
+                echo "AppDir entry resolves outside the image: $entry -> $resolved" >&2
+                return 1
+                ;;
+            esac
+          }
+
+          verify_appdir_entry "$appdir/.DirIcon"
+          icon_path="$(realpath -e "$appdir/.DirIcon")"
+          icon_mime="$(file --brief --mime-type "$icon_path")"
+          case "$icon_mime" in
+            image/*) ;;
+            *)
+              echo "AppDir .DirIcon is not an image: $icon_path ($icon_mime)" >&2
+              exit 1
+              ;;
+          esac
+          shopt -s nullglob
+          desktop_files=("$appdir"/*.desktop)
+          test "${#desktop_files[@]}" -gt 0
+          for desktop_file in "${desktop_files[@]}"; do
+            verify_appdir_entry "$desktop_file"
+          done
 
       - name: Upload updater metadata fragment
         uses: actions/upload-artifact@v4
