@@ -7,3 +7,14 @@
 export function resolveEffectiveMaxFPS(configuredFPS: number, _gameModeActive: boolean) {
   return configuredFPS
 }
+
+export function resolveOverlayRenderFPS(
+  configuredFPS: number,
+  gameModeActive: boolean,
+  overlayEnabled: boolean,
+  overlayTargetFPS: 60 | 90 | 120,
+) {
+  if (!gameModeActive || !overlayEnabled) return configuredFPS
+
+  return Math.min(configuredFPS, overlayTargetFPS)
+}

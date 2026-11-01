@@ -44,7 +44,7 @@ import { executeModelSwitchTransaction } from '@/utils/modelSwitch'
 import { join } from '@/utils/path'
 import { isWindows } from '@/utils/platform'
 import { calculatePomodoroWindowLayout, formatPomodoroRemaining } from '@/utils/pomodoroDisplay'
-import { resolveEffectiveMaxFPS } from '@/utils/renderFPS'
+import { resolveEffectiveMaxFPS, resolveOverlayRenderFPS } from '@/utils/renderFPS'
 import { ensureRuntimeLease, reportRuntimeEventQuietly } from '@/utils/runtimeTelemetry'
 import { clearObject } from '@/utils/shared'
 import { applySubModelInputFrame, SubModelInputCoordinator } from '@/utils/subModelRuntime'
@@ -803,12 +803,24 @@ watch([documentVisibility, renderingRequested, () => isSubModel ? subModel.value
   live2d.setRenderingEnabled(visibility === 'visible' && requested && visible)
 }, { immediate: true })
 
-watch([() => appearanceSettings.value.maxFPS, gameModeActive], ([fps, active]) => {
-  const effectiveFPS = resolveEffectiveMaxFPS(fps, active)
+watch([
+  () => appearanceSettings.value.maxFPS,
+  gameModeActive,
+  () => catStore.overlay.enabled,
+  () => catStore.overlay.targetFPS,
+], ([fps, active, overlayEnabled, overlayTargetFPS]) => {
+  const effectiveFPS = resolveOverlayRenderFPS(
+    resolveEffectiveMaxFPS(fps, active),
+    active,
+    overlayEnabled,
+    overlayTargetFPS,
+  )
   logInfo('[render] max FPS updated', {
     windowLabel: appWindow.label,
     configuredFPS: fps,
     gameModeActive: active,
+    overlayEnabled,
+    overlayTargetFPS,
     effectiveFPS,
   })
   live2d.setMaxFPS(effectiveFPS)

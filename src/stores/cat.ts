@@ -19,6 +19,11 @@ import { normalizeRelativeMouseSensitivity, RELATIVE_MOUSE_SENSITIVITY_DEFAULT }
 import { normalizeRenderQuality } from '@/utils/renderQuality'
 
 export interface CatStore {
+  overlay: {
+    enabled: boolean
+    backend: 'desktop' | 'gamebar'
+    targetFPS: 60 | 90 | 120
+  }
   model: {
     mirror: boolean
     mouseMirror: boolean
@@ -53,6 +58,13 @@ export interface CatStore {
     hideOnHover: boolean
     hideOnHoverDelay: number
   }
+}
+
+export type OverlayTargetFPS = CatStore['overlay']['targetFPS']
+
+export function normalizeOverlayTargetFPS(value: unknown): OverlayTargetFPS {
+  if (value === 90 || value === 120) return value
+  return 60
 }
 
 export const useCatStore = defineStore('cat', () => {
@@ -100,6 +112,12 @@ export const useCatStore = defineStore('cat', () => {
     relativeMouseSensitivity: RELATIVE_MOUSE_SENSITIVITY_DEFAULT,
   })
 
+  const overlay = reactive<CatStore['overlay']>({
+    enabled: false,
+    backend: 'desktop',
+    targetFPS: 60,
+  })
+
   const window = reactive<CatStore['window']>({
     visible: true,
     passThrough: false,
@@ -117,6 +135,10 @@ export const useCatStore = defineStore('cat', () => {
 
   const init = () => {
     model.renderQuality = normalizeRenderQuality(model.renderQuality)
+    overlay.enabled = Boolean(overlay.enabled)
+    // Game Bar is capability-gated and is not enabled until its companion is installed.
+    overlay.backend = 'desktop'
+    overlay.targetFPS = normalizeOverlayTargetFPS(overlay.targetFPS)
     model.mouseMirrorY = normalizeMouseMirrorY(model.mouseMirrorY)
 
     if (typeof model.windowRelativeMouseLook !== 'boolean') {
@@ -151,6 +173,7 @@ export const useCatStore = defineStore('cat', () => {
 
   return {
     migrated,
+    overlay,
     model,
     window,
     init,
