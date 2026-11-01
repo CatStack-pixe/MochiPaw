@@ -315,6 +315,29 @@ const typingBehaviorGroupOptions = computed(() => {
 
   <ProList :title="$t('pages.preference.cat.labels.windowSettings')">
     <ProListItem
+      :description="$t('pages.preference.cat.hints.maxFPS')"
+      :title="$t('pages.preference.cat.labels.maxFPS')"
+    >
+      <Switch v-model:checked="catStore.overlay.enabled" />
+    </ProListItem>
+
+    <ProListItem
+      :description="$t('pages.preference.cat.hints.maxFPS')"
+      :title="$t('pages.preference.cat.labels.maxFPS')"
+      vertical
+    >
+      <Select
+        v-model:value="catStore.overlay.targetFPS"
+        class="w-32"
+        :options="[
+          { label: '60 FPS', value: 60 },
+          { label: '90 FPS', value: 90 },
+          { label: '120 FPS', value: 120 },
+        ]"
+      />
+    </ProListItem>
+
+    <ProListItem
       :description="$t('pages.preference.cat.hints.passThrough')"
       :title="$t('pages.preference.cat.labels.passThrough')"
     >
