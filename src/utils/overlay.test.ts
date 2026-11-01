@@ -5,7 +5,13 @@ import assert from 'node:assert/strict'
 // eslint-disable-next-line test/no-import-node-test -- Node's built-in test runner is used.
 import test from 'node:test'
 
-import { clampOverlayRefreshRate, isOverlayFrameDue, resolveOverlayFPS } from './overlay'
+import { clampOverlayRefreshRate, isOverlayFrameDue, normalizeOverlayBackend, resolveOverlayFPS } from './overlay'
+
+test('normalizes the persisted overlay backend without discarding Game Bar selection', () => {
+  assert.equal(normalizeOverlayBackend('gamebar'), 'gamebar')
+  assert.equal(normalizeOverlayBackend('desktop'), 'desktop')
+  assert.equal(normalizeOverlayBackend('unknown'), 'desktop')
+})
 
 test('clamps invalid and extreme display refresh rates', () => {
   assert.equal(clampOverlayRefreshRate(undefined), 60)

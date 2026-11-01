@@ -108,7 +108,12 @@
           "renderQuality": "渲染画质",
           "qualityEconomy": "节省资源",
           "qualityBalanced": "均衡",
-          "qualityNative": "原生"
+          "qualityNative": "原生",
+          "overlayEnabled": "游戏内覆盖",
+          "overlayFPS": "覆盖帧率上限",
+          "overlayBackend": "覆盖方式",
+          "overlayDesktop": "桌面窗口",
+          "overlayGameBar": "Xbox Game Bar"
         },
         "hints": {
           "windowRelativeMouseLook": "开启后，鼠标视角将根据宠物窗口边界计算；关闭后恢复按显示器边界计算。",
@@ -130,7 +135,14 @@
           "autoReleaseDelay": "由于 Windows 下部分系统级按键无法捕获释放事件，超时后将自动视为已释放。",
           "hideOnHover": "启用后，鼠标悬停窗口时自动隐藏。可设置延迟时间，0 表示立即隐藏。",
           "maxFPS": "限制模型渲染的最大帧率，降低帧率可以减少 CPU/GPU 占用。",
-          "renderQuality": "应用于所有桌宠。节省资源将像素密度限制为 1 倍，均衡为 2 倍，原生跟随显示器。较低密度可减少 GPU 缓冲区占用，画面可能变柔和；模型纹理保持原样。"
+          "renderQuality": "应用于所有桌宠。节省资源将像素密度限制为 1 倍，均衡为 2 倍，原生跟随显示器。较低密度可减少 GPU 缓冲区占用，画面可能变柔和；模型纹理保持原样。",
+          "overlayEnabled": "启用后，宠物会在匹配的游戏窗口前显示；关闭后恢复普通桌面行为。",
+          "overlayFPS": "设置 Live2D 覆盖渲染的帧率上限。实际帧率还受显示刷新率、游戏和 Game Bar 调度影响。",
+          "overlayBackend": "桌面模式适用于窗口化或无边框游戏；Xbox Game Bar 模式需要安装配套小组件，独占全屏时由 Game Bar 承载。",
+          "overlayWaiting": "等待匹配的游戏窗口位于前台。",
+          "overlayDesktopActive": "桌面覆盖已显示在匹配的游戏窗口上。",
+          "overlayGameBarActive": "Game Bar 小组件已连接并显示覆盖。",
+          "overlayGameBarUnavailable": "Game Bar 小组件未连接。请先构建并安装配套小组件，再用 Win+G 固定它。"
         }
       },
       "general": {

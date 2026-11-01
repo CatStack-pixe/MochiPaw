@@ -3,9 +3,11 @@
 
 use futures_channel::oneshot;
 use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::{BufRead, BufReader, Write};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{
     AppHandle, Emitter, Manager, Runtime, WebviewWindow, command, webview::PlatformWebview,
 };
@@ -17,13 +19,17 @@ use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetWindowLongPtrW, HWND_NOTOPMOST, HWND_TOPMOST, SW_SHOWNOACTIVATE,
+    GWL_EXSTYLE, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
+    HWND_NOTOPMOST, HWND_TOPMOST, IsIconic, IsWindowVisible, SW_HIDE, SW_SHOWNOACTIVATE,
     SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, WS_EX_NOACTIVATE, WS_EX_TRANSPARENT,
+    ShowWindow, WS_EX_NOACTIVATE, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
 };
 use windows::core::Interface;
 
-use super::{GAME_MODE_CHANGED_EVENT, GameModeConfig, WebviewMemoryTarget};
+use super::{
+    GAME_MODE_CHANGED_EVENT, GameModeConfig, OVERLAY_STATE_CHANGED_EVENT, OverlayBackend,
+    OverlaySessionConfig, OverlayWindowState, WebviewMemoryTarget, normalize_overlay_target_fps,
+};
 
 const GAME_MODE_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const GAME_MODE_STYLE_BITS: isize = WS_EX_NOACTIVATE.0 as isize;
@@ -56,9 +62,177 @@ struct GameModeState {
 }
 
 static GAME_MODE_STATE: OnceLock<Arc<Mutex<GameModeState>>> = OnceLock::new();
+static OVERLAY_SESSION_STATE: OnceLock<Arc<Mutex<Option<OverlaySession>>>> = OnceLock::new();
+static GAMEBAR_SYNC_STATE: OnceLock<Mutex<GameBarSyncState>> = OnceLock::new();
+const GAMEBAR_PIPE: &str = r"\\.\pipe\MochiPaw.GameBarOverlay";
+
+#[derive(Clone)]
+struct OverlayWindowFrame {
+    rect: windows::Win32::Foundation::RECT,
+    was_visible: bool,
+    was_topmost: bool,
+    original_managed_styles: isize,
+}
+
+#[derive(Clone)]
+struct OverlaySession {
+    config: OverlaySessionConfig,
+    original_frame: Option<OverlayWindowFrame>,
+    last_state: Option<OverlayWindowState>,
+}
+
+#[derive(Default)]
+struct GameBarSyncState {
+    session: Option<serde_json::Value>,
+    state: Option<serde_json::Value>,
+    last_verified_at: Option<Instant>,
+}
 
 fn game_mode_state() -> &'static Arc<Mutex<GameModeState>> {
     GAME_MODE_STATE.get_or_init(|| Arc::new(Mutex::new(GameModeState::default())))
+}
+
+fn overlay_session_state() -> &'static Arc<Mutex<Option<OverlaySession>>> {
+    OVERLAY_SESSION_STATE.get_or_init(|| Arc::new(Mutex::new(None)))
+}
+
+fn gamebar_sync_state() -> &'static Mutex<GameBarSyncState> {
+    GAMEBAR_SYNC_STATE.get_or_init(|| Mutex::new(GameBarSyncState::default()))
+}
+#[command]
+pub async fn set_overlay_session<R: Runtime>(
+    app_handle: AppHandle<R>,
+    mut config: OverlaySessionConfig,
+) -> Result<OverlayWindowState, String> {
+    config.target_fps = normalize_overlay_target_fps(config.target_fps);
+    let mut session = overlay_session_state()
+        .lock()
+        .map_err(|_| "overlay session state lock poisoned".to_owned())?;
+    if !config.enabled {
+        if let Some(previous) = session.take() {
+            if previous.config.backend == OverlayBackend::Gamebar {
+                let disabled_state = OverlayWindowState {
+                    target_fps: previous.config.target_fps,
+                    model_id: previous.config.model_id.clone(),
+                    ..OverlayWindowState::default()
+                };
+                let _ = send_gamebar_state(&OverlaySessionConfig {
+                    enabled: false,
+                    ..previous.config.clone()
+                }, &disabled_state);
+            }
+            restore_overlay_window(&app_handle, previous.original_frame.as_ref())?;
+        }
+        if let Ok(mut state) = gamebar_sync_state().lock() {
+            *state = GameBarSyncState::default();
+        }
+        let snapshot = OverlayWindowState::default();
+        let _ = app_handle.emit(OVERLAY_STATE_CHANGED_EVENT, snapshot.clone());
+        return Ok(snapshot);
+    }
+
+    let previous = session.take();
+    let original_frame = match previous.as_ref().and_then(|existing| existing.original_frame.clone()) {
+        Some(frame) => Some(frame),
+        None => Some(capture_overlay_window(&app_handle)?),
+    };
+    let frame_for_apply = original_frame.clone();
+    if previous.as_ref().is_some_and(|previous| {
+        previous.config.backend == OverlayBackend::Gamebar
+            && previous.config.backend != config.backend
+    }) {
+        if let Some(previous) = previous.as_ref() {
+            let disabled_state = OverlayWindowState {
+                target_fps: previous.config.target_fps,
+                model_id: previous.config.model_id.clone(),
+                ..OverlayWindowState::default()
+            };
+            let _ = send_gamebar_state(
+                &OverlaySessionConfig {
+                    enabled: false,
+                    ..previous.config.clone()
+                },
+                &disabled_state,
+            );
+        }
+    }
+    *session = Some(OverlaySession {
+        config: config.clone(),
+        original_frame,
+        last_state: None,
+    });
+    drop(session);
+    if let Ok(mut state) = gamebar_sync_state().lock() {
+        *state = GameBarSyncState::default();
+    }
+
+    let mut snapshot = query_overlay_window_state(Some(&config))?;
+    if config.backend == OverlayBackend::Gamebar {
+        apply_gamebar_backend(&app_handle, &config, frame_for_apply.as_ref(), &mut snapshot)?;
+    } else {
+        apply_overlay_window(&app_handle, &snapshot, Some(&config), frame_for_apply.as_ref())?;
+        snapshot.backend_active = snapshot.active && !snapshot.minimized;
+    }
+    if let Ok(mut session) = overlay_session_state().lock()
+        && let Some(session) = session.as_mut()
+    {
+        session.last_state = Some(snapshot.clone());
+    }
+    let _ = app_handle.emit(OVERLAY_STATE_CHANGED_EVENT, snapshot.clone());
+    Ok(snapshot)
+}
+
+#[command]
+pub async fn get_overlay_window_state<R: Runtime>(
+    app_handle: AppHandle<R>,
+) -> Result<OverlayWindowState, String> {
+    let (config, frame, previous_state) = {
+        let session = overlay_session_state()
+            .lock()
+            .map_err(|_| "overlay session state lock poisoned".to_owned())?;
+        let Some(session) = session.as_ref() else {
+            return Ok(OverlayWindowState::default());
+        };
+        (
+            session.config.clone(),
+            session.original_frame.clone(),
+            session.last_state.clone(),
+        )
+    };
+    if !config.enabled {
+        return Ok(OverlayWindowState::default());
+    }
+
+    let mut snapshot = query_overlay_window_state(Some(&config))?;
+    if config.backend == OverlayBackend::Gamebar {
+        apply_gamebar_backend(&app_handle, &config, frame.as_ref(), &mut snapshot)?;
+    } else if previous_state.as_ref().is_none_or(|previous| overlay_target_changed(previous, &snapshot)) {
+        apply_overlay_window(&app_handle, &snapshot, Some(&config), frame.as_ref())?;
+        snapshot.backend_active = snapshot.active && !snapshot.minimized;
+    } else if let Some(previous_state) = previous_state {
+        snapshot.backend_active = previous_state.backend_active;
+    }
+    if let Ok(mut session) = overlay_session_state().lock()
+        && let Some(session) = session.as_mut()
+    {
+        session.last_state = Some(snapshot.clone());
+    }
+    Ok(snapshot)
+}
+
+fn overlay_target_changed(previous: &OverlayWindowState, current: &OverlayWindowState) -> bool {
+    previous.enabled != current.enabled
+        || previous.active != current.active
+        || previous.process_name != current.process_name
+        || previous.process_id != current.process_id
+        || previous.window_handle != current.window_handle
+        || previous.x != current.x
+        || previous.y != current.y
+        || previous.width != current.width
+        || previous.height != current.height
+        || previous.minimized != current.minimized
+        || previous.target_fps != current.target_fps
+        || previous.model_id != current.model_id
 }
 
 #[command]
@@ -195,6 +369,373 @@ pub async fn set_webview_memory_target<R: Runtime>(
     }
 
     receiver.await.unwrap_or(false)
+}
+
+fn query_overlay_window_state(
+    config: Option<&OverlaySessionConfig>,
+) -> Result<OverlayWindowState, String> {
+    let Some(config) = config else {
+        return Ok(OverlayWindowState::default());
+    };
+
+    let hwnd = unsafe { GetForegroundWindow() };
+    if hwnd.0.is_null() {
+        return Ok(OverlayWindowState {
+            enabled: config.enabled,
+            backend: config.backend,
+            target_fps: config.target_fps,
+            model_id: config.model_id.clone(),
+            ..OverlayWindowState::default()
+        });
+    }
+
+    let mut process_id = 0u32;
+    unsafe {
+        GetWindowThreadProcessId(hwnd, Some(&mut process_id));
+    }
+    let process_name = process_name_for_pid(process_id).unwrap_or_default();
+    let matches = !config.processes.is_empty()
+        && config
+            .processes
+            .iter()
+            .map(|value| value.trim().to_ascii_lowercase())
+            .any(|value| value == process_name);
+
+    let mut rect = windows::Win32::Foundation::RECT::default();
+    let has_rect = unsafe { GetWindowRect(hwnd, &mut rect).is_ok() };
+    let width = if has_rect {
+        rect.right.saturating_sub(rect.left).max(0) as u32
+    } else {
+        0
+    };
+    let height = if has_rect {
+        rect.bottom.saturating_sub(rect.top).max(0) as u32
+    } else {
+        0
+    };
+
+    Ok(OverlayWindowState {
+        enabled: config.enabled,
+        active: config.enabled && matches && has_rect,
+        backend: config.backend,
+        backend_active: false,
+        process_name: (!process_name.is_empty()).then_some(process_name),
+        process_id: Some(process_id),
+        window_handle: Some(hwnd.0 as usize as u64),
+        x: rect.left,
+        y: rect.top,
+        width,
+        height,
+        dpi_scale: 1.0,
+        minimized: unsafe { IsIconic(hwnd).as_bool() },
+        target_fps: config.target_fps,
+        model_id: config.model_id.clone(),
+        gamebar_active: false,
+        error: None,
+    })
+}
+
+fn apply_gamebar_backend<R: Runtime>(
+    app_handle: &AppHandle<R>,
+    config: &OverlaySessionConfig,
+    original_frame: Option<&OverlayWindowFrame>,
+    state: &mut OverlayWindowState,
+) -> Result<(), String> {
+    match send_gamebar_state(config, state) {
+        Ok(()) => {
+            state.gamebar_active = true;
+            state.backend_active = state.active && !state.minimized;
+            state.error = None;
+            hide_overlay_window(app_handle)?;
+        }
+        Err(error) => {
+            state.gamebar_active = false;
+            state.backend_active = false;
+            state.error = Some(error);
+            if state.active && !state.minimized {
+                apply_overlay_window(app_handle, state, Some(config), original_frame)?;
+                state.backend_active = true;
+            } else {
+                hide_overlay_window(app_handle)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn send_gamebar_state(
+    config: &OverlaySessionConfig,
+    state: &OverlayWindowState,
+) -> Result<(), String> {
+    let session_message = serde_json::json!({
+        "protocol_version": 1,
+        "type": "set-overlay-session",
+        "enabled": config.enabled,
+        "target_fps": config.target_fps,
+        "pass_through": config.pass_through,
+        "model_id": config.model_id,
+    });
+    let state_message = serde_json::json!({
+        "protocol_version": 1,
+        "type": "set-overlay-state",
+        "enabled": config.enabled,
+        "target_fps": config.target_fps,
+        "pass_through": config.pass_through,
+        "model_id": config.model_id,
+        "active": state.active && !state.minimized,
+        "process_name": state.process_name,
+        "process_id": state.process_id,
+        "window_handle": state.window_handle,
+        "x": state.x,
+        "y": state.y,
+        "width": state.width,
+        "height": state.height,
+        "dpi_scale": state.dpi_scale,
+        "minimized": state.minimized,
+    });
+
+    let mut cache = gamebar_sync_state()
+        .lock()
+        .map_err(|_| "Game Bar synchronization lock poisoned".to_owned())?;
+    if cache.session.as_ref() != Some(&session_message) {
+        let response = send_gamebar_message_locked(session_message.clone())?;
+        ensure_gamebar_request_accepted(&response)?;
+        cache.session = Some(session_message);
+        cache.state = None;
+    }
+    let should_verify = cache
+        .last_verified_at
+        .is_none_or(|last| last.elapsed() >= Duration::from_secs(2));
+    if cache.state.as_ref() != Some(&state_message) || should_verify {
+        let response = send_gamebar_message_locked(state_message.clone())?;
+        ensure_gamebar_request_accepted(&response)?;
+        cache.state = Some(state_message);
+        cache.last_verified_at = Some(Instant::now());
+    }
+    Ok(())
+}
+
+fn ensure_gamebar_request_accepted(response: &serde_json::Value) -> Result<(), String> {
+    if response
+        .get("accepted")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+
+    Err(response
+        .get("error")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("Game Bar widget rejected the overlay request")
+        .to_owned())
+}
+
+fn send_gamebar_message_locked(message: serde_json::Value) -> Result<serde_json::Value, String> {
+    let mut pipe = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(GAMEBAR_PIPE)
+        .map_err(|error| format!("Game Bar companion pipe is unavailable: {error}"))?;
+    let mut payload = serde_json::to_vec(&message).map_err(|error| error.to_string())?;
+    payload.push(b'\n');
+    pipe.write_all(&payload).map_err(|error| error.to_string())?;
+    pipe.flush().map_err(|error| error.to_string())?;
+
+    let mut response = String::new();
+    BufReader::new(pipe)
+        .read_line(&mut response)
+        .map_err(|error| error.to_string())?;
+    serde_json::from_str(&response).map_err(|error| error.to_string())
+}
+
+fn capture_overlay_window<R: Runtime>(
+    app_handle: &AppHandle<R>,
+) -> Result<OverlayWindowFrame, String> {
+    let window = app_handle
+        .get_webview_window(super::MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "main overlay window is unavailable".to_owned())?;
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    let mut rect = windows::Win32::Foundation::RECT::default();
+    unsafe {
+        GetWindowRect(hwnd, &mut rect).map_err(|error| error.to_string())?;
+    }
+    let original_ex_style = unsafe {
+        SetLastError(ERROR_SUCCESS);
+        let value = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        if value == 0 && GetLastError() != ERROR_SUCCESS {
+            return Err(windows::core::Error::from_win32().to_string());
+        }
+        value
+    };
+    Ok(OverlayWindowFrame {
+        rect,
+        was_visible: unsafe { IsWindowVisible(hwnd).as_bool() },
+        was_topmost: original_ex_style & WS_EX_TOPMOST.0 as isize != 0,
+        original_managed_styles: original_ex_style & MANAGED_EX_STYLE_BITS,
+    })
+}
+
+fn apply_overlay_window<R: Runtime>(
+    app_handle: &AppHandle<R>,
+    state: &OverlayWindowState,
+    config: Option<&OverlaySessionConfig>,
+    original_frame: Option<&OverlayWindowFrame>,
+) -> Result<(), String> {
+    let window = app_handle
+        .get_webview_window(super::MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "main overlay window is unavailable".to_owned())?;
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+
+    if !state.active || state.minimized || state.width == 0 || state.height == 0 {
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_HIDE);
+        }
+        return Ok(());
+    }
+
+    update_managed_ex_style(
+        hwnd,
+        managed_ex_style_bits(true, config.map(|value| value.pass_through).unwrap_or(true)),
+    )?;
+    let original_frame = original_frame
+        .ok_or_else(|| "original overlay window frame was not captured".to_owned())?;
+    let target_rect = windows::Win32::Foundation::RECT {
+        left: state.x,
+        top: state.y,
+        right: state.x.saturating_add(state.width.min(i32::MAX as u32) as i32),
+        bottom: state.y.saturating_add(state.height.min(i32::MAX as u32) as i32),
+    };
+    let overlay_rect = overlay_rect_for_target(&target_rect, &original_frame.rect);
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            overlay_rect.left,
+            overlay_rect.top,
+            overlay_rect.right.saturating_sub(overlay_rect.left),
+            overlay_rect.bottom.saturating_sub(overlay_rect.top),
+            SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        )
+        .map_err(|error| error.to_string())?;
+        let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+    }
+    Ok(())
+}
+
+fn overlay_rect_for_target(
+    target: &windows::Win32::Foundation::RECT,
+    original: &windows::Win32::Foundation::RECT,
+) -> windows::Win32::Foundation::RECT {
+    let target_width = target.right.saturating_sub(target.left).max(0);
+    let target_height = target.bottom.saturating_sub(target.top).max(0);
+    let width = original
+        .right
+        .saturating_sub(original.left)
+        .max(0)
+        .min(target_width);
+    let height = original
+        .bottom
+        .saturating_sub(original.top)
+        .max(0)
+        .min(target_height);
+    let inset = 16;
+    let right = target.right;
+    let left = right.saturating_sub(width).saturating_sub(inset).max(target.left);
+    let bottom = target.bottom;
+    let top = target.top.saturating_add(inset).min(bottom.saturating_sub(height));
+
+    windows::Win32::Foundation::RECT {
+        left,
+        top,
+        right: left.saturating_add(width),
+        bottom: top.saturating_add(height),
+    }
+}
+
+fn restore_overlay_window<R: Runtime>(
+    app_handle: &AppHandle<R>,
+    frame: Option<&OverlayWindowFrame>,
+) -> Result<(), String> {
+    let Some(frame) = frame else {
+        return Ok(());
+    };
+    let Some(window) = app_handle.get_webview_window(super::MAIN_WINDOW_LABEL) else {
+        return Ok(());
+    };
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    let (game_mode_active, game_mode_settings) = game_mode_state()
+        .lock()
+        .map(|state| (state.active, state.settings.clone()))
+        .unwrap_or((false, None));
+    let managed_bits = game_mode_settings
+        .as_ref()
+        .map(|settings| managed_ex_style_bits(game_mode_active, settings.pass_through))
+        .unwrap_or(frame.original_managed_styles);
+    update_managed_ex_style(hwnd, managed_bits)?;
+    if let Some(settings) = game_mode_settings {
+        set_hwnd_topmost(hwnd, !game_mode_active && settings.always_on_top)?;
+    } else {
+        set_hwnd_topmost(hwnd, frame.was_topmost)?;
+    }
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            None,
+            frame.rect.left,
+            frame.rect.top,
+            frame.rect.right.saturating_sub(frame.rect.left),
+            frame.rect.bottom.saturating_sub(frame.rect.top),
+            SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        )
+        .map_err(|error| error.to_string())?;
+        let _ = ShowWindow(
+            hwnd,
+            if frame.was_visible { SW_SHOWNOACTIVATE } else { SW_HIDE },
+        );
+    }
+    Ok(())
+}
+
+fn hide_overlay_window<R: Runtime>(app_handle: &AppHandle<R>) -> Result<(), String> {
+    let Some(window) = app_handle.get_webview_window(super::MAIN_WINDOW_LABEL) else {
+        return Ok(());
+    };
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_HIDE);
+    }
+    Ok(())
+}
+
+fn process_name_for_pid(process_id: u32) -> Option<String> {
+    let snapshot = unsafe {
+        CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?
+    };
+    let mut entry = PROCESSENTRY32W {
+        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+        ..Default::default()
+    };
+    let result = unsafe {
+        if Process32FirstW(snapshot, &mut entry).is_err() {
+            return None
+        } else {
+            loop {
+                if entry.th32ProcessID == process_id {
+                    break Some(process_entry_name(&entry));
+                }
+                if Process32NextW(snapshot, &mut entry).is_err() {
+                    break None;
+                }
+            }
+        }
+    };
+    unsafe {
+        let _ = CloseHandle(snapshot);
+    }
+    result
 }
 
 pub fn request_webview_memory_target<R: Runtime>(

@@ -8,6 +8,8 @@ import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewW
 import { error } from '@tauri-apps/plugin-log'
 import { platform } from '@tauri-apps/plugin-os'
 
+import type { OverlayBackend } from '@/utils/overlay'
+
 import { LISTEN_KEY, WINDOW_LABEL } from '../constants'
 import { logInfo } from '../utils/diagnostics'
 
@@ -21,6 +23,35 @@ export interface GameModeOptions extends Record<string, unknown> {
   passThrough: boolean
 }
 
+export interface OverlaySessionOptions extends Record<string, unknown> {
+  enabled: boolean
+  processes?: string[]
+  backend?: OverlayBackend
+  modelId?: string
+  targetFPS?: 60 | 90 | 120
+  passThrough?: boolean
+}
+
+export interface OverlayWindowState {
+  enabled: boolean
+  active: boolean
+  backend?: OverlayBackend
+  backendActive?: boolean
+  processName?: string
+  processId?: number
+  windowHandle?: number
+  x: number
+  y: number
+  width: number
+  height: number
+  dpiScale: number
+  minimized: boolean
+  targetFPS?: 60 | 90 | 120
+  modelId?: string
+  gamebarActive?: boolean
+  error?: string
+}
+
 const COMMAND = {
   SHOW_WINDOW: 'plugin:custom-window|show_window',
   HIDE_WINDOW: 'plugin:custom-window|hide_window',
@@ -29,6 +60,8 @@ const COMMAND = {
   SET_TASKBAR_VISIBILITY: 'plugin:custom-window|set_taskbar_visibility',
   SET_WEBVIEW_MEMORY_TARGET: 'plugin:custom-window|set_webview_memory_target',
   SET_GAME_MODE: 'plugin:custom-window|set_game_mode',
+  SET_OVERLAY_SESSION: 'plugin:custom-window|set_overlay_session',
+  GET_OVERLAY_WINDOW_STATE: 'plugin:custom-window|get_overlay_window_state',
 }
 
 let passThroughQueue: Promise<void> = Promise.resolve()
@@ -92,6 +125,24 @@ export async function setGameMode(options: GameModeOptions): Promise<boolean> {
   } catch (reason) {
     catchWindowError('game-mode')(reason)
     return false
+  }
+}
+
+export async function setOverlaySession(options: OverlaySessionOptions): Promise<OverlayWindowState | undefined> {
+  try {
+    return await invoke<OverlayWindowState>(COMMAND.SET_OVERLAY_SESSION, options)
+  } catch (reason) {
+    catchWindowError('overlay-session')(reason)
+    return undefined
+  }
+}
+
+export async function getOverlayWindowState(): Promise<OverlayWindowState | undefined> {
+  try {
+    return await invoke<OverlayWindowState>(COMMAND.GET_OVERLAY_WINDOW_STATE)
+  } catch (reason) {
+    catchWindowError('overlay-state')(reason)
+    return undefined
   }
 }
 

@@ -27,6 +27,7 @@ export const LISTEN_KEY = {
   POMODORO_STATE_CHANGED: 'pomodoro-state-changed',
   POMODORO_STAGE_COMPLETED: 'pomodoro-stage-completed',
   GAME_MODE_CHANGED: 'game-mode-changed',
+  OVERLAY_STATE_CHANGED: 'overlay-state-changed',
 }
 
 export const INVOKE_KEY = {

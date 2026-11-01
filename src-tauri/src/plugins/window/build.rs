@@ -7,6 +7,8 @@ const COMMANDS: &[&str] = &[
     "set_always_on_top",
     "set_pass_through",
     "set_game_mode",
+    "set_overlay_session",
+    "get_overlay_window_state",
     "set_taskbar_visibility",
     "set_webview_memory_target",
 ];

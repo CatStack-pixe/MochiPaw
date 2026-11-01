@@ -26,7 +26,16 @@ import { useGamepad } from '@/composables/useGamepad'
 import { useModel } from '@/composables/useModel'
 import { useTauriListen } from '@/composables/useTauriListen'
 import { LISTEN_KEY, WINDOW_LABEL } from '@/constants'
-import { hideWindow, setAlwaysOnTop, setGameMode, setPassThrough, setTaskbarVisibility, showWindow } from '@/plugins/window'
+import {
+  getOverlayWindowState,
+  hideWindow,
+  setAlwaysOnTop,
+  setGameMode,
+  setOverlaySession,
+  setPassThrough,
+  setTaskbarVisibility,
+  showWindow,
+} from '@/plugins/window'
 import { useCatStore } from '@/stores/cat'
 import { useGeneralStore } from '@/stores/general.ts'
 import { useModelStore } from '@/stores/model'
@@ -188,6 +197,8 @@ let currentModelLoadVersion = 0
 let explicitModelSwitchInProgress = false
 let modelSwitchRequestInProgress = false
 let pomodoroDisplayTimer: ReturnType<typeof setInterval> | undefined
+let overlayStateTimer: ReturnType<typeof setInterval> | undefined
+let overlayStateRequestInFlight = false
 const modelLoadTrigger = ref(0)
 const pomodoroNow = ref(Date.now())
 
@@ -754,6 +765,48 @@ watch([modelStore.pressedKeys, stickActive], ([keys, stickActive]) => {
 if (!isSubModel) {
   watch(() => catStore.window.visible, async (value) => {
     value ? showWindow() : hideWindow()
+  })
+}
+
+if (!isSubModel) {
+  watch([
+    () => catStore.overlay.enabled,
+    () => catStore.overlay.backend,
+    () => catStore.overlay.targetFPS,
+    () => catStore.window.gameMode.processes,
+    () => catStore.window.passThrough,
+    () => catStore.window.visible,
+    () => activeModel.value?.mode,
+  ], ([enabled, backend, targetFPS, processes, passThrough, visible, modelId]) => {
+    void setOverlaySession({
+      enabled: Boolean(enabled && visible),
+      backend,
+      targetFPS,
+      processes,
+      passThrough,
+      modelId,
+    })
+  }, { deep: true, immediate: true })
+
+  const pollOverlayState = async () => {
+    if (overlayStateRequestInFlight) return
+    overlayStateRequestInFlight = true
+    try {
+      await getOverlayWindowState()
+    } finally {
+      overlayStateRequestInFlight = false
+    }
+  }
+
+  onMounted(() => {
+    overlayStateTimer = window.setInterval(() => {
+      void pollOverlayState()
+    }, 250)
+  })
+
+  onUnmounted(() => {
+    if (overlayStateTimer) window.clearInterval(overlayStateTimer)
+    overlayStateTimer = undefined
   })
 }
 

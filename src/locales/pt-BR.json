@@ -108,7 +108,12 @@
           "renderQuality": "Qualidade de renderização",
           "qualityEconomy": "Econômica",
           "qualityBalanced": "Equilibrada",
-          "qualityNative": "Nativa"
+          "qualityNative": "Nativa",
+          "overlayEnabled": "Sobreposição no jogo",
+          "overlayFPS": "Limite de quadros da sobreposição",
+          "overlayBackend": "Modo da sobreposição",
+          "overlayDesktop": "Janela da área de trabalho",
+          "overlayGameBar": "Xbox Game Bar"
         },
         "hints": {
           "windowRelativeMouseLook": "Quando ativado, a visão do mouse usa os limites da janela do pet; quando desativado, usa os limites do monitor.",
@@ -130,7 +135,14 @@
           "autoReleaseDelay": "Devido ao Windows não capturar eventos de liberação de certas teclas de nível do sistema, elas serão automaticamente tratadas como liberadas após um tempo limite.",
           "hideOnHover": "Quando ativado, a janela se oculta automaticamente ao passar o mouse. Você pode definir um atraso; 0 significa ocultar imediatamente.",
           "maxFPS": "Limitar a taxa máxima de quadros para renderização do modelo. Reduzir a taxa de quadros pode diminuir o uso de CPU/GPU.",
-          "renderQuality": "Aplica-se a todos os mascotes. Econômica limita a densidade a 1×, Equilibrada a 2× e Nativa segue o monitor. Uma densidade menor reduz buffers da GPU e pode suavizar a imagem; as texturas são preservadas."
+          "renderQuality": "Aplica-se a todos os mascotes. Econômica limita a densidade a 1×, Equilibrada a 2× e Nativa segue o monitor. Uma densidade menor reduz buffers da GPU e pode suavizar a imagem; as texturas são preservadas.",
+          "overlayEnabled": "Quando ativado, o mascote aparece sobre uma janela de jogo compatível. Desative para voltar ao comportamento normal na área de trabalho.",
+          "overlayFPS": "Define o limite de renderização do Live2D. O FPS real também depende da taxa de atualização, do jogo e do agendamento do Game Bar.",
+          "overlayBackend": "O modo de área de trabalho funciona em jogos em janela ou sem bordas. O modo Xbox Game Bar requer o widget complementar e é hospedado pelo Game Bar em tela cheia exclusiva.",
+          "overlayWaiting": "Aguardando uma janela de jogo compatível em primeiro plano.",
+          "overlayDesktopActive": "A sobreposição da área de trabalho está anexada à janela de jogo compatível.",
+          "overlayGameBarActive": "O widget do Game Bar está conectado e exibindo a sobreposição.",
+          "overlayGameBarUnavailable": "O widget do Game Bar não está conectado. Compile e instale o widget complementar e fixe-o com Win+G."
         }
       },
       "general": {

@@ -108,7 +108,12 @@
           "renderQuality": "算繪畫質",
           "qualityEconomy": "節省資源",
           "qualityBalanced": "均衡",
-          "qualityNative": "原生"
+          "qualityNative": "原生",
+          "overlayEnabled": "遊戲內覆蓋",
+          "overlayFPS": "覆蓋影格率上限",
+          "overlayBackend": "覆蓋方式",
+          "overlayDesktop": "桌面視窗",
+          "overlayGameBar": "Xbox Game Bar"
         },
         "hints": {
           "windowRelativeMouseLook": "啟用後，滑鼠視角會根據貓咪視窗邊界計算；關閉後恢復依螢幕邊界計算。",
@@ -130,7 +135,14 @@
           "autoReleaseDelay": "由於 Windows 下部份系統級按鍵無法擷取釋放事件，超時後將自動視為已釋放。",
           "hideOnHover": "啟用後，滑鼠游標懸停視窗時自動隱藏。可設定延遲時間，0 表示立即隱藏。",
           "maxFPS": "限制模型渲染的最大幀率，降低幀率可以減少 CPU/GPU 佔用。",
-          "renderQuality": "套用於所有桌寵。節省資源將像素密度限制為 1 倍，均衡為 2 倍，原生跟隨顯示器。較低密度可減少 GPU 緩衝區佔用，畫面可能變柔和；模型紋理維持原樣。"
+          "renderQuality": "套用於所有桌寵。節省資源將像素密度限制為 1 倍，均衡為 2 倍，原生跟隨顯示器。較低密度可減少 GPU 緩衝區佔用，畫面可能變柔和；模型紋理維持原樣。",
+          "overlayEnabled": "啟用後，寵物會顯示在符合條件的遊戲視窗上方；關閉後恢復一般桌面行為。",
+          "overlayFPS": "設定 Live2D 覆蓋算繪的影格率上限。實際影格率仍受螢幕更新率、遊戲和 Game Bar 排程影響。",
+          "overlayBackend": "桌面模式適用於視窗或無邊框遊戲；Xbox Game Bar 模式需要安裝配套小工具，獨占全螢幕時由 Game Bar 承載。",
+          "overlayWaiting": "正在等待符合條件的遊戲視窗位於前景。",
+          "overlayDesktopActive": "桌面覆蓋已顯示在符合條件的遊戲視窗上。",
+          "overlayGameBarActive": "Game Bar 小工具已連線並顯示覆蓋。",
+          "overlayGameBarUnavailable": "Game Bar 小工具未連線。請先建置並安裝配套小工具，再使用 Win+G 固定。"
         }
       },
       "general": {
