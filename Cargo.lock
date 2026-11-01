@@ -5719,6 +5719,7 @@ version = "0.1.0"
 dependencies = [
  "futures-channel",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-nspanel",
  "tauri-plugin",

@@ -14,6 +14,7 @@ import {
 } from '@/utils/mouseLookSmoothing'
 import { normalizeMouseMirrorY } from '@/utils/mouseMirrorSettings'
 import { MOUSE_SENSITIVITY_DEFAULT, normalizeMouseSensitivity } from '@/utils/mouseSensitivity'
+import { normalizeOverlayBackend } from '@/utils/overlay'
 import { persistStateWhenWritable } from '@/utils/persistence'
 import { normalizeRelativeMouseSensitivity, RELATIVE_MOUSE_SENSITIVITY_DEFAULT } from '@/utils/relativeMouse'
 import { normalizeRenderQuality } from '@/utils/renderQuality'
@@ -136,8 +137,7 @@ export const useCatStore = defineStore('cat', () => {
   const init = () => {
     model.renderQuality = normalizeRenderQuality(model.renderQuality)
     overlay.enabled = Boolean(overlay.enabled)
-    // Game Bar is capability-gated and is not enabled until its companion is installed.
-    overlay.backend = 'desktop'
+    overlay.backend = normalizeOverlayBackend(overlay.backend)
     overlay.targetFPS = normalizeOverlayTargetFPS(overlay.targetFPS)
     model.mouseMirrorY = normalizeMouseMirrorY(model.mouseMirrorY)
 

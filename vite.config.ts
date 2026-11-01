@@ -13,7 +13,16 @@ const host = env.TAURI_DEV_HOST
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
+  base: './',
   plugins: [vue(), UnoCSS(), vitePluginDayjs()],
+  build: {
+    rollupOptions: {
+      input: {
+        'main': resolve(__dirname, 'index.html'),
+        'gamebar/index': resolve(__dirname, 'src/gamebar/index.html'),
+      },
+    },
+  },
   resolve: {
     alias: {
       '@Framework': resolve(__dirname, 'src/vendor/easy-live2d/Framework'),

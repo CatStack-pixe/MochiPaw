@@ -5,6 +5,10 @@ import type { OverlayTargetFPS } from '@/stores/cat'
 
 export type OverlayBackend = 'desktop' | 'gamebar'
 
+export function normalizeOverlayBackend(value: unknown): OverlayBackend {
+  return value === 'gamebar' ? 'gamebar' : 'desktop'
+}
+
 export interface OverlayRenderState {
   sessionId: string
   backend: OverlayBackend

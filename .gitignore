@@ -10,8 +10,15 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+/windows/gamebar-widget/Web
+/windows/gamebar-widget/Bridge/bin
+/windows/gamebar-widget/Bridge/obj
+/windows/gamebar-widget/GameBar/Bridge
+/windows/gamebar-widget/GameBar/Packages
+/windows/gamebar-widget/_sdk_probe
 *.local
 target
+/obj
 /HANDOFF.md
 
 # Editor directories and files

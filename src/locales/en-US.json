@@ -108,7 +108,12 @@
           "renderQuality": "Render quality",
           "qualityEconomy": "Economy",
           "qualityBalanced": "Balanced",
-          "qualityNative": "Native"
+          "qualityNative": "Native",
+          "overlayEnabled": "In-game overlay",
+          "overlayFPS": "Overlay frame-rate cap",
+          "overlayBackend": "Overlay backend",
+          "overlayDesktop": "Desktop window",
+          "overlayGameBar": "Xbox Game Bar"
         },
         "hints": {
           "windowRelativeMouseLook": "When enabled, mouse look uses the pet window bounds; when disabled, it uses the monitor bounds.",
@@ -130,7 +135,14 @@
           "autoReleaseDelay": "On Windows, some system keys cannot capture release events and will auto-release after timeout.",
           "hideOnHover": "When enabled, the window hides automatically on mouse hover. You can set a delay; 0 means hide immediately.",
           "maxFPS": "Limit the maximum frame rate for model rendering. Lowering the frame rate can reduce CPU/GPU usage.",
-          "renderQuality": "Applies to all desktop pets. Economy caps pixel density at 1×, Balanced at 2×, and Native follows the monitor. Lower density reduces GPU buffers and may soften the image; model textures stay unchanged."
+          "renderQuality": "Applies to all desktop pets. Economy caps pixel density at 1×, Balanced at 2×, and Native follows the monitor. Lower density reduces GPU buffers and may soften the image; model textures stay unchanged.",
+          "overlayEnabled": "When enabled, the pet appears over a matching game window. Turning it off restores normal desktop behavior.",
+          "overlayFPS": "Sets the Live2D overlay rendering cap. Actual FPS also depends on display refresh, the game, and Game Bar scheduling.",
+          "overlayBackend": "Desktop mode supports windowed and borderless games. Xbox Game Bar mode requires its companion widget and is hosted by Game Bar for exclusive fullscreen.",
+          "overlayWaiting": "Waiting for a matching game window to be in the foreground.",
+          "overlayDesktopActive": "Desktop overlay is attached to the matching game window.",
+          "overlayGameBarActive": "The Game Bar widget is connected and showing the overlay.",
+          "overlayGameBarUnavailable": "The Game Bar widget is not connected. Build and install the companion widget, then pin it with Win+G."
         }
       },
       "general": {

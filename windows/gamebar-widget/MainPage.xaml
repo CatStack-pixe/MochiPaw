@@ -1,0 +1,31 @@
+<Page
+  x:Class="MochiPaw.GameBarWidget.MainPage"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+  Background="Transparent">
+  <Grid Background="Transparent">
+    <controls:WebView2
+      x:Name="Live2DView"
+      Visibility="Collapsed" />
+    <Border
+      HorizontalAlignment="Right"
+      VerticalAlignment="Bottom"
+      Margin="8"
+      Padding="6,3"
+      Background="#66000000"
+      CornerRadius="6">
+      <StackPanel>
+        <TextBlock
+          x:Name="StatusText"
+          Text="Starting MochiPaw overlay"
+          FontSize="11" />
+        <TextBlock
+          x:Name="TargetText"
+          Text=""
+          FontSize="10"
+          Opacity="0.75" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Page>

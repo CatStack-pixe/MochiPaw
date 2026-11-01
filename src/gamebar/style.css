@@ -1,0 +1,78 @@
+/* SPDX-FileCopyrightText: 2026 InfinityXCat
+   SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 */
+
+:root {
+  color-scheme: dark;
+  font-family: 'Segoe UI', sans-serif;
+  background: transparent;
+  color: #f4f4f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+#app {
+  position: relative;
+}
+
+#pet {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.controls {
+  position: absolute;
+  inset: 12px 12px auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgb(16 18 24 / 82%);
+  opacity: 0.18;
+  transition: opacity 120ms ease;
+}
+
+.controls:hover,
+.controls:focus-within {
+  opacity: 1;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+button {
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 6px;
+  background: #252832;
+  color: inherit;
+}
+
+button:hover,
+output {
+  position: absolute;
+  inset: auto auto 12px 12px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: rgb(16 18 24 / 72%);
+  font-size: 11px;
+}

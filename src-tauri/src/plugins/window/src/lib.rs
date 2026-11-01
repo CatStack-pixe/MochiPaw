@@ -18,6 +18,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::set_always_on_top,
             commands::set_pass_through,
             commands::set_game_mode,
+            commands::set_overlay_session,
+            commands::get_overlay_window_state,
             commands::set_taskbar_visibility,
             commands::set_webview_memory_target,
         ])

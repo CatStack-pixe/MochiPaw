@@ -22,6 +22,7 @@
     "dev:vite": "vite",
     "build:vite": "vite build",
     "build:icon": "tsx scripts/buildIcon.ts",
+    "package:gamebar-widget": "pnpm build:vite && node scripts/packageGameBarWidget.mjs",
     "test": "tsx --test",
     "preview": "vite preview",
     "tauri": "tauri",

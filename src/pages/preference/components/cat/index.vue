@@ -5,12 +5,16 @@
 
 <script setup lang="ts">
 import { Button, Divider, Flex, InputNumber, Select, Slider, SpaceAddon, SpaceCompact, Switch } from 'antdv-next'
-import { computed, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+import type { OverlayWindowState } from '@/plugins/window'
 
 import ProListItem from '@/components/pro-list-item/index.vue'
 import ProList from '@/components/pro-list/index.vue'
 import { useDeviceInputStatus } from '@/composables/useDeviceInputStatus'
 import { returnMainWindowToScreen } from '@/composables/useWindowState'
+import { getOverlayWindowState } from '@/plugins/window'
 import { useCatStore } from '@/stores/cat'
 import { useModelStore } from '@/stores/model'
 import {
@@ -29,7 +33,10 @@ import {
 
 const catStore = useCatStore()
 const modelStore = useModelStore()
+const { t } = useI18n()
 const { status: inputStatus } = useDeviceInputStatus()
+const overlayRuntime = ref<OverlayWindowState>()
+let overlayRuntimeTimer: number | undefined
 
 const mouseLookSmoothing = computed<number>({
   get: () => getActiveMouseLookSmoothing(catStore.model),
@@ -44,10 +51,47 @@ const relativeMouseSensitivity = computed<number>({
 })
 
 const hideOnHoverSupported = computed(() => inputStatus.value?.hoverSupported !== false)
+const overlayBackendOptions = computed(() => [
+  { value: 'desktop', label: t('pages.preference.cat.labels.overlayDesktop') },
+  { value: 'gamebar', label: t('pages.preference.cat.labels.overlayGameBar') },
+])
+const overlayRuntimeStatus = computed(() => {
+  if (!catStore.overlay.enabled) return undefined
+
+  const state = overlayRuntime.value
+  if (!state || state.backend !== catStore.overlay.backend) return undefined
+
+  if (catStore.overlay.backend === 'gamebar') {
+    if (state.error) return t('pages.preference.cat.hints.overlayGameBarUnavailable')
+    if (state.backendActive) return t('pages.preference.cat.hints.overlayGameBarActive')
+  } else if (state.backendActive) {
+    return t('pages.preference.cat.hints.overlayDesktopActive')
+  }
+
+  return t('pages.preference.cat.hints.overlayWaiting')
+})
 
 watch(hideOnHoverSupported, (supported) => {
   if (!supported) catStore.window.hideOnHover = false
 }, { immediate: true })
+
+async function refreshOverlayRuntime() {
+  const state = await getOverlayWindowState()
+  if (state) overlayRuntime.value = state
+}
+
+onMounted(() => {
+  if (!isWindows) return
+  void refreshOverlayRuntime()
+  overlayRuntimeTimer = window.setInterval(() => {
+    void refreshOverlayRuntime()
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (overlayRuntimeTimer) window.clearInterval(overlayRuntimeTimer)
+  overlayRuntimeTimer = undefined
+})
 
 async function handleReturnToScreen() {
   await returnMainWindowToScreen()
@@ -315,15 +359,34 @@ const typingBehaviorGroupOptions = computed(() => {
 
   <ProList :title="$t('pages.preference.cat.labels.windowSettings')">
     <ProListItem
-      :description="$t('pages.preference.cat.hints.maxFPS')"
-      :title="$t('pages.preference.cat.labels.maxFPS')"
+      :description="$t('pages.preference.cat.hints.overlayEnabled')"
+      :title="$t('pages.preference.cat.labels.overlayEnabled')"
     >
       <Switch v-model:checked="catStore.overlay.enabled" />
     </ProListItem>
 
     <ProListItem
-      :description="$t('pages.preference.cat.hints.maxFPS')"
-      :title="$t('pages.preference.cat.labels.maxFPS')"
+      v-if="isWindows"
+      :description="$t('pages.preference.cat.hints.overlayBackend')"
+      :title="$t('pages.preference.cat.labels.overlayBackend')"
+      vertical
+    >
+      <Select
+        v-model:value="catStore.overlay.backend"
+        class="w-44"
+        :options="overlayBackendOptions"
+      />
+      <div
+        v-if="overlayRuntimeStatus"
+        class="mt-2 text-xs opacity-75"
+      >
+        {{ overlayRuntimeStatus }}
+      </div>
+    </ProListItem>
+
+    <ProListItem
+      :description="$t('pages.preference.cat.hints.overlayFPS')"
+      :title="$t('pages.preference.cat.labels.overlayFPS')"
       vertical
     >
       <Select
