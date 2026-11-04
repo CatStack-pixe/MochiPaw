@@ -4,7 +4,7 @@ using System;
 using Windows.ApplicationModel;
 using Windows.Data.Json;
 using Windows.Foundation.Collections;
-using Windows.UI;
+using Windows.Storage;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -35,6 +35,7 @@ namespace MochiPaw.GameBarWidget
         {
             try
             {
+                Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
                 await Live2DView.EnsureCoreWebView2Async();
                 var webRoot = System.IO.Path.Combine(
                     Package.Current.InstalledLocation.Path,
@@ -43,7 +44,6 @@ namespace MochiPaw.GameBarWidget
                     "mochipaw.local",
                     webRoot,
                     CoreWebView2HostResourceAccessKind.Allow);
-                Live2DView.CoreWebView2.DefaultBackgroundColor = Color.FromArgb(0, 0, 0, 0);
                 Live2DView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
                 Live2DView.CoreWebView2.NavigationCompleted += OnLive2DNavigationCompleted;
                 Live2DView.CoreWebView2.Navigate("https://mochipaw.local/src/gamebar/index.html");

@@ -78,22 +78,22 @@ namespace MochiPaw.GameBarWidget
                             return Error(type, "active must be a boolean");
                         }
                         settings[Key("active")] = active;
-                        if (request.TryGetValue("enabled", out var enabledValue))
+                        if (request.TryGetValue("enabled", out var stateEnabledValue))
                         {
-                            if (!(enabledValue is bool enabled))
+                            if (!(stateEnabledValue is bool stateEnabled))
                             {
                                 return Error(type, "enabled must be a boolean");
                             }
-                            settings[Key("enabled")] = enabled;
+                            settings[Key("enabled")] = stateEnabled;
                         }
-                        if (request.TryGetValue("target_fps", out var fpsValue))
+                        if (request.TryGetValue("target_fps", out var stateFpsValue))
                         {
-                            if (!(fpsValue is int fps) ||
-                                (fps != 60 && fps != 90 && fps != 120))
+                            if (!(stateFpsValue is int stateFps) ||
+                                (stateFps != 60 && stateFps != 90 && stateFps != 120))
                             {
                                 return Error(type, "target_fps must be 60, 90, or 120");
                             }
-                            settings[Key("target_fps")] = fps;
+                            settings[Key("target_fps")] = stateFps;
                         }
                         if (request.TryGetValue("pass_through", out var passThroughValue))
                         {
