@@ -81,6 +81,48 @@ jobs:
       - name: Check portable packaging script
         run: node --check scripts/packagePortable.mjs
 
+  gamebar-widget:
+    name: Xbox Game Bar widget package
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and package Game Bar widget
+        run: pnpm package:gamebar-widget
+
+      - name: Upload unsigned Game Bar package
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamebar-widget-appx-${{ github.sha }}
+          path: |
+            windows/gamebar-widget/GameBar/Packages/**/*.appx
+            windows/gamebar-widget/GameBar/Packages/**/*.msix
+          if-no-files-found: error
+          retention-days: 14
+
   rust:
     name: Rust (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}

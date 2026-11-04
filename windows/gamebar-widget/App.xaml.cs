@@ -2,7 +2,6 @@ using Microsoft.Gaming.XboxGameBar;
 using System;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
-using Windows.ApplicationModel.AppService;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -64,7 +63,7 @@ namespace MochiPaw.GameBarWidget
             Window.Current.Activate();
         }
 
-        private void OnWidgetClosed(CoreWindow sender, CoreWindowEventArgs args)
+        private void OnWidgetClosed(object sender, CoreWindowEventArgs args)
         {
             widget = null;
             Window.Current.Closed -= OnWidgetClosed;

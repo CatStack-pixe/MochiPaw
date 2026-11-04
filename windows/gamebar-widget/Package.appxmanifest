@@ -71,7 +71,7 @@
           </uap3:AppExtension>
         </uap3:Extension>
         <uap:Extension Category="windows.appService" EntryPoint="MochiPaw.GameBarWidget.GameBarOverlayService">
-          <uap:AppService Name="com.catstack.mochipaw.overlay" SupportsRemoteSystems="false" />
+          <uap:AppService Name="com.catstack.mochipaw.overlay" />
         </uap:Extension>
       </Extensions>
     </Application>
