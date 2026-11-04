@@ -75,6 +75,7 @@ if (!msbuild || !statSync(msbuild, { throwIfNoEntry: false })?.isFile()) {
 mkdirSync(packageOutput, { recursive: true })
 const buildWidget = spawnSync(msbuild, [
   resolve(widgetRoot, 'MochiPaw.GameBarWidget.csproj'),
+  '/restore',
   '/t:Rebuild',
   '/p:Configuration=Release',
   '/p:Platform=x64',
